@@ -116,7 +116,7 @@ modules/<module>/
 | Server State | TanStack Query | Cache بر اساس session + scope؛ invalidation پس از mutation |
 | Forms | React Hook Form + Zod | draft سمت سرور، validation دوطرفه |
 | Backend | NestJS | REST + OpenAPI؛ Guard تنها لایه UI نیست |
-| ORM | Drizzle ORM (انتخاب پیشنهادی) | SQL migrations بازبینی‌شده؛ PoC تراکنش همزمان لازم |
+| ORM | Prisma ORM (انتخاب مصوب ساختار) | مدل‌سازی یکپارچه داده، کلاینت کامپایل‌شده Type-Safe و مدیریت Migrations در PostgreSQL |
 | Database | PostgreSQL نسخه پشتیبانی‌شده | تراکنش، FK، ایندکس شرطی، WAL/PITR |
 | Realtime | Socket.IO برای چت خصوصی | room authorization و reconnect/replay |
 | Jobs | Worker درون Repo، Outbox در PostgreSQL | Redis/BullMQ فقط هنگام نیاز اثبات‌شده |
@@ -205,7 +205,7 @@ tstaff/
 ### ۵.۲. مرز واردات و قرارداد وابستگی
 
 - `apps/api` فقط از public export ماژول دیگر import می‌کند؛ import مسیر داخلی `modules/a/infrastructure/...` از ماژول b خطای CI است.
-- Domain از NestJS/Drizzle/WebSocket و `process.env` بی‌اطلاع است؛ زمان و شناسه تصادفی از Port تزریق شوند.
+- Domain از NestJS/Prisma/WebSocket و `process.env` بی‌اطلاع است؛ زمان و شناسه تصادفی از Port تزریق شوند.
 - DTO ورودی HTTP مستقیماً Entity دیتابیس نیست؛ Mapper مشخص و validation وجود دارد.
 - API + Worker از رویداد versioned استفاده می‌کنند: `research.review.decided.v1`؛ اضافه‌کردن فیلد سازگار مجاز و تغییر مخرب نیازمند event version تازه است.
 - قرارداد `packages/contracts` از OpenAPI ساخته می‌شود؛ Schemaهای اضافی مستقل از DB تعریف شوند؛ تغییر قرارداد با contract test سنجیده شود.
@@ -592,7 +592,7 @@ PostgreSQL base backup + WAL archiving/PITR؛ نگهداری بکاپ فایل�
 | DEC-001 | میزبانی داخل ایران | انتخاب‌شده توسط کاربر | بررسی تعهد محل داده در قرارداد |
 | ADR-001 | Modular Monolith + API-First | پیشنهادی | تصویب مسئول فنی |
 | ADR-002 | React + Vite برای پنل، NestJS برای API | پیشنهادی | PoC و سازگاری تیم |
-| ADR-003 | PostgreSQL + Drizzle | پیشنهادی | PoC همزمانی/مهاجرت |
+| ADR-003 | PostgreSQL + Prisma ORM | مصوب | مدل‌سازی متمرکز و مایگریشن‌های ساختاریافته |
 | ADR-004 | pnpm Monorepo، مرز ماژول و OpenAPI client | پیشنهادی | تثبیت tooling |
 | ADR-005 | دو VPS برای Production، Object Storage مستقل | پیشنهادی (تأیید نشده) | مقایسه VPS/Managed، قیمت و شبکه |
 | ADR-006 | Outbox + DB-backed Worker در شروع | پیشنهادی | آزمون حجم و نیاز Redis |

@@ -19,7 +19,7 @@ $domainViolations = Get-ChildItem -Path "apps/api/src/modules" -Recurse -Filter 
     $_.FullName -match "\\domain\\"
 } | ForEach-Object {
     $content = Get-Content $_.FullName -Raw
-    if ($content -match "from\s+['\""](@nestjs|drizzle-orm|pg)['\""]") {
+    if ($content -match "from\s+['\""](@nestjs|@prisma/client|prisma|pg)['\""]") {
         Write-Host "BOUNDARY ERROR: Domain file $($_.FullName) imports framework/ORM!" -ForegroundColor Red
         $hasError = $true
     }

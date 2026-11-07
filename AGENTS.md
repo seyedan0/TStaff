@@ -57,7 +57,7 @@
 * **قانون طلایی وابستگی:**
   - `presentation` به `application` وابسته است.
   - `application` به `domain` وابسته است.
-  - `domain` خالص است و هیچ وابستگی به NestJS، Drizzle/ORM یا وب ندارد.
+  - `domain` خالص است و هیچ وابستگی به NestJS، Prisma/ORM یا وب ندارد.
   - ارتباط بین ماژول‌ها فقط از طریق Serviceهای عمومی اکسپورت‌شده یا رویدادهای دامنه (Domain Events) است.
   - هیچ ماژولی نباید مستقیماً جدول یا Repository ماژول دیگر را کوئری کند.
 

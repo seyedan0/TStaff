@@ -12,7 +12,7 @@ if grep -rnE "from\s+['\"].*(@tstaff/(database|api)|apps/api|packages/database)[
 fi
 
 # 2. Domain layers must not import NestJS or ORMs
-if grep -rnE "from\s+['\"](@nestjs|drizzle-orm|pg)['\"]" apps/api/src/modules/*/domain/ 2>/dev/null; then
+if grep -rnE "from\s+['\"](@nestjs|@prisma/client|prisma|pg)['\"]" apps/api/src/modules/*/domain/ 2>/dev/null; then
     echo "BOUNDARY ERROR: Domain layer imports framework or ORM!"
     has_error=1
 fi
