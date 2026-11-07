@@ -22,7 +22,7 @@ TStaff یک سامانه مدیریت شبکه پژوهشگران و گردش‌
 
 ### ۲.۱. داخل MVP
 
-پذیرش متقاضی توسط مدیر استانی بدون حساب؛ ارزیابی و تأیید/رد علمی؛ ایجاد حساب کارآموز پس از تأیید؛ ورود OTP و عامل دوم مدیران؛ کتابخانه شیوه‌نامه‌ها؛ ارتقا به کارورز؛ تعریف و انجام چند پژوهش؛ مراحل «منابع ← تبیین ← تجویز ← سناریو» با اصلاح/تأیید، نسخه و تاریخچه؛ ثبت فرد/مجموعه/مصاحبه و گام مستقل گزارش؛ سناریوی تأییدشده در بانک داخلی؛ مدیریت انتساب، تفویض، گزارش ممیزی، داشبوردهای خلوت، چت خصوصی، اعلان‌ها، تعلیق، آرشیو و درخواست تغییر.
+پذیرش متقاضی توسط مدیر استانی بدون حساب؛ ارزیابی و تأیید/رد علمی؛ ایجاد حساب کارآموز پس از تأیید؛ ورود با گذرواژه امن (سامانه پیامکی OTP موکول به فازهای بعدی)؛ کتابخانه شیوه‌نامه‌ها؛ ارتقا به کارورز؛ تعریف و انجام چند پژوهش؛ مراحل «منابع ← تبیین ← تجویز ← سناریو» با اصلاح/تأیید، نسخه و تاریخچه؛ ثبت فرد/مجموعه/مصاحبه و گام مستقل گزارش؛ سناریوی تأییدشده در بانک داخلی؛ مدیریت انتساب، تفویض، گزارش ممیزی، داشبوردهای خلوت، چت خصوصی، اعلان‌ها، تعلیق، آرشیو و درخواست تغییر.
 
 ### ۲.۲. خارج MVP
 
@@ -85,7 +85,7 @@ modules/<module>/
 
 | ماژول | مسئولیت و داده مالک | وابستگی مجاز |
 |---|---|---|
-| identity | حساب، OTP، MFA، Session، وضعیت تعلیق | notifications, audit از طریق port/event |
+| identity | حساب، Session، احراز هویت با گذرواژه (OTP موکول به فاز بعد)، وضعیت تعلیق | notifications, audit از طریق port/event |
 | applicants | متقاضی قبل از حساب، ارجاع پذیرش، رد و بازگشایی | identity در هنگام تأیید؛ assignments |
 | organization | استان/شهرستان، مجموعه‌ها، داده مرجع | بدون خواندن جدول پرونده |
 | authorization | نقش، مجوز، Scope، تفویض و Policy Decision | identity, assignments از طریق port |
@@ -316,7 +316,7 @@ If identical retry: return idempotent prior response; do not duplicate decision.
 
 ### ۸.۱. AuthN
 
-سامانه ثبت‌نام عمومی آزاد ندارد: پس از پذیرش علمی، حساب ایجاد و شماره همراه از مسیر OTP راستی‌آزمایی می‌شود. مدیران علاوه بر ورود پایه، عامل مستقل مانند TOTP یا Passkey دارند؛ SMS دوم به‌تنهایی عامل مستقل مطلوب نیست. نشستی که لغو/تعلیق شده در REST و WebSocket نامعتبر است. OTP یک‌بارمصرف، هش‌شده، دارای TTL و rate limit؛ مقادیر اجرایی پس از تست SMS و تحلیل تهدید تعیین می‌شوند (پیشنهاد آزمایشی: TTL دو دقیقه، پنج تلاش، cooldown متغیر).
+سامانه ثبت‌نام عمومی آزاد ندارد: پس از پذیرش علمی، حساب ایجاد و ورود در فاز اول بر پایه نام کاربری/شماره همراه و گذرواژه امن انجام می‌گیرد (احراز هویت پیامکی OTP به فازهای بعدی موکول شده است). نشست‌های لغوشده یا تعلیق‌شده در REST و WebSocket نامعتبرند. برای ذخیره‌سازی گذرواژه‌ها از الگوریتم‌های استاندارد هشینگ با نمک تصادفی استفاده می‌شود.
 
 کوکی Session امن (`HttpOnly`, `Secure`, `SameSite`) همراه با دفاع CSRF متناسب با الگوی Cookie؛ شناسه نشست قابل ابطال سمت سرور؛ محدودکردن دستگاه/نشست مدیران بر پایه سیاست؛ عدم ذخیره توکن بلندعمر در LocalStorage.
 
@@ -356,7 +356,7 @@ REST با پیشوند `/api/v1`، مستند OpenAPI، JSON با نام‌گذ�
 
 | بخش | مسیر نمونه | عملیات و کنترل |
 |---|---|---|
-| Auth | POST `/auth/otp/request`, `/auth/otp/verify`, `/auth/mfa/verify`, `/auth/logout` | rate limit, session revoke |
+| Auth | POST `/auth/login`, `/auth/logout`, `/auth/me` (مسیرهای OTP موکول به فاز بعد) | rate limit, session revoke |
 | Applicants | POST/GET `/applicants`; POST `/:id/decisions`; POST `/:id/reopen-requests` | مدیر استانی/علمی/پیگیری با scope |
 | Users | GET `/users/:id`, PATCH `/:id/status`; POST `/:id/promotions` | stage و account status مستقل |
 | Assignments | POST `/assignments`, DELETE `/:id`, GET `/assignments` | تفویض/اصالت مدیر پیگیری |
@@ -537,7 +537,7 @@ PostgreSQL base backup + WAL archiving/PITR؛ نگهداری بکاپ فایل�
 |---|---|---|---|
 | M0: تثبیت معماری | ADR، مدل تهدید، permission matrix، domain glossary، انتخاب provider | Architecture Baseline 1.0 + قراردادهای حساس | تأیید مالک محصول/مسئول فنی |
 | M1: Foundation | pnpm monorepo، CI، Docker، DB migrations، logging، OpenAPI، design system | نسخه اجراشدنی health+CI | راه‌اندازی تکرارپذیر Local/Staging |
-| M2: Identity & Admission | applicants، OTP، MFA، role/stage، admission/reopen | پذیرش تا کارآموز | AT-01/02/03، تست negative |
+| M2: Identity & Admission | applicants، password login (OTP deferred)، role/stage، admission/reopen | پذیرش تا کارآموز | AT-01/02/03، تست negative |
 | M3: Assignment & Core Research | assignments/scope، research issue، resources/interview/report، drafts | منابع و داوری | AT-04، تعارض همزمان، منحصر به فرد بودن مصاحبه |
 | M4: Scientific Lifecycle | تبیین، تجویز، سناریو، change request، dependency invalidation | چرخه پژوهش کامل | AT-05/06/07/08/13/16/29/33 |
 | M5: Management & Communications | پنل‌ها، audit view، chat، notifications، archive workflow | عملیات مدیریتی کامل | AT-09/10/11/12/14/15/31/32/34 |
@@ -694,7 +694,7 @@ PostgreSQL base backup + WAL archiving/PITR؛ نگهداری بکاپ فایل�
 | FR-046 | کنترل مرکز انتساب‌ها | `assignments` | M3 | تست اختصاصی + بازبینی FR |
 | FR-047 | لاگ تصمیم علمی برای پیگیری | `audit` | M1+M5 | تست اختصاصی + بازبینی FR |
 | FR-048 | داشبوردهای ساده نقش‌محور | `reporting` | M5 | تست اختصاصی + بازبینی FR |
-| FR-049 | ورود OTP و کنترل مدیران | `identity` | M2 | AT-01 |
+| FR-049 | ورود امن کاربران و مدیران (OTP موکول به فاز بعد) | `identity` | M2 (ورود گذرواژه) | AT-01 |
 | FR-050 | مرکز اعلان درون‌سامانه‌ای | `notifications` | M5 | تست اختصاصی + بازبینی FR |
 | FR-051 | تایم‌لاین پرونده | `audit/research` | M4 | تست اختصاصی + بازبینی FR |
 | FR-052 | تنظیمات قابل مدیریت | `settings` | M5 | تست اختصاصی + بازبینی FR |
