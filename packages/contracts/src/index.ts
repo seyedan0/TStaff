@@ -408,4 +408,267 @@ export const ScenarioBankQuerySchema = z.object({
 });
 export type ScenarioBankQuery = z.infer<typeof ScenarioBankQuerySchema>;
 
+/**
+ * ----------------------------------------------------------------------------
+ * Milestone 5: Management, Communications, Audit, Archival, Reporting & Settings
+ * (D-04, FR-024 - FR-031, FR-035, FR-039, FR-052, FR-060, AT-09 - AT-15, AT-21, AT-24, AT-25, AT-27, AT-31, AT-32, AT-34, BR-16 - BR-19)
+ * ----------------------------------------------------------------------------
+ */
+
+// 1. Identity Suspension (AT-12, BR-18)
+export const SuspendUserDtoSchema = z.object({
+  reason: z
+    .string()
+    .min(5, "علت تعلیق باید حداقل ۵ کاراکتر باشد")
+    .max(1000, "علت تعلیق حداکثر ۱۰۰۰ کاراکتر است"),
+});
+export type SuspendUserDto = z.infer<typeof SuspendUserDtoSchema>;
+
+export const ReactivateUserDtoSchema = z.object({
+  reason: z
+    .string()
+    .min(5, "علت فعال‌سازی باید حداقل ۵ کاراکتر باشد")
+    .max(1000, "علت فعال‌سازی حداکثر ۱۰۰۰ کاراکتر است")
+    .optional(),
+});
+export type ReactivateUserDto = z.infer<typeof ReactivateUserDtoSchema>;
+
+// 2. Messaging (1:1 Direct Chat - AT-10, AT-14, BR-16)
+export const ConversationTypeSchema = z.enum([
+  "DIRECT_SUPERVISOR_TRAINEE",
+  "RESEARCH_TEAM_INTERNAL",
+]);
+export type ConversationType = z.infer<typeof ConversationTypeSchema>;
+
+export const CreateConversationDtoSchema = z.object({
+  participantId: z.string().uuid("شناسه مخاطب نامعتبر است"),
+  type: ConversationTypeSchema.default("DIRECT_SUPERVISOR_TRAINEE"),
+  researchCaseId: z.string().uuid("شناسه پژوهش نامعتبر است").optional(),
+});
+export type CreateConversationDto = z.input<typeof CreateConversationDtoSchema>;
+
+export const SendMessageDtoSchema = z.object({
+  content: z
+    .string()
+    .min(1, "متن پیام الزامی است")
+    .max(5000, "متن پیام حداکثر ۵۰۰۰ کاراکتر است"),
+  attachmentId: z.string().uuid("شناسه پیوست نامعتبر است").optional(),
+});
+export type SendMessageDto = z.infer<typeof SendMessageDtoSchema>;
+
+export const MessageDtoSchema = z.object({
+  id: z.string().uuid(),
+  conversationId: z.string().uuid(),
+  senderId: z.string().uuid(),
+  content: z.string(),
+  attachmentId: z.string().nullable().optional(),
+  createdAt: z.date().or(z.string()),
+});
+export type MessageDto = z.infer<typeof MessageDtoSchema>;
+
+export const ConversationDtoSchema = z.object({
+  id: z.string().uuid(),
+  type: ConversationTypeSchema,
+  researchCaseId: z.string().nullable().optional(),
+  createdAt: z.date().or(z.string()),
+  updatedAt: z.date().or(z.string()),
+});
+export type ConversationDto = z.infer<typeof ConversationDtoSchema>;
+
+// 3. Notifications (D-04, AT-31, AT-32, BR-17)
+export const CreateNotificationDtoSchema = z.object({
+  userId: z.string().uuid("شناسه کاربر نامعتبر است"),
+  type: z.string().min(2, "نوع اعلان الزامی است").max(100),
+  title: z.string().min(2, "عنوان اعلان الزامی است").max(255),
+  body: z.string().min(2, "متن اعلان الزامی است").max(5000),
+  isCritical: z.boolean().default(false), // D-04: Only critical triggers immediate push
+});
+export type CreateNotificationDto = z.input<typeof CreateNotificationDtoSchema>;
+
+export const NotificationQuerySchema = z.object({
+  unreadOnly: z.coerce.boolean().optional(),
+  limit: z.coerce.number().int().min(1).max(100).default(20),
+  cursor: z.string().optional(),
+});
+export type NotificationQuery = z.input<typeof NotificationQuerySchema>;
+
+export const MarkNotificationReadDtoSchema = z.object({
+  isRead: z.boolean().default(true),
+});
+export type MarkNotificationReadDto = z.infer<
+  typeof MarkNotificationReadDtoSchema
+>;
+
+export const NotificationDtoSchema = z.object({
+  id: z.string().uuid(),
+  userId: z.string().uuid(),
+  type: z.string(),
+  title: z.string(),
+  body: z.string(),
+  isRead: z.boolean(),
+  isCritical: z.boolean(),
+  createdAt: z.date().or(z.string()),
+});
+export type NotificationDto = z.infer<typeof NotificationDtoSchema>;
+
+// 4. Audit Log (D-04, AT-25, AT-31, AT-32)
+export const CreateAuditEventDtoSchema = z.object({
+  aggregateType: z.string().min(2).max(100),
+  aggregateId: z.string().min(1).max(100),
+  action: z.string().min(2).max(100),
+  actorId: z.string().uuid().optional(),
+  ipAddress: z.string().max(45).optional(),
+  payload: z.record(z.unknown()).optional(),
+});
+export type CreateAuditEventDto = z.infer<typeof CreateAuditEventDtoSchema>;
+
+export const AuditQueryFilterSchema = z.object({
+  aggregateType: z.string().optional(),
+  aggregateId: z.string().optional(),
+  actorId: z.string().uuid().optional(),
+  action: z.string().optional(),
+  limit: z.coerce.number().int().min(1).max(100).default(50),
+  cursor: z.string().optional(),
+});
+export type AuditQueryFilter = z.input<typeof AuditQueryFilterSchema>;
+
+export const AuditEventDtoSchema = z.object({
+  id: z.string().uuid(),
+  aggregateType: z.string(),
+  aggregateId: z.string(),
+  action: z.string(),
+  actorId: z.string().nullable().optional(),
+  ipAddress: z.string().nullable().optional(),
+  payload: z.unknown().optional(),
+  createdAt: z.date().or(z.string()),
+});
+export type AuditEventDto = z.infer<typeof AuditEventDtoSchema>;
+
+// 5. Archival (AT-14, AT-27, BR-19)
+export const ArchiveTargetTypeSchema = z.enum([
+  "RESEARCH_CASE",
+  "CONVERSATION",
+  "APPLICANT",
+]);
+export type ArchiveTargetType = z.infer<typeof ArchiveTargetTypeSchema>;
+
+export const ArchiveJobStatusSchema = z.enum([
+  "QUEUED",
+  "RUNNING",
+  "COMPLETED",
+  "FAILED",
+]);
+export type ArchiveJobStatus = z.infer<typeof ArchiveJobStatusSchema>;
+
+export const CreateArchiveJobDtoSchema = z.object({
+  targetType: ArchiveTargetTypeSchema,
+  targetId: z.string().uuid("شناسه هدف نامعتبر است"),
+});
+export type CreateArchiveJobDto = z.infer<typeof CreateArchiveJobDtoSchema>;
+
+export const ArchiveJobDtoSchema = z.object({
+  id: z.string().uuid(),
+  targetType: ArchiveTargetTypeSchema,
+  targetId: z.string().uuid(),
+  status: ArchiveJobStatusSchema,
+  storageLocation: z.string().nullable().optional(),
+  createdAt: z.date().or(z.string()),
+  completedAt: z.date().or(z.string()).nullable().optional(),
+});
+export type ArchiveJobDto = z.infer<typeof ArchiveJobDtoSchema>;
+
+// 6. Reporting & Dashboards (AT-09, AT-11, AT-15, AT-21, AT-24)
+export const ProvincialDirectorMetricsSchema = z.object({
+  provinceId: z.string().optional(),
+  totalApplicants: z.number().int().nonnegative(),
+  approvedApplicants: z.number().int().nonnegative(),
+  totalApprentices: z.number().int().nonnegative(),
+  totalInterns: z.number().int().nonnegative(),
+  activeResearchCases: z.number().int().nonnegative(),
+});
+export type ProvincialDirectorMetrics = z.infer<
+  typeof ProvincialDirectorMetricsSchema
+>;
+
+export const SupervisorWorklistItemSchema = z.object({
+  caseId: z.string().uuid(),
+  caseCode: z.string(),
+  caseSubject: z.string(),
+  stage: z.string(),
+  pendingItemType: z.enum(["STAGE_SUBMISSION", "SCENARIO"]),
+  pendingItemId: z.string().uuid(),
+  submittedAt: z.date().or(z.string()),
+});
+export type SupervisorWorklistItem = z.infer<
+  typeof SupervisorWorklistItemSchema
+>;
+
+export const SupervisorWorklistSchema = z.object({
+  supervisorId: z.string().uuid(),
+  pendingStageSubmissions: z.number().int().nonnegative(),
+  pendingScenarioReviews: z.number().int().nonnegative(),
+  totalSupervisedCases: z.number().int().nonnegative(),
+  items: z.array(SupervisorWorklistItemSchema),
+});
+export type SupervisorWorklist = z.infer<typeof SupervisorWorklistSchema>;
+
+export const TrackingDirectorBacklogItemSchema = z.object({
+  caseId: z.string().uuid(),
+  caseCode: z.string(),
+  subject: z.string(),
+  currentStage: z.string(),
+  status: z.string(),
+  daysInCurrentStage: z.number().int().nonnegative(),
+});
+export type TrackingDirectorBacklogItem = z.infer<
+  typeof TrackingDirectorBacklogItemSchema
+>;
+
+export const TrackingDirectorBacklogSchema = z.object({
+  delayedCasesCount: z.number().int().nonnegative(),
+  reviewRequiredCasesCount: z.number().int().nonnegative(),
+  unassignedCasesCount: z.number().int().nonnegative(),
+  backlogItems: z.array(TrackingDirectorBacklogItemSchema),
+});
+export type TrackingDirectorBacklog = z.infer<
+  typeof TrackingDirectorBacklogSchema
+>;
+
+export const GeneralDirectorSummarySchema = z.object({
+  totalUsers: z.number().int().nonnegative(),
+  totalApplicants: z.number().int().nonnegative(),
+  totalResearchCases: z.number().int().nonnegative(),
+  casesByStage: z.record(z.number().int().nonnegative()),
+  completedScenariosCount: z.number().int().nonnegative(),
+  activeSupervisorsCount: z.number().int().nonnegative(),
+});
+export type GeneralDirectorSummary = z.infer<
+  typeof GeneralDirectorSummarySchema
+>;
+
+export const WorkflowMetricsSchema = z.object({
+  averageStageCompletionDays: z.record(z.number().nonnegative()),
+  rollbackFrequencyByStage: z.record(z.number().int().nonnegative()),
+});
+export type WorkflowMetrics = z.infer<typeof WorkflowMetricsSchema>;
+
+// 7. Runtime System Settings (FR-052, AT-34)
+export const SystemSettingSchema = z.object({
+  key: z.string().min(2, "کلید تنظیمات حداقل ۲ کاراکتر است").max(100),
+  value: z.string(),
+  description: z.string().nullable().optional(),
+  updatedBy: z.string().nullable().optional(),
+  updatedAt: z.date().or(z.string()),
+});
+export type SystemSetting = z.infer<typeof SystemSettingSchema>;
+
+export const UpdateSystemSettingDtoSchema = z.object({
+  value: z.string().min(1, "مقدار تنظیمات الزامی است"),
+  description: z.string().max(1000).optional(),
+});
+export type UpdateSystemSettingDto = z.infer<
+  typeof UpdateSystemSettingDtoSchema
+>;
+
+
 

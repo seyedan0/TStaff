@@ -118,22 +118,14 @@ export class ProblemDetailsFilter implements ExceptionFilter {
     status: HttpStatus;
     title: string;
   } {
-    switch (code) {
-      case "APPLICANT_NOT_FOUND":
-      case "USER_NOT_FOUND":
-      case "DOCUMENT_NOT_FOUND":
-      case "RESEARCH_NOT_FOUND":
-      case "RESOURCE_NOT_FOUND":
-      case "INTERVIEW_NOT_FOUND":
-      case "ASSIGNMENT_NOT_FOUND":
-      case "SUBMISSION_NOT_FOUND":
-      case "SCENARIO_NOT_FOUND":
-      case "NOT_FOUND":
-        return {
-          status: HttpStatus.NOT_FOUND,
-          title: "منبع مورد نظر یافت نشد",
-        };
+    if (code.endsWith("_NOT_FOUND") || code === "NOT_FOUND") {
+      return {
+        status: HttpStatus.NOT_FOUND,
+        title: "منبع مورد نظر یافت نشد",
+      };
+    }
 
+    switch (code) {
       case "INVALID_CREDENTIALS":
       case "UNAUTHORIZED":
         return { status: HttpStatus.UNAUTHORIZED, title: "خطای احراز هویت" };
@@ -142,6 +134,7 @@ export class ProblemDetailsFilter implements ExceptionFilter {
       case "USER_SUSPENDED":
       case "INSUFFICIENT_STAGE":
       case "ACCESS_DENIED":
+      case "GROUP_CHAT_NOT_ALLOWED":
         return { status: HttpStatus.FORBIDDEN, title: "عدم دسترسی مجاز" };
 
       case "INVALID_APPLICANT_STATUS_TRANSITION":
@@ -159,6 +152,7 @@ export class ProblemDetailsFilter implements ExceptionFilter {
 
       case "INVALID_AGE":
       case "INCOMPLETE_SOURCES_STAGE":
+      case "INVALID_CONVERSATION_PARTICIPANTS":
       case "BAD_REQUEST":
       case "VALIDATION_ERROR":
         return { status: HttpStatus.BAD_REQUEST, title: "داده ورودی نامعتبر" };
