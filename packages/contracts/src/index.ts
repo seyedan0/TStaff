@@ -670,5 +670,85 @@ export type UpdateSystemSettingDto = z.infer<
   typeof UpdateSystemSettingDtoSchema
 >;
 
+/**
+ * ----------------------------------------------------------------------------
+ * Milestone 6: Transactional Outbox, Background Worker & Async Events
+ * (D-04, FR-025, FR-039, FR-060, FR-061, AT-11, AT-14, AT-24, AT-27, AT-31, AT-32)
+ * ----------------------------------------------------------------------------
+ */
+
+export const OutboxStatusSchema = z.enum(["PENDING", "PROCESSED", "FAILED"]);
+export type OutboxStatus = z.infer<typeof OutboxStatusSchema>;
+
+export const OutboxEventTypeSchema = z.enum([
+  "NOTIFICATION_EVENT",
+  "AUDIT_EVENT",
+  "ARCHIVAL_SNAPSHOT_EVENT",
+  "STAGE_DEADLINE_CHECK",
+]);
+export type OutboxEventType = z.infer<typeof OutboxEventTypeSchema>;
+
+export const NotificationEventPayloadSchema = z.object({
+  userId: z.string().uuid("شناسه کاربر نامعتبر است"),
+  type: z.string().min(2, "نوع اعلان الزامی است"),
+  title: z.string().min(2, "عنوان اعلان الزامی است"),
+  body: z.string().min(2, "متن اعلان الزامی است"),
+  isCritical: z.boolean().default(false),
+});
+export type CreateNotificationEventPayload = z.input<
+  typeof NotificationEventPayloadSchema
+>;
+export type NotificationEventPayload = z.infer<
+  typeof NotificationEventPayloadSchema
+>;
+
+export const AuditEventPayloadSchema = z.object({
+  aggregateType: z.string().min(2),
+  aggregateId: z.string().min(1),
+  action: z.string().min(2),
+  actorId: z.string().uuid().optional(),
+  ipAddress: z.string().max(45).optional(),
+  payload: z.record(z.unknown()).optional(),
+});
+export type AuditEventPayload = z.infer<typeof AuditEventPayloadSchema>;
+
+export const ArchivalSnapshotEventPayloadSchema = z.object({
+  jobId: z.string().uuid(),
+  targetType: z.enum(["RESEARCH_CASE", "CONVERSATION", "APPLICANT"]),
+  targetId: z.string().uuid(),
+});
+export type ArchivalSnapshotEventPayload = z.infer<
+  typeof ArchivalSnapshotEventPayloadSchema
+>;
+
+export const StageDeadlineCheckPayloadSchema = z.object({
+  checkTimestamp: z.string().datetime().or(z.date()),
+  thresholdDays: z.number().int().positive().default(45),
+});
+export type CreateStageDeadlineCheckPayload = z.input<
+  typeof StageDeadlineCheckPayloadSchema
+>;
+export type StageDeadlineCheckPayload = z.infer<
+  typeof StageDeadlineCheckPayloadSchema
+>;
+
+export const OutboxEventDtoSchema = z.object({
+  id: z.string().uuid(),
+  eventType: z.string(),
+  payload: z.unknown(),
+  status: OutboxStatusSchema,
+  retryCount: z.number().int().nonnegative(),
+  createdAt: z.date().or(z.string()),
+  processedAt: z.date().or(z.string()).nullable().optional(),
+});
+export type OutboxEventDto = z.infer<typeof OutboxEventDtoSchema>;
+
+export const CreateOutboxEventDtoSchema = z.object({
+  eventType: z.string().min(2).max(100),
+  payload: z.record(z.unknown()),
+});
+export type CreateOutboxEventDto = z.infer<typeof CreateOutboxEventDtoSchema>;
+
+
 
 
