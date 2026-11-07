@@ -5,10 +5,10 @@ import {
   HttpException,
   HttpStatus,
   Logger,
-} from '@nestjs/common';
-import { Response, Request } from 'express';
-import { randomUUID } from 'node:crypto';
-import type { ProblemDetails } from '@tstaff/contracts';
+} from "@nestjs/common";
+import { Response, Request } from "express";
+import { randomUUID } from "node:crypto";
+import { type ProblemDetails, ZodError } from "@tstaff/contracts";
 
 @Catch()
 export class ProblemDetailsFilter implements ExceptionFilter {
@@ -19,36 +19,84 @@ export class ProblemDetailsFilter implements ExceptionFilter {
     const response = ctx.getResponse<Response>();
     const request = ctx.getRequest<Request>();
 
-    const traceId = (request.headers['x-trace-id'] as string) || randomUUID();
+    const traceId = (request.headers["x-trace-id"] as string) || randomUUID();
     let status = HttpStatus.INTERNAL_SERVER_ERROR;
-    let code = 'INTERNAL_SERVER_ERROR';
-    let title = 'خطای داخلی سرور';
-    let detail = 'یک خطای پیش‌بینی‌نشده در سرور رخ داده است.';
+    let code = "INTERNAL_SERVER_ERROR";
+    let title = "خطای داخلی سرور";
+    let detail = "یک خطای پیش‌بینی‌نشده در سرور رخ داده است.";
     let currentVersion: number | undefined;
 
     if (exception instanceof HttpException) {
       status = exception.getStatus();
       const exceptionResponse = exception.getResponse();
 
-      if (typeof exceptionResponse === 'object' && exceptionResponse !== null) {
+      if (typeof exceptionResponse === "object" && exceptionResponse !== null) {
         const resp = exceptionResponse as Record<string, unknown>;
-        code = (resp['code'] as string) || this.getDefaultCode(status);
-        title = (resp['error'] as string) || (resp['title'] as string) || exception.message;
-        const rawMessage = resp['message'] ?? resp['detail'] ?? exception.message;
-        detail = Array.isArray(rawMessage) ? rawMessage.join('; ') : String(rawMessage);
-        if (typeof resp['currentVersion'] === 'number') {
-          currentVersion = resp['currentVersion'];
+        code = (resp["code"] as string) || this.getDefaultCode(status);
+        title =
+          (resp["error"] as string) ||
+          (resp["title"] as string) ||
+          exception.message;
+        const rawMessage =
+          resp["message"] ?? resp["detail"] ?? exception.message;
+        detail = Array.isArray(rawMessage)
+          ? rawMessage.join("; ")
+          : String(rawMessage);
+        if (typeof resp["currentVersion"] === "number") {
+          currentVersion = resp["currentVersion"];
         }
       } else {
         title = exception.message;
         detail = exception.message;
         code = this.getDefaultCode(status);
       }
+    } else if (
+      exception instanceof ZodError ||
+      (typeof exception === "object" &&
+        exception !== null &&
+        (exception as { name?: string }).name === "ZodError" &&
+        Array.isArray((exception as { issues?: unknown }).issues))
+    ) {
+      const zodErr = exception as ZodError;
+      status = HttpStatus.BAD_REQUEST;
+      code = "VALIDATION_ERROR";
+      title = "خطای اعتبارسنجی ورودی";
+      detail = zodErr.issues
+        .map((issue) =>
+          issue.path.length > 0
+            ? `${issue.path.join(".")}: ${issue.message}`
+            : issue.message,
+        )
+        .join("; ");
+    } else if (
+      exception instanceof Error &&
+      (exception.name === "DomainError" ||
+        (exception as { isDomainError?: boolean }).isDomainError === true) &&
+      "code" in exception &&
+      typeof (exception as { code: unknown }).code === "string"
+    ) {
+      const domainCode = (exception as { code: string }).code;
+      const mapped = this.mapDomainErrorCode(domainCode);
+      status = mapped.status;
+      code = domainCode;
+      title = mapped.title;
+      detail = exception.message;
+      if (
+        "currentVersion" in exception &&
+        typeof (exception as { currentVersion: unknown }).currentVersion ===
+          "number"
+      ) {
+        currentVersion = (exception as { currentVersion: number })
+          .currentVersion;
+      }
     } else if (exception instanceof Error) {
-      this.logger.error(`Unhandled Exception [traceId: ${traceId}]: ${exception.message}`, exception.stack);
+      this.logger.error(
+        `Unhandled Exception [traceId: ${traceId}]: ${exception.message}`,
+        exception.stack,
+      );
       detail =
-        process.env.NODE_ENV === 'production'
-          ? 'یک خطای پیش‌بینی‌نشده در سرور رخ داده است.'
+        process.env.NODE_ENV === "production"
+          ? "یک خطای پیش‌بینی‌نشده در سرور رخ داده است."
           : exception.message;
     }
 
@@ -62,26 +110,70 @@ export class ProblemDetailsFilter implements ExceptionFilter {
       ...(currentVersion !== undefined ? { currentVersion } : {}),
     };
 
-    response.setHeader('Content-Type', 'application/problem+json');
+    response.setHeader("Content-Type", "application/problem+json");
     response.status(status).json(problem);
+  }
+
+  private mapDomainErrorCode(code: string): {
+    status: HttpStatus;
+    title: string;
+  } {
+    switch (code) {
+      case "APPLICANT_NOT_FOUND":
+      case "USER_NOT_FOUND":
+      case "DOCUMENT_NOT_FOUND":
+      case "RESEARCH_NOT_FOUND":
+      case "RESOURCE_NOT_FOUND":
+      case "INTERVIEW_NOT_FOUND":
+      case "NOT_FOUND":
+        return {
+          status: HttpStatus.NOT_FOUND,
+          title: "منبع مورد نظر یافت نشد",
+        };
+
+      case "INVALID_CREDENTIALS":
+      case "UNAUTHORIZED":
+        return { status: HttpStatus.UNAUTHORIZED, title: "خطای احراز هویت" };
+
+      case "FORBIDDEN":
+      case "USER_SUSPENDED":
+      case "INSUFFICIENT_STAGE":
+      case "ACCESS_DENIED":
+        return { status: HttpStatus.FORBIDDEN, title: "عدم دسترسی مجاز" };
+
+      case "INVALID_APPLICANT_STATUS_TRANSITION":
+      case "USER_ALREADY_PROMOTED":
+      case "APPLICANT_ALREADY_EXISTS":
+      case "STALE_REVISION":
+      case "CONFLICT":
+        return { status: HttpStatus.CONFLICT, title: "تعارض در وضعیت داده" };
+
+      case "INVALID_AGE":
+      case "BAD_REQUEST":
+      case "VALIDATION_ERROR":
+        return { status: HttpStatus.BAD_REQUEST, title: "داده ورودی نامعتبر" };
+
+      default:
+        return { status: HttpStatus.BAD_REQUEST, title: "خطای منطقی دامنه" };
+    }
   }
 
   private getDefaultCode(status: number): string {
     switch (status) {
       case HttpStatus.BAD_REQUEST:
-        return 'BAD_REQUEST';
+        return "BAD_REQUEST";
       case HttpStatus.UNAUTHORIZED:
-        return 'UNAUTHORIZED';
+        return "UNAUTHORIZED";
       case HttpStatus.FORBIDDEN:
-        return 'FORBIDDEN';
+        return "FORBIDDEN";
       case HttpStatus.NOT_FOUND:
-        return 'NOT_FOUND';
+        return "NOT_FOUND";
       case HttpStatus.CONFLICT:
-        return 'CONFLICT';
+        return "CONFLICT";
       case HttpStatus.UNPROCESSABLE_ENTITY:
-        return 'UNPROCESSABLE_ENTITY';
+        return "UNPROCESSABLE_ENTITY";
       default:
-        return 'SERVER_ERROR';
+        return "SERVER_ERROR";
     }
   }
 }
