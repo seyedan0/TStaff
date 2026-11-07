@@ -1,0 +1,35 @@
+# نمونه فایل Docker Compose برای محیط Staging یا Production تک‌سروره در ایران
+services:
+  reverse-proxy:
+    image: caddy:2-alpine
+    container_name: tstaff-proxy
+    restart: always
+    ports:
+      - '80:80'
+      - '443:443'
+    volumes:
+      - ../proxy/Caddyfile:/etc/caddy/Caddyfile
+      - caddy_data:/data
+      - caddy_config:/config
+
+  api:
+    image: tstaff-api:latest
+    container_name: tstaff-api
+    restart: always
+    environment:
+      NODE_ENV: production
+      PORT: 4000
+    expose:
+      - '4000'
+
+  worker:
+    image: tstaff-worker:latest
+    container_name: tstaff-worker
+    restart: always
+    environment:
+      NODE_ENV: production
+
+volumes:
+  caddy_data:
+  caddy_config:
+
