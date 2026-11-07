@@ -45,3 +45,14 @@ export const ReviewDecisionRequestSchema = z.object({
 });
 export type ReviewDecisionRequest = z.infer<typeof ReviewDecisionRequestSchema>;
 
+/**
+ * Health Check API Response Contract (M1 Baseline)
+ */
+export const HealthResponseSchema = z.object({
+  status: z.enum(['ok', 'degraded', 'error']),
+  timestamp: z.string().datetime(),
+  uptime: z.number().nonnegative(),
+  version: z.string(),
+  database: z.enum(['connected', 'disconnected', 'disabled']),
+});
+export type HealthResponse = z.infer<typeof HealthResponseSchema>;

@@ -31,7 +31,7 @@ scanFiles('apps/web/src', (f) => f.endsWith('.ts') || f.endsWith('.tsx'), (fileP
 scanFiles('apps/api/src/modules', (f) => f.endsWith('.ts'), (filePath) => {
   if (filePath.includes(path.sep + 'domain' + path.sep)) {
     const content = fs.readFileSync(filePath, 'utf-8');
-    if (/from\s+['"](@nestjs|drizzle-orm|pg)['"]/.test(content)) {
+    if (/from\s+['"](@nestjs|drizzle-orm|pg|@prisma\/client|prisma)['"]/.test(content)) {
       console.error(`BOUNDARY ERROR: Domain file ${filePath} illegally imports framework or ORM!`);
       hasError = true;
     }
