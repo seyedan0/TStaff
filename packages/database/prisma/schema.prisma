@@ -266,6 +266,8 @@ model StageSubmission {
   stageInstance StageInstance    @relation(fields: [stageInstanceId], references: [id], onDelete: Cascade)
   decisions     ReviewDecision[]
 
+  @@index([stageInstanceId])
+  @@index([authorId])
   @@map("stage_submissions")
 }
 
@@ -363,6 +365,7 @@ enum ReviewDecisionType {
 model ReviewDecision {
   id                String             @id @default(uuid())
   stageSubmissionId String?            @map("stage_submission_id")
+  scenarioId        String?            @map("scenario_id")
   reviewerId        String             @map("reviewer_id")
   decision          ReviewDecisionType
   expectedVersion   Int                @map("expected_version")
@@ -372,7 +375,10 @@ model ReviewDecision {
   decidedAt         DateTime           @default(now()) @map("decided_at")
 
   stageSubmission StageSubmission? @relation(fields: [stageSubmissionId], references: [id], onDelete: SetNull)
+  scenario        Scenario?        @relation(fields: [scenarioId], references: [id], onDelete: SetNull)
 
+  @@index([stageSubmissionId])
+  @@index([scenarioId])
   @@map("review_decisions")
 }
 
@@ -398,8 +404,11 @@ model Scenario {
   createdAt      DateTime       @default(now()) @map("created_at")
   updatedAt      DateTime       @updatedAt @map("updated_at")
 
-  researchCase ResearchCase @relation(fields: [researchCaseId], references: [id], onDelete: Cascade)
+  researchCase ResearchCase     @relation(fields: [researchCaseId], references: [id], onDelete: Cascade)
+  decisions    ReviewDecision[]
 
+  @@index([researchCaseId])
+  @@index([status])
   @@map("scenarios")
 }
 

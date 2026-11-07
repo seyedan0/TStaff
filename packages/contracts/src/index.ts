@@ -281,3 +281,131 @@ export const ReviewDecisionDtoSchema = z.object({
 });
 export type ReviewDecisionDto = z.infer<typeof ReviewDecisionDtoSchema>;
 
+/**
+ * ----------------------------------------------------------------------------
+ * Milestone 4: Scientific Review, Stage Submissions & Scenarios
+ * (D-02, D-03, D-05, FR-016 - FR-023, FR-040, FR-057, FR-061, AT-05 - AT-08, AT-16, AT-29, AT-33)
+ * ----------------------------------------------------------------------------
+ */
+
+export const SubmissionStatusSchema = z.enum([
+  "SUBMITTED",
+  "APPROVED",
+  "REJECTED",
+  "REVISION_REQUIRED",
+]);
+export type SubmissionStatus = z.infer<typeof SubmissionStatusSchema>;
+
+export const CreateStageSubmissionDtoSchema = z.object({
+  content: z
+    .string()
+    .min(10, "متن گزارش باید حداقل ۱۰ کاراکتر باشد")
+    .max(50000, "متن گزارش حداکثر ۵۰۰۰۰ کاراکتر است"),
+  expectedVersion: z
+    .number()
+    .int()
+    .positive("نسخه مورد انتظار باید عدد صحیح مثبت باشد"),
+});
+export type CreateStageSubmissionDto = z.infer<
+  typeof CreateStageSubmissionDtoSchema
+>;
+
+export const SubmitReviewDecisionDtoSchema = z.object({
+  decision: z.enum(["APPROVED", "CHANGES_REQUESTED"]),
+  reason: z
+    .string()
+    .min(5, "علت داوری حداقل ۵ کاراکتر است")
+    .max(2000, "علت داوری حداکثر ۲۰۰۰ کاراکتر است"),
+  expectedVersion: z
+    .number()
+    .int()
+    .positive("نسخه مورد انتظار باید عدد صحیح مثبت باشد"),
+  idempotencyKey: z
+    .string()
+    .min(10, "کلید یکتایی حداقل ۱۰ کاراکتر است")
+    .max(100, "کلید یکتایی حداکثر ۱۰۰ کاراکتر است"),
+});
+export type SubmitReviewDecisionDto = z.infer<
+  typeof SubmitReviewDecisionDtoSchema
+>;
+
+export const ScenarioStatusSchema = z.enum([
+  "DRAFT",
+  "UNDER_REVIEW",
+  "APPROVED_INTERNAL",
+  "ARCHIVED",
+]);
+export type ScenarioStatus = z.infer<typeof ScenarioStatusSchema>;
+
+export const CreateScenarioDtoSchema = z.object({
+  title: z
+    .string()
+    .min(3, "عنوان سناریو باید حداقل ۳ کاراکتر باشد")
+    .max(255, "عنوان سناریو حداکثر ۲۵۵ کاراکتر است"),
+  summary: z
+    .string()
+    .min(10, "چکیده سناریو باید حداقل ۱۰ کاراکتر باشد")
+    .max(2000, "چکیده سناریو حداکثر ۲۰۰۰ کاراکتر است"),
+  content: z
+    .string()
+    .min(20, "متن سناریو باید حداقل ۲۰ کاراکتر باشد")
+    .max(50000, "متن سناریو حداکثر ۵۰۰۰۰ کاراکتر است"),
+});
+export type CreateScenarioDto = z.infer<typeof CreateScenarioDtoSchema>;
+
+export const UpdateScenarioDtoSchema = z.object({
+  title: z
+    .string()
+    .min(3, "عنوان سناریو باید حداقل ۳ کاراکتر باشد")
+    .max(255, "عنوان سناریو حداکثر ۲۵۵ کاراکتر است")
+    .optional(),
+  summary: z
+    .string()
+    .min(10, "چکیده سناریو باید حداقل ۱۰ کاراکتر باشد")
+    .max(2000, "چکیده سناریو حداکثر ۲۰۰۰ کاراکتر است")
+    .optional(),
+  content: z
+    .string()
+    .min(20, "متن سناریو باید حداقل ۲۰ کاراکتر باشد")
+    .max(50000, "متن سناریو حداکثر ۵۰۰۰۰ کاراکتر است")
+    .optional(),
+  expectedVersion: z
+    .number()
+    .int()
+    .positive("نسخه مورد انتظار باید عدد صحیح مثبت باشد"),
+});
+export type UpdateScenarioDto = z.infer<typeof UpdateScenarioDtoSchema>;
+
+export const SubmitScenarioDtoSchema = z.object({
+  expectedVersion: z
+    .number()
+    .int()
+    .positive("نسخه مورد انتظار باید عدد صحیح مثبت باشد"),
+});
+export type SubmitScenarioDto = z.infer<typeof SubmitScenarioDtoSchema>;
+
+export const ReviewScenarioDtoSchema = z.object({
+  decision: z.enum(["APPROVED", "CHANGES_REQUESTED"]),
+  reason: z
+    .string()
+    .min(5, "علت داوری حداقل ۵ کاراکتر است")
+    .max(2000, "علت داوری حداکثر ۲۰۰۰ کاراکتر است"),
+  expectedVersion: z
+    .number()
+    .int()
+    .positive("نسخه مورد انتظار باید عدد صحیح مثبت باشد"),
+  idempotencyKey: z
+    .string()
+    .min(10, "کلید یکتایی حداقل ۱۰ کاراکتر است")
+    .max(100, "کلید یکتایی حداکثر ۱۰۰ کاراکتر است"),
+});
+export type ReviewScenarioDto = z.infer<typeof ReviewScenarioDtoSchema>;
+
+export const ScenarioBankQuerySchema = z.object({
+  query: z.string().max(255).optional(),
+  cursor: z.string().optional(),
+  limit: z.coerce.number().int().min(1).max(100).default(20),
+});
+export type ScenarioBankQuery = z.infer<typeof ScenarioBankQuerySchema>;
+
+

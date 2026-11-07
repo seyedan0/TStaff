@@ -126,6 +126,8 @@ export class ProblemDetailsFilter implements ExceptionFilter {
       case "RESOURCE_NOT_FOUND":
       case "INTERVIEW_NOT_FOUND":
       case "ASSIGNMENT_NOT_FOUND":
+      case "SUBMISSION_NOT_FOUND":
+      case "SCENARIO_NOT_FOUND":
       case "NOT_FOUND":
         return {
           status: HttpStatus.NOT_FOUND,
@@ -150,6 +152,8 @@ export class ProblemDetailsFilter implements ExceptionFilter {
       case "SUPERVISOR_CAPACITY_EXCEEDED":
       case "INTERVIEW_ALREADY_EXISTS_FOR_RESOURCE":
       case "STALE_REVISION":
+      case "PREREQUISITE_REVIEW_REQUIRED":
+      case "SCENARIO_PREREQUISITE_NOT_MET":
       case "CONFLICT":
         return { status: HttpStatus.CONFLICT, title: "تعارض در وضعیت داده" };
 
