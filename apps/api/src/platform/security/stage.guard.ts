@@ -17,10 +17,10 @@ type Stage = (typeof ALLOWED_STAGES)[number];
 
 @Injectable()
 export class StageGuard implements CanActivate {
-  constructor(private reflector: Reflector) {}
+  constructor(private reflector: Reflector = new Reflector()) {}
 
   canActivate(context: ExecutionContext): boolean {
-    const requiredStage = this.reflector.getAllAndOverride<
+    const requiredStage = (this.reflector || new Reflector()).getAllAndOverride<
       "APPRENTICE" | "INTERN"
     >(REQUIRED_STAGE_KEY, [context.getHandler(), context.getClass()]);
 

@@ -26,6 +26,6 @@ export class PrismaModule implements OnModuleInit, OnModuleDestroy {
   }
 
   async onModuleDestroy() {
-    await this.prisma.$disconnect();
+    await this.prisma?.$disconnect();
   }
 }
