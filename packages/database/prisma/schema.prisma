@@ -336,7 +336,8 @@ enum ReportStatus {
 model InterviewReport {
   id               String       @id @default(uuid())
   interviewId      String       @map("interview_id")
-  authorId         String       @map("author_id")
+  authorId         String?      @map("author_id")
+  title            String?
   version          Int          @default(1)
   content          String       @db.Text
   audioFileId      String?      @map("audio_file_id")

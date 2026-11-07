@@ -125,6 +125,7 @@ export class ProblemDetailsFilter implements ExceptionFilter {
       case "RESEARCH_NOT_FOUND":
       case "RESOURCE_NOT_FOUND":
       case "INTERVIEW_NOT_FOUND":
+      case "ASSIGNMENT_NOT_FOUND":
       case "NOT_FOUND":
         return {
           status: HttpStatus.NOT_FOUND,
@@ -144,11 +145,16 @@ export class ProblemDetailsFilter implements ExceptionFilter {
       case "INVALID_APPLICANT_STATUS_TRANSITION":
       case "USER_ALREADY_PROMOTED":
       case "APPLICANT_ALREADY_EXISTS":
+      case "MAIN_SUPERVISOR_ALREADY_ASSIGNED":
+      case "COLLABORATOR_SUPERVISOR_ALREADY_ASSIGNED":
+      case "SUPERVISOR_CAPACITY_EXCEEDED":
+      case "INTERVIEW_ALREADY_EXISTS_FOR_RESOURCE":
       case "STALE_REVISION":
       case "CONFLICT":
         return { status: HttpStatus.CONFLICT, title: "تعارض در وضعیت داده" };
 
       case "INVALID_AGE":
+      case "INCOMPLETE_SOURCES_STAGE":
       case "BAD_REQUEST":
       case "VALIDATION_ERROR":
         return { status: HttpStatus.BAD_REQUEST, title: "داده ورودی نامعتبر" };
