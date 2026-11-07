@@ -457,6 +457,7 @@ model ConversationParticipant {
   conversation Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
 
   @@id([conversationId, userId])
+  @@index([userId])
   @@map("conversation_participants")
 }
 
@@ -470,6 +471,8 @@ model Message {
 
   conversation Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
 
+  @@index([conversationId, createdAt])
+  @@index([senderId])
   @@map("messages")
 }
 
@@ -483,6 +486,8 @@ model Notification {
   isCritical Boolean  @default(false) @map("is_critical") // D-04: Only critical triggers immediate push
   createdAt  DateTime @default(now()) @map("created_at")
 
+  @@index([userId, isRead])
+  @@index([createdAt])
   @@map("notifications")
 }
 
@@ -496,6 +501,9 @@ model AuditEvent {
   payload       Json?
   createdAt     DateTime @default(now()) @map("created_at")
 
+  @@index([aggregateType, aggregateId])
+  @@index([actorId])
+  @@index([createdAt])
   @@map("audit_events")
 }
 
@@ -533,5 +541,21 @@ model ArchiveJob {
   createdAt       DateTime         @default(now()) @map("created_at")
   completedAt     DateTime?        @map("completed_at")
 
+  @@index([targetType, targetId])
+  @@index([status])
   @@map("archive_jobs")
+}
+
+// ----------------------------------------------------------------------------
+// 8. Runtime System Settings (FR-052, AT-34)
+// ----------------------------------------------------------------------------
+
+model SystemSetting {
+  key         String   @id
+  value       String   @db.Text
+  description String?  @db.Text
+  updatedBy   String?  @map("updated_by")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  @@map("system_settings")
 }

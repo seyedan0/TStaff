@@ -143,4 +143,43 @@ describe("IdentityService (FR-001, FR-003, FR-004, AT-01, AT-03)", () => {
       UserAlreadyPromotedError,
     );
   });
+
+  it("suspends and reactivates user account (FR-035 / AT-12 / BR-18)", async () => {
+    const user = await identityService.createUserFromApprovedApplicant({
+      id: "app-6",
+      fullName: "سارا حسینی",
+      phoneNumber: "09126667788",
+      initialPassword: "Password789",
+    });
+
+    expect(user.isActive).toBe(true);
+
+    const suspended = await identityService.suspendUser(
+      user.id,
+      "تخلف انضباطی",
+    );
+    expect(suspended.isActive).toBe(false);
+
+    // Login is now blocked
+    await expect(
+      identityService.login({
+        phoneNumber: "09126667788",
+        password: "Password789",
+      }),
+    ).rejects.toThrow(UserSuspendedError);
+
+    // Reactivate
+    const reactivated = await identityService.reactivateUser(
+      user.id,
+      "حل مسئله",
+    );
+    expect(reactivated.isActive).toBe(true);
+
+    // Login works again
+    const result = await identityService.login({
+      phoneNumber: "09126667788",
+      password: "Password789",
+    });
+    expect(result.user.isActive).toBe(true);
+  });
 });

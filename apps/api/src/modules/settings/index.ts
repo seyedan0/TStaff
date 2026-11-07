@@ -1,5 +1,4 @@
-/**
- * Public API boundary for settings module.
- * Only export contracts and public application services.
- */
+export * from "./domain/system-setting.entity.js";
+export * from "./domain/settings-errors.js";
+export * from "./application/settings.service.js";
 export * from "./settings.module.js";

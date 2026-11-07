@@ -1,5 +1,2 @@
-/**
- * Public API boundary for reporting module.
- * Only export contracts and public application services.
- */
+export * from "./application/reporting.service.js";
 export * from "./reporting.module.js";

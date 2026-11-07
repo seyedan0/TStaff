@@ -1,5 +1,4 @@
-/**
- * Public API boundary for audit module.
- * Only export contracts and public application services.
- */
+export * from "./domain/audit-event.entity.js";
+export * from "./domain/audit-errors.js";
+export * from "./application/audit.service.js";
 export * from "./audit.module.js";

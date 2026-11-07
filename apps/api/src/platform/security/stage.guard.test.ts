@@ -72,10 +72,35 @@ describe("StageGuard & Negative Authorization (AT-02)", () => {
     expect(guard.canActivate(internContext)).toBe(true);
   });
 
-  it("allows any user to access public or unconstrained endpoint", () => {
+  it("allows any authenticated user to access unconstrained endpoint", () => {
     reflector.getAllAndOverride = () => undefined;
 
     const context = createMockContext({ "x-user-stage": "APPRENTICE" });
     expect(guard.canActivate(context)).toBe(true);
+  });
+
+  it("fails closed on unconstrained endpoint if stage header is completely missing", () => {
+    reflector.getAllAndOverride = () => undefined;
+
+    const unauthContext = createMockContext({});
+    expect(() => guard.canActivate(unauthContext)).toThrow(
+      UnauthorizedException,
+    );
+  });
+
+  it("blocks suspended user with 403 Forbidden USER_SUSPENDED (FR-035, AT-12)", () => {
+    reflector.getAllAndOverride = () => "INTERN";
+
+    const suspendedContext = createMockContext({
+      "x-user-stage": "INTERN",
+      "x-user-suspended": "true",
+    });
+
+    expect(() => guard.canActivate(suspendedContext)).toThrow(
+      ForbiddenException,
+    );
+    expect(() => guard.canActivate(suspendedContext)).toThrow(
+      "حساب کاربری معلق شده است و دسترسی به سامانه مسدود می‌باشد (FR-035, AT-12)",
+    );
   });
 });

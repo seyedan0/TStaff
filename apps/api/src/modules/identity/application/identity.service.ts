@@ -106,4 +106,32 @@ export class IdentityService {
     }
     return user;
   }
+
+  /**
+   * Rule FR-035 / AT-12 / BR-18: Suspend user account
+   */
+  async suspendUser(userId: string, reason: string): Promise<User> {
+    const user = await this.userRepo.findById(userId);
+    if (!user) {
+      throw new UserNotFoundError(userId);
+    }
+
+    const updated = user.suspend();
+    await this.userRepo.save(updated);
+    return updated;
+  }
+
+  /**
+   * Rule FR-035 / AT-12 / BR-18: Reactivate suspended user account
+   */
+  async reactivateUser(userId: string, reason?: string): Promise<User> {
+    const user = await this.userRepo.findById(userId);
+    if (!user) {
+      throw new UserNotFoundError(userId);
+    }
+
+    const updated = user.reactivate();
+    await this.userRepo.save(updated);
+    return updated;
+  }
 }
