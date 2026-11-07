@@ -1,0 +1,518 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ----------------------------------------------------------------------------
+// 1. Applicants & Admission (FR-001, FR-002, D-01)
+// ----------------------------------------------------------------------------
+
+enum ApplicantStatus {
+  PENDING
+  IN_REVIEW
+  APPROVED
+  REJECTED
+  ARCHIVED
+}
+
+enum AdmissionDecisionType {
+  APPROVED
+  REJECTED
+  REVISION_REQUIRED
+}
+
+model Applicant {
+  id              String            @id @default(uuid())
+  fullName        String            @map("full_name")
+  nationalId      String?           @map("national_id")
+  phoneNumber     String            @map("phone_number")
+  age             Int               @map("age") // D-01, FR-056: Strict positive integer, never derived
+  educationLevel  String?           @map("education_level")
+  fieldOfStudy    String?           @map("field_of_study")
+  status          ApplicantStatus   @default(PENDING)
+  rejectionReason String?           @map("rejection_reason")
+  createdAt       DateTime          @default(now()) @map("created_at")
+  updatedAt       DateTime          @updatedAt @map("updated_at")
+
+  admissionReviews AdmissionReview[]
+  user             User?
+
+  @@map("applicants")
+}
+
+model AdmissionReview {
+  id          String                @id @default(uuid())
+  applicantId String                @map("applicant_id")
+  reviewerId  String?               @map("reviewer_id")
+  decision    AdmissionDecisionType
+  score       Int?
+  notes       String?               @db.Text
+  createdAt   DateTime              @default(now()) @map("created_at")
+  updatedAt   DateTime              @updatedAt @map("updated_at")
+
+  applicant   Applicant             @relation(fields: [applicantId], references: [id], onDelete: Cascade)
+
+  @@map("admission_reviews")
+}
+
+// ----------------------------------------------------------------------------
+// 2. Identity, RBAC & Sessions (FR-001, FR-002)
+// ----------------------------------------------------------------------------
+
+model User {
+  id           String        @id @default(uuid())
+  applicantId  String?       @unique @map("applicant_id") // Created ONLY after admission approval
+  phoneNumber  String        @unique @map("phone_number")
+  email        String?       @unique
+  passwordHash String?       @map("password_hash")
+  isActive     Boolean       @default(true) @map("is_active")
+  isMfaEnabled Boolean       @default(false) @map("is_mfa_enabled")
+  createdAt    DateTime      @default(now()) @map("created_at")
+  updatedAt    DateTime      @updatedAt @map("updated_at")
+
+  applicant    Applicant?    @relation(fields: [applicantId], references: [id])
+  profile      Profile?
+  sessions     UserSession[]
+  userRoles    UserRole[]
+
+  @@map("users")
+}
+
+model Profile {
+  id        String   @id @default(uuid())
+  userId    String   @unique @map("user_id")
+  firstName String   @map("first_name")
+  lastName  String   @map("last_name")
+  avatarUrl String?  @map("avatar_url")
+  bio       String?  @db.Text
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("profiles")
+}
+
+model UserSession {
+  id        String   @id @default(uuid())
+  userId    String   @map("user_id")
+  tokenHash String   @unique @map("token_hash")
+  ipAddress String?  @map("ip_address")
+  userAgent String?  @map("user_agent")
+  expiresAt DateTime @map("expires_at")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("user_sessions")
+}
+
+model Role {
+  id          String           @id @default(uuid())
+  name        String           @unique
+  description String?
+  userRoles   UserRole[]
+  permissions RolePermission[]
+
+  @@map("roles")
+}
+
+model Permission {
+  id          String           @id @default(uuid())
+  code        String           @unique
+  description String?
+  roles       RolePermission[]
+
+  @@map("permissions")
+}
+
+model UserRole {
+  userId     String   @map("user_id")
+  roleId     String   @map("role_id")
+  assignedAt DateTime @default(now()) @map("assigned_at")
+
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  role       Role     @relation(fields: [roleId], references: [id], onDelete: Cascade)
+
+  @@id([userId, roleId])
+  @@map("user_roles")
+}
+
+model RolePermission {
+  roleId       String     @map("role_id")
+  permissionId String     @map("permission_id")
+
+  role         Role       @relation(fields: [roleId], references: [id], onDelete: Cascade)
+  permission   Permission @relation(fields: [permissionId], references: [id], onDelete: Cascade)
+
+  @@id([roleId, permissionId])
+  @@map("role_permissions")
+}
+
+// ----------------------------------------------------------------------------
+// 3. Research & Scientific Lifecycle (D-02, D-03, D-05, D-07)
+// ----------------------------------------------------------------------------
+
+enum ResearchStatus {
+  DRAFT
+  SOURCES_STAGE
+  EXPLANATION_STAGE
+  PRESCRIPTION_STAGE
+  SCENARIO_STAGE
+  COMPLETED
+  SUSPENDED
+  ARCHIVED
+}
+
+enum AssignmentRole {
+  MAIN_SUPERVISOR        // D-02: Exactly 1 active
+  COLLABORATOR_SUPERVISOR // D-02: At most 1 active
+  PRIMARY_RESEARCHER
+  ASSISTANT_RESEARCHER
+}
+
+model ResearchCase {
+  id          String               @id @default(uuid())
+  title       String
+  code        String               @unique
+  subject     String
+  status      ResearchStatus       @default(DRAFT)
+  version     Int                  @default(1)
+  createdAt   DateTime             @default(now()) @map("created_at")
+  updatedAt   DateTime             @updatedAt @map("updated_at")
+
+  assignments ResearchAssignment[]
+  stages      StageInstance[]
+  resources   Resource[]
+  scenarios   Scenario[]
+
+  @@map("research_cases")
+}
+
+model ResearchAssignment {
+  id             String         @id @default(uuid())
+  researchCaseId String         @map("research_case_id")
+  userId         String         @map("user_id")
+  role           AssignmentRole
+  isActive       Boolean        @default(true) @map("is_active")
+  assignedAt     DateTime       @default(now()) @map("assigned_at")
+  unassignedAt   DateTime?      @map("unassigned_at")
+
+  researchCase   ResearchCase   @relation(fields: [researchCaseId], references: [id], onDelete: Cascade)
+
+  @@map("research_assignments")
+}
+
+enum StageType {
+  SOURCES
+  EXPLANATION
+  PRESCRIPTION
+  SCENARIO
+}
+
+enum StageStatus {
+  PENDING
+  IN_PROGRESS
+  REVIEW_REQUIRED // D-05: Dependent stages reset to review required upon rollback
+  APPROVED
+  REVISION_REQUESTED
+}
+
+model StageInstance {
+  id             String            @id @default(uuid())
+  researchCaseId String            @map("research_case_id")
+  stageType      StageType         @map("stage_type")
+  status         StageStatus       @default(PENDING)
+  version        Int               @default(1)
+  createdAt      DateTime          @default(now()) @map("created_at")
+  updatedAt      DateTime          @updatedAt @map("updated_at")
+
+  researchCase   ResearchCase      @relation(fields: [researchCaseId], references: [id], onDelete: Cascade)
+  submissions    StageSubmission[]
+
+  @@unique([researchCaseId, stageType])
+  @@map("stage_instances")
+}
+
+enum SubmissionStatus {
+  SUBMITTED
+  APPROVED
+  REJECTED
+  REVISION_REQUIRED
+}
+
+model StageSubmission {
+  id              String           @id @default(uuid())
+  stageInstanceId String           @map("stage_instance_id")
+  authorId        String           @map("author_id")
+  version         Int              @default(1)
+  content         String           @db.Text
+  status          SubmissionStatus @default(SUBMITTED)
+  submittedAt     DateTime         @default(now()) @map("submitted_at")
+
+  stageInstance   StageInstance    @relation(fields: [stageInstanceId], references: [id], onDelete: Cascade)
+  decisions       ReviewDecision[]
+
+  @@map("stage_submissions")
+}
+
+// ----------------------------------------------------------------------------
+// 4. Resources, Interviews & Strict 1:1 Rule (D-07, FR-058, AT-30)
+// ----------------------------------------------------------------------------
+
+enum ResourceType {
+  INDIVIDUAL
+  ORGANIZATION
+  LITERATURE
+  DATASET
+}
+
+enum ResourceStatus {
+  IDENTIFIED
+  INTERVIEWED
+  VALIDATED
+  REJECTED
+}
+
+model Resource {
+  id             String         @id @default(uuid())
+  researchCaseId String         @map("research_case_id")
+  type           ResourceType
+  title          String
+  description    String?        @db.Text
+  contactInfo    String?        @map("contact_info")
+  status         ResourceStatus @default(IDENTIFIED)
+  createdAt      DateTime       @default(now()) @map("created_at")
+  updatedAt      DateTime       @updatedAt @map("updated_at")
+
+  researchCase   ResearchCase   @relation(fields: [researchCaseId], references: [id], onDelete: Cascade)
+  interview      Interview?     // D-07: Maximum 1 interview per resource strictly enforced
+
+  @@map("resources")
+}
+
+enum InterviewStatus {
+  SCHEDULED
+  CONDUCTED
+  CANCELLED
+}
+
+model Interview {
+  id              String            @id @default(uuid())
+  resourceId      String            @unique @map("resource_id") // Enforces uq_interview_resource
+  intervieweeName String            @map("interviewee_name")
+  intervieweeAge  Int?              @map("interviewee_age") // Positive integer
+  conductedAt     DateTime          @map("conducted_at")
+  status          InterviewStatus   @default(SCHEDULED)
+  createdAt       DateTime          @default(now()) @map("created_at")
+  updatedAt       DateTime          @updatedAt @map("updated_at")
+
+  resource        Resource          @relation(fields: [resourceId], references: [id], onDelete: Cascade)
+  reports         InterviewReport[]
+
+  @@map("interviews")
+}
+
+enum ReportStatus {
+  DRAFT
+  SUBMITTED
+  APPROVED
+  REVISION_REQUIRED
+}
+
+model InterviewReport {
+  id               String       @id @default(uuid())
+  interviewId      String       @map("interview_id")
+  authorId         String       @map("author_id")
+  version          Int          @default(1)
+  content          String       @db.Text
+  audioFileId      String?      @map("audio_file_id")
+  transcriptFileId String?      @map("transcript_file_id")
+  status           ReportStatus @default(DRAFT)
+  createdAt        DateTime     @default(now()) @map("created_at")
+  updatedAt        DateTime     @updatedAt @map("updated_at")
+
+  interview        Interview    @relation(fields: [interviewId], references: [id], onDelete: Cascade)
+
+  @@map("interview_reports")
+}
+
+// ----------------------------------------------------------------------------
+// 5. Scientific Authority & Review Decisions (D-02, D-03, FR-045, FR-057)
+// ----------------------------------------------------------------------------
+
+enum ReviewDecisionType {
+  APPROVED
+  CHANGES_REQUESTED
+}
+
+model ReviewDecision {
+  id                String             @id @default(uuid())
+  stageSubmissionId String?            @map("stage_submission_id")
+  reviewerId        String             @map("reviewer_id")
+  decision          ReviewDecisionType
+  expectedVersion   Int                @map("expected_version")
+  actualVersion     Int                @map("actual_version")
+  reason            String             @db.Text
+  idempotencyKey    String             @unique @map("idempotency_key")
+  decidedAt         DateTime           @default(now()) @map("decided_at")
+
+  stageSubmission   StageSubmission?   @relation(fields: [stageSubmissionId], references: [id], onDelete: SetNull)
+
+  @@map("review_decisions")
+}
+
+// ----------------------------------------------------------------------------
+// 6. Scenarios (Internal bank only, no public explore per MVP boundaries)
+// ----------------------------------------------------------------------------
+
+enum ScenarioStatus {
+  DRAFT
+  UNDER_REVIEW
+  APPROVED_INTERNAL
+  ARCHIVED
+}
+
+model Scenario {
+  id             String         @id @default(uuid())
+  researchCaseId String         @map("research_case_id")
+  title          String
+  summary        String         @db.Text
+  content        String         @db.Text
+  version        Int            @default(1)
+  status         ScenarioStatus @default(DRAFT)
+  createdAt      DateTime       @default(now()) @map("created_at")
+  updatedAt      DateTime       @updatedAt @map("updated_at")
+
+  researchCase   ResearchCase   @relation(fields: [researchCaseId], references: [id], onDelete: Cascade)
+
+  @@map("scenarios")
+}
+
+// ----------------------------------------------------------------------------
+// 7. Storage, Messages, Notifications, Audit, Outbox & Archive
+// ----------------------------------------------------------------------------
+
+model StoredObject {
+  id             String   @id @default(uuid())
+  bucket         String
+  objectKey      String   @unique @map("object_key")
+  originalName   String   @map("original_name")
+  mimeType       String   @map("mime_type")
+  fileSizeBytes  BigInt   @map("file_size_bytes")
+  isVirusScanned Boolean  @default(false) @map("is_virus_scanned")
+  isPrivate      Boolean  @default(true) @map("is_private")
+  uploadedById   String   @map("uploaded_by_id")
+  createdAt      DateTime @default(now()) @map("created_at")
+
+  @@map("stored_objects")
+}
+
+enum ConversationType {
+  DIRECT_SUPERVISOR_TRAINEE // Restricted 1:1 chat per FR-003
+  RESEARCH_TEAM_INTERNAL
+}
+
+model Conversation {
+  id             String                    @id @default(uuid())
+  type           ConversationType
+  researchCaseId String?                   @map("research_case_id")
+  createdAt      DateTime                  @default(now()) @map("created_at")
+  updatedAt      DateTime                  @updatedAt @map("updated_at")
+
+  messages       Message[]
+  participants   ConversationParticipant[]
+
+  @@map("conversations")
+}
+
+model ConversationParticipant {
+  conversationId String       @map("conversation_id")
+  userId         String       @map("user_id")
+  joinedAt       DateTime     @default(now()) @map("joined_at")
+
+  conversation   Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+
+  @@id([conversationId, userId])
+  @@map("conversation_participants")
+}
+
+model Message {
+  id             String       @id @default(uuid())
+  conversationId String       @map("conversation_id")
+  senderId       String       @map("sender_id")
+  content        String       @db.Text
+  attachmentId   String?      @map("attachment_id")
+  createdAt      DateTime     @default(now()) @map("created_at")
+
+  conversation   Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+
+  @@map("messages")
+}
+
+model Notification {
+  id         String   @id @default(uuid())
+  userId     String   @map("user_id")
+  type       String
+  title      String
+  body       String   @db.Text
+  isRead     Boolean  @default(false) @map("is_read")
+  isCritical Boolean  @default(false) @map("is_critical") // D-04: Only critical triggers immediate push
+  createdAt  DateTime @default(now()) @map("created_at")
+
+  @@map("notifications")
+}
+
+model AuditEvent {
+  id            String   @id @default(uuid())
+  aggregateType String   @map("aggregate_type")
+  aggregateId   String   @map("aggregate_id")
+  action        String
+  actorId       String?  @map("actor_id")
+  ipAddress     String?  @map("ip_address")
+  payload       Json?
+  createdAt     DateTime @default(now()) @map("created_at")
+
+  @@map("audit_events")
+}
+
+enum OutboxStatus {
+  PENDING
+  PROCESSED
+  FAILED
+}
+
+model OutboxEvent {
+  id          String       @id @default(uuid())
+  eventType   String       @map("event_type")
+  payload     Json
+  status      OutboxStatus @default(PENDING)
+  retryCount  Int          @default(0) @map("retry_count")
+  createdAt   DateTime     @default(now()) @map("created_at")
+  processedAt DateTime?    @map("processed_at")
+
+  @@map("outbox_events")
+}
+
+enum ArchiveJobStatus {
+  QUEUED
+  RUNNING
+  COMPLETED
+  FAILED
+}
+
+model ArchiveJob {
+  id              String           @id @default(uuid())
+  targetType      String           @map("target_type")
+  targetId        String           @map("target_id")
+  status          ArchiveJobStatus @default(QUEUED)
+  storageLocation String?          @map("storage_location")
+  createdAt       DateTime         @default(now()) @map("created_at")
+  completedAt     DateTime?        @map("completed_at")
+
+  @@map("archive_jobs")
+}

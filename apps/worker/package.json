@@ -8,6 +8,7 @@
     "dev": "ts-node src/main.ts",
     "build": "tsc",
     "typecheck": "tsc --noEmit",
+    "test": "echo \"Worker test placeholder\"",
     "lint": "echo \"Worker lint placeholder\""
   },
   "dependencies": {

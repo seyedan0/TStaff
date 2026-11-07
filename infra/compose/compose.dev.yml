@@ -11,7 +11,7 @@ services:
     volumes:
       - tstaff_pg_data:/var/lib/postgresql/data
     healthcheck:
-      test: ['CMD-SHELL', 'pg_isready -U tstaff_user -d tstaff_dev']
+      test: [ 'CMD-SHELL', 'pg_isready -U tstaff_user -d tstaff_dev' ]
       interval: 5s
       timeout: 5s
       retries: 5

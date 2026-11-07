@@ -1,4 +1,6 @@
 import { Module } from '@nestjs/common';
+import { PrismaModule } from './platform/prisma/prisma.module.js';
+import { HealthModule } from './platform/health/health.module.js';
 import { IdentityModule } from './modules/identity/identity.module.js';
 import { ApplicantsModule } from './modules/applicants/applicants.module.js';
 import { OrganizationModule } from './modules/organization/organization.module.js';
@@ -19,6 +21,11 @@ import { SettingsModule } from './modules/settings/settings.module.js';
 
 @Module({
   imports: [
+    // Core Platform Modules
+    PrismaModule,
+    HealthModule,
+
+    // 17 Domain Feature Modules
     IdentityModule,
     ApplicantsModule,
     OrganizationModule,
@@ -40,4 +47,4 @@ import { SettingsModule } from './modules/settings/settings.module.js';
   controllers: [],
   providers: [],
 })
-export class AppModule { }
+export class AppModule {}
