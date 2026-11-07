@@ -1,4 +1,4 @@
-import { Controller, Post, Body, HttpCode, HttpStatus } from "@nestjs/common";
+import { Controller, Post, Body, HttpCode, HttpStatus, Inject } from "@nestjs/common";
 import { ApiTags, ApiOperation, ApiResponse } from "@nestjs/swagger";
 import { LoginDtoSchema } from "@tstaff/contracts";
 import { IdentityService } from "../application/identity.service.js";
@@ -6,7 +6,10 @@ import { IdentityService } from "../application/identity.service.js";
 @ApiTags("Auth (احراز هویت و ورود)")
 @Controller("auth")
 export class AuthController {
-  constructor(private readonly identityService: IdentityService) {}
+  constructor(
+    @Inject(IdentityService)
+    private readonly identityService: IdentityService,
+  ) {}
 
   @Post("login")
   @HttpCode(HttpStatus.OK)

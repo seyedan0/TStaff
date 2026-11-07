@@ -1,11 +1,14 @@
-import { Controller, Get, Param, NotFoundException } from "@nestjs/common";
+import { Controller, Get, Param, NotFoundException, Inject } from "@nestjs/common";
 import { ApiTags, ApiOperation } from "@nestjs/swagger";
 import { DocumentsService } from "../application/documents.service.js";
 
 @ApiTags("Documents (شیوه‌نامه‌ها و اسناد آموزشی)")
 @Controller("documents")
 export class DocumentsController {
-  constructor(private readonly documentsService: DocumentsService) {}
+  constructor(
+    @Inject(DocumentsService)
+    private readonly documentsService: DocumentsService,
+  ) {}
 
   @Get()
   @ApiOperation({

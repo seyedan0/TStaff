@@ -7,6 +7,7 @@ import {
   Query,
   HttpCode,
   HttpStatus,
+  Inject,
 } from "@nestjs/common";
 import { ApiTags, ApiOperation, ApiResponse } from "@nestjs/swagger";
 import {
@@ -19,7 +20,10 @@ import { ApplicantsService } from "../application/applicants.service.js";
 @ApiTags("Applicants (پذیرش و ارزیابی متقاضیان)")
 @Controller("applicants")
 export class ApplicantsController {
-  constructor(private readonly applicantsService: ApplicantsService) {}
+  constructor(
+    @Inject(ApplicantsService)
+    private readonly applicantsService: ApplicantsService,
+  ) {}
 
   @Post()
   @ApiOperation({

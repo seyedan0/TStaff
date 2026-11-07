@@ -8,7 +8,7 @@
     "dev": "ts-node src/main.ts",
     "build": "tsc",
     "typecheck": "tsc --noEmit",
-    "test": "echo \"Worker test placeholder\"",
+    "test": "vitest run",
     "lint": "echo \"Worker lint placeholder\""
   },
   "dependencies": {
@@ -18,7 +18,8 @@
   "devDependencies": {
     "@types/node": "^22.10.7",
     "ts-node": "^10.9.2",
-    "typescript": "^5.7.3"
+    "typescript": "^5.7.3",
+    "vitest": "^2.1.8"
   }
 }
 
