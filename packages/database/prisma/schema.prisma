@@ -17,6 +17,7 @@ enum ApplicantStatus {
   APPROVED
   REJECTED
   ARCHIVED
+  REOPEN_REQUESTED
 }
 
 enum AdmissionDecisionType {
@@ -25,18 +26,25 @@ enum AdmissionDecisionType {
   REVISION_REQUIRED
 }
 
+enum UserStage {
+  APPRENTICE
+  INTERN
+}
+
 model Applicant {
-  id              String            @id @default(uuid())
-  fullName        String            @map("full_name")
-  nationalId      String?           @map("national_id")
-  phoneNumber     String            @map("phone_number")
-  age             Int               @map("age") // D-01, FR-056: Strict positive integer, never derived
-  educationLevel  String?           @map("education_level")
-  fieldOfStudy    String?           @map("field_of_study")
-  status          ApplicantStatus   @default(PENDING)
-  rejectionReason String?           @map("rejection_reason")
-  createdAt       DateTime          @default(now()) @map("created_at")
-  updatedAt       DateTime          @updatedAt @map("updated_at")
+  id              String          @id @default(uuid())
+  fullName        String          @map("full_name")
+  nationalId      String?         @map("national_id")
+  phoneNumber     String          @map("phone_number")
+  age             Int             @map("age") // D-01, FR-056: Strict positive integer, never derived
+  provinceId      String?         @map("province_id")
+  educationLevel  String?         @map("education_level")
+  fieldOfStudy    String?         @map("field_of_study")
+  status          ApplicantStatus @default(PENDING)
+  notes           String?         @db.Text
+  rejectionReason String?         @map("rejection_reason")
+  createdAt       DateTime        @default(now()) @map("created_at")
+  updatedAt       DateTime        @updatedAt @map("updated_at")
 
   admissionReviews AdmissionReview[]
   user             User?
@@ -54,7 +62,7 @@ model AdmissionReview {
   createdAt   DateTime              @default(now()) @map("created_at")
   updatedAt   DateTime              @updatedAt @map("updated_at")
 
-  applicant   Applicant             @relation(fields: [applicantId], references: [id], onDelete: Cascade)
+  applicant Applicant @relation(fields: [applicantId], references: [id], onDelete: Cascade)
 
   @@map("admission_reviews")
 }
@@ -64,20 +72,21 @@ model AdmissionReview {
 // ----------------------------------------------------------------------------
 
 model User {
-  id           String        @id @default(uuid())
-  applicantId  String?       @unique @map("applicant_id") // Created ONLY after admission approval
-  phoneNumber  String        @unique @map("phone_number")
-  email        String?       @unique
-  passwordHash String?       @map("password_hash")
-  isActive     Boolean       @default(true) @map("is_active")
-  isMfaEnabled Boolean       @default(false) @map("is_mfa_enabled")
-  createdAt    DateTime      @default(now()) @map("created_at")
-  updatedAt    DateTime      @updatedAt @map("updated_at")
+  id           String    @id @default(uuid())
+  applicantId  String?   @unique @map("applicant_id") // Created ONLY after admission approval
+  phoneNumber  String    @unique @map("phone_number")
+  email        String?   @unique
+  passwordHash String?   @map("password_hash")
+  stage        UserStage @default(APPRENTICE) @map("stage")
+  isActive     Boolean   @default(true) @map("is_active")
+  isMfaEnabled Boolean   @default(false) @map("is_mfa_enabled")
+  createdAt    DateTime  @default(now()) @map("created_at")
+  updatedAt    DateTime  @updatedAt @map("updated_at")
 
-  applicant    Applicant?    @relation(fields: [applicantId], references: [id])
-  profile      Profile?
-  sessions     UserSession[]
-  userRoles    UserRole[]
+  applicant Applicant?    @relation(fields: [applicantId], references: [id])
+  profile   Profile?
+  sessions  UserSession[]
+  userRoles UserRole[]
 
   @@map("users")
 }
@@ -92,7 +101,7 @@ model Profile {
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
 
-  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@map("profiles")
 }
@@ -106,7 +115,7 @@ model UserSession {
   expiresAt DateTime @map("expires_at")
   createdAt DateTime @default(now()) @map("created_at")
 
-  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@map("user_sessions")
 }
@@ -135,19 +144,19 @@ model UserRole {
   roleId     String   @map("role_id")
   assignedAt DateTime @default(now()) @map("assigned_at")
 
-  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  role       Role     @relation(fields: [roleId], references: [id], onDelete: Cascade)
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  role Role @relation(fields: [roleId], references: [id], onDelete: Cascade)
 
   @@id([userId, roleId])
   @@map("user_roles")
 }
 
 model RolePermission {
-  roleId       String     @map("role_id")
-  permissionId String     @map("permission_id")
+  roleId       String @map("role_id")
+  permissionId String @map("permission_id")
 
-  role         Role       @relation(fields: [roleId], references: [id], onDelete: Cascade)
-  permission   Permission @relation(fields: [permissionId], references: [id], onDelete: Cascade)
+  role       Role       @relation(fields: [roleId], references: [id], onDelete: Cascade)
+  permission Permission @relation(fields: [permissionId], references: [id], onDelete: Cascade)
 
   @@id([roleId, permissionId])
   @@map("role_permissions")
@@ -169,21 +178,21 @@ enum ResearchStatus {
 }
 
 enum AssignmentRole {
-  MAIN_SUPERVISOR        // D-02: Exactly 1 active
+  MAIN_SUPERVISOR // D-02: Exactly 1 active
   COLLABORATOR_SUPERVISOR // D-02: At most 1 active
   PRIMARY_RESEARCHER
   ASSISTANT_RESEARCHER
 }
 
 model ResearchCase {
-  id          String               @id @default(uuid())
-  title       String
-  code        String               @unique
-  subject     String
-  status      ResearchStatus       @default(DRAFT)
-  version     Int                  @default(1)
-  createdAt   DateTime             @default(now()) @map("created_at")
-  updatedAt   DateTime             @updatedAt @map("updated_at")
+  id        String         @id @default(uuid())
+  title     String
+  code      String         @unique
+  subject   String
+  status    ResearchStatus @default(DRAFT)
+  version   Int            @default(1)
+  createdAt DateTime       @default(now()) @map("created_at")
+  updatedAt DateTime       @updatedAt @map("updated_at")
 
   assignments ResearchAssignment[]
   stages      StageInstance[]
@@ -202,7 +211,7 @@ model ResearchAssignment {
   assignedAt     DateTime       @default(now()) @map("assigned_at")
   unassignedAt   DateTime?      @map("unassigned_at")
 
-  researchCase   ResearchCase   @relation(fields: [researchCaseId], references: [id], onDelete: Cascade)
+  researchCase ResearchCase @relation(fields: [researchCaseId], references: [id], onDelete: Cascade)
 
   @@map("research_assignments")
 }
@@ -223,16 +232,16 @@ enum StageStatus {
 }
 
 model StageInstance {
-  id             String            @id @default(uuid())
-  researchCaseId String            @map("research_case_id")
-  stageType      StageType         @map("stage_type")
-  status         StageStatus       @default(PENDING)
-  version        Int               @default(1)
-  createdAt      DateTime          @default(now()) @map("created_at")
-  updatedAt      DateTime          @updatedAt @map("updated_at")
+  id             String      @id @default(uuid())
+  researchCaseId String      @map("research_case_id")
+  stageType      StageType   @map("stage_type")
+  status         StageStatus @default(PENDING)
+  version        Int         @default(1)
+  createdAt      DateTime    @default(now()) @map("created_at")
+  updatedAt      DateTime    @updatedAt @map("updated_at")
 
-  researchCase   ResearchCase      @relation(fields: [researchCaseId], references: [id], onDelete: Cascade)
-  submissions    StageSubmission[]
+  researchCase ResearchCase      @relation(fields: [researchCaseId], references: [id], onDelete: Cascade)
+  submissions  StageSubmission[]
 
   @@unique([researchCaseId, stageType])
   @@map("stage_instances")
@@ -254,8 +263,8 @@ model StageSubmission {
   status          SubmissionStatus @default(SUBMITTED)
   submittedAt     DateTime         @default(now()) @map("submitted_at")
 
-  stageInstance   StageInstance    @relation(fields: [stageInstanceId], references: [id], onDelete: Cascade)
-  decisions       ReviewDecision[]
+  stageInstance StageInstance    @relation(fields: [stageInstanceId], references: [id], onDelete: Cascade)
+  decisions     ReviewDecision[]
 
   @@map("stage_submissions")
 }
@@ -289,8 +298,8 @@ model Resource {
   createdAt      DateTime       @default(now()) @map("created_at")
   updatedAt      DateTime       @updatedAt @map("updated_at")
 
-  researchCase   ResearchCase   @relation(fields: [researchCaseId], references: [id], onDelete: Cascade)
-  interview      Interview?     // D-07: Maximum 1 interview per resource strictly enforced
+  researchCase ResearchCase @relation(fields: [researchCaseId], references: [id], onDelete: Cascade)
+  interview    Interview? // D-07: Maximum 1 interview per resource strictly enforced
 
   @@map("resources")
 }
@@ -302,17 +311,17 @@ enum InterviewStatus {
 }
 
 model Interview {
-  id              String            @id @default(uuid())
-  resourceId      String            @unique @map("resource_id") // Enforces uq_interview_resource
-  intervieweeName String            @map("interviewee_name")
-  intervieweeAge  Int?              @map("interviewee_age") // Positive integer
-  conductedAt     DateTime          @map("conducted_at")
-  status          InterviewStatus   @default(SCHEDULED)
-  createdAt       DateTime          @default(now()) @map("created_at")
-  updatedAt       DateTime          @updatedAt @map("updated_at")
+  id              String          @id @default(uuid())
+  resourceId      String          @unique @map("resource_id") // Enforces uq_interview_resource
+  intervieweeName String          @map("interviewee_name")
+  intervieweeAge  Int?            @map("interviewee_age") // Positive integer
+  conductedAt     DateTime        @map("conducted_at")
+  status          InterviewStatus @default(SCHEDULED)
+  createdAt       DateTime        @default(now()) @map("created_at")
+  updatedAt       DateTime        @updatedAt @map("updated_at")
 
-  resource        Resource          @relation(fields: [resourceId], references: [id], onDelete: Cascade)
-  reports         InterviewReport[]
+  resource Resource          @relation(fields: [resourceId], references: [id], onDelete: Cascade)
+  reports  InterviewReport[]
 
   @@map("interviews")
 }
@@ -336,7 +345,7 @@ model InterviewReport {
   createdAt        DateTime     @default(now()) @map("created_at")
   updatedAt        DateTime     @updatedAt @map("updated_at")
 
-  interview        Interview    @relation(fields: [interviewId], references: [id], onDelete: Cascade)
+  interview Interview @relation(fields: [interviewId], references: [id], onDelete: Cascade)
 
   @@map("interview_reports")
 }
@@ -361,7 +370,7 @@ model ReviewDecision {
   idempotencyKey    String             @unique @map("idempotency_key")
   decidedAt         DateTime           @default(now()) @map("decided_at")
 
-  stageSubmission   StageSubmission?   @relation(fields: [stageSubmissionId], references: [id], onDelete: SetNull)
+  stageSubmission StageSubmission? @relation(fields: [stageSubmissionId], references: [id], onDelete: SetNull)
 
   @@map("review_decisions")
 }
@@ -388,7 +397,7 @@ model Scenario {
   createdAt      DateTime       @default(now()) @map("created_at")
   updatedAt      DateTime       @updatedAt @map("updated_at")
 
-  researchCase   ResearchCase   @relation(fields: [researchCaseId], references: [id], onDelete: Cascade)
+  researchCase ResearchCase @relation(fields: [researchCaseId], references: [id], onDelete: Cascade)
 
   @@map("scenarios")
 }
@@ -418,38 +427,38 @@ enum ConversationType {
 }
 
 model Conversation {
-  id             String                    @id @default(uuid())
+  id             String           @id @default(uuid())
   type           ConversationType
-  researchCaseId String?                   @map("research_case_id")
-  createdAt      DateTime                  @default(now()) @map("created_at")
-  updatedAt      DateTime                  @updatedAt @map("updated_at")
+  researchCaseId String?          @map("research_case_id")
+  createdAt      DateTime         @default(now()) @map("created_at")
+  updatedAt      DateTime         @updatedAt @map("updated_at")
 
-  messages       Message[]
-  participants   ConversationParticipant[]
+  messages     Message[]
+  participants ConversationParticipant[]
 
   @@map("conversations")
 }
 
 model ConversationParticipant {
-  conversationId String       @map("conversation_id")
-  userId         String       @map("user_id")
-  joinedAt       DateTime     @default(now()) @map("joined_at")
+  conversationId String   @map("conversation_id")
+  userId         String   @map("user_id")
+  joinedAt       DateTime @default(now()) @map("joined_at")
 
-  conversation   Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  conversation Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
 
   @@id([conversationId, userId])
   @@map("conversation_participants")
 }
 
 model Message {
-  id             String       @id @default(uuid())
-  conversationId String       @map("conversation_id")
-  senderId       String       @map("sender_id")
-  content        String       @db.Text
-  attachmentId   String?      @map("attachment_id")
-  createdAt      DateTime     @default(now()) @map("created_at")
+  id             String   @id @default(uuid())
+  conversationId String   @map("conversation_id")
+  senderId       String   @map("sender_id")
+  content        String   @db.Text
+  attachmentId   String?  @map("attachment_id")
+  createdAt      DateTime @default(now()) @map("created_at")
 
-  conversation   Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  conversation Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
 
   @@map("messages")
 }
