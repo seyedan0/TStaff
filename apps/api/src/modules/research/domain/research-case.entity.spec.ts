@@ -56,22 +56,24 @@ describe("ResearchCase Domain Entity (D-02, D-03, D-05, AT-29, AT-33)", () => {
 
     // Advance to EXPLANATION (v2)
     const v2 = rCase.advanceStage(1);
-    // Advance to PRESCRIPTION (v3)
-    const v3 = v2.advanceStage(2);
+    // Approve EXPLANATION by supervisor (v3) (FR-018)
+    const v3Approved = v2.applyReviewDecision("EXPLANATION", "APPROVED", 2);
+    // Advance to PRESCRIPTION (v4)
+    const v4 = v3Approved.advanceStage(3);
 
-    expect(v3.status).toBe("PRESCRIPTION_STAGE");
-    expect(v3.getStage("SOURCES")?.status).toBe("APPROVED");
-    expect(v3.getStage("EXPLANATION")?.status).toBe("APPROVED");
-    expect(v3.getStage("PRESCRIPTION")?.status).toBe("IN_PROGRESS");
+    expect(v4.status).toBe("PRESCRIPTION_STAGE");
+    expect(v4.getStage("SOURCES")?.status).toBe("APPROVED");
+    expect(v4.getStage("EXPLANATION")?.status).toBe("APPROVED");
+    expect(v4.getStage("PRESCRIPTION")?.status).toBe("IN_PROGRESS");
 
     // Rollback to SOURCES (due to new interviews needed)
-    const rolledBack = v3.rollbackStage(
+    const rolledBack = v4.rollbackStage(
       "SOURCES",
       "نیاز به داده‌های میدانی جدید",
-      3,
+      4,
     );
 
-    expect(rolledBack.version).toBe(4);
+    expect(rolledBack.version).toBe(5);
     expect(rolledBack.status).toBe("SOURCES_STAGE");
     expect(rolledBack.getStage("SOURCES")?.status).toBe("IN_PROGRESS");
 
@@ -81,7 +83,7 @@ describe("ResearchCase Domain Entity (D-02, D-03, D-05, AT-29, AT-33)", () => {
 
     // Forward rollback jump is blocked (cannot rollback to future stage)
     expect(() =>
-      rolledBack.rollbackStage("PRESCRIPTION", "پرش غیرمجاز", 4)
+      rolledBack.rollbackStage("PRESCRIPTION", "پرش غیرمجاز", 5)
     ).toThrow(InvalidStageTransitionError);
   });
 

@@ -40,3 +40,24 @@ export class UnauthorizedSupervisorError extends DomainError {
     );
   }
 }
+
+export class ScenarioPrerequisiteNotMetError extends DomainError {
+  constructor(message: string) {
+    super(message, "SCENARIO_PREREQUISITE_NOT_MET");
+  }
+}
+
+/**
+ * Rule D-05 / FR-061 / AT-33:
+ * Dependent stages invalidation.
+ * Publication of scenario is strictly forbidden if any prerequisite stage is in REVIEW_REQUIRED.
+ */
+export class PrerequisiteStageReviewRequiredError extends DomainError {
+  constructor(stageType: string) {
+    super(
+      `امکان داوری و انتشار سناریو در بانک داخلی وجود ندارد زیرا مرحله پیش‌نیاز (${stageType}) به دلیل بازگشت یا تغییر نیازمند بازبینی مجدد (REVIEW_REQUIRED) است (D-05, FR-061, AT-33)`,
+      "PREREQUISITE_REVIEW_REQUIRED",
+    );
+  }
+}
+

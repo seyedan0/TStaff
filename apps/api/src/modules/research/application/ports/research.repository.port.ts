@@ -1,4 +1,13 @@
 import { ResearchCase } from "../../domain/research-case.entity.js";
+import type { StageType, StageStatus } from "@tstaff/contracts";
+
+export interface StageInstanceDto {
+  id: string;
+  researchCaseId: string;
+  stageType: StageType;
+  status: StageStatus;
+  version: number;
+}
 
 export interface ResearchRepositoryPort {
   findById(id: string): Promise<ResearchCase | null>;
@@ -9,4 +18,6 @@ export interface ResearchRepositoryPort {
     expectedVersion: number,
   ): Promise<void>;
   findAll(): Promise<ResearchCase[]>;
+  findStageInstanceById(stageId: string): Promise<StageInstanceDto | null>;
+  updateStageStatus(stageId: string, status: StageStatus): Promise<void>;
 }

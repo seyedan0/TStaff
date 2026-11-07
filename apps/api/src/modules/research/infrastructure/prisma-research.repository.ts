@@ -115,6 +115,35 @@ export class PrismaResearchRepository implements ResearchRepositoryPort {
     return rawList.map((raw) => this.toDomain(raw));
   }
 
+  async findStageInstanceById(
+    stageId: string,
+  ): Promise<{
+    id: string;
+    researchCaseId: string;
+    stageType: any;
+    status: any;
+    version: number;
+  } | null> {
+    const raw = await this.prisma.stageInstance.findUnique({
+      where: { id: stageId },
+    });
+    if (!raw) return null;
+    return {
+      id: raw.id,
+      researchCaseId: raw.researchCaseId,
+      stageType: raw.stageType,
+      status: raw.status,
+      version: raw.version,
+    };
+  }
+
+  async updateStageStatus(stageId: string, status: any): Promise<void> {
+    await this.prisma.stageInstance.update({
+      where: { id: stageId },
+      data: { status },
+    });
+  }
+
   private toDomain(raw: {
     id: string;
     title: string;

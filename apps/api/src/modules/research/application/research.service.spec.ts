@@ -41,6 +41,31 @@ class InMemoryResearchRepository implements ResearchRepositoryPort {
   async findAll(): Promise<ResearchCase[]> {
     return this.cases;
   }
+
+  async findStageInstanceById(stageId: string) {
+    for (const c of this.cases) {
+      const s = c.stages.find((st) => st.id === stageId);
+      if (s) {
+        return {
+          id: s.id,
+          researchCaseId: s.researchCaseId,
+          stageType: s.stageType,
+          status: s.status,
+          version: s.version,
+        };
+      }
+    }
+    return null;
+  }
+
+  async updateStageStatus(stageId: string, status: any) {
+    for (const c of this.cases) {
+      const s = c.stages.find((st) => st.id === stageId);
+      if (s) {
+        (s as any).props.status = status;
+      }
+    }
+  }
 }
 
 describe("ResearchService Concurrency & Stage Workflow (D-02, D-03, D-05, D-07, AT-29, AT-33)", () => {
@@ -174,18 +199,23 @@ describe("ResearchService Concurrency & Stage Workflow (D-02, D-03, D-05, D-07, 
 
     // Advance to EXPLANATION (v2)
     const v2 = await service.advanceStage(rCase.id, 1);
-    // Advance to PRESCRIPTION (v3)
-    const v3 = await service.advanceStage(rCase.id, 2);
-    expect(v3.status).toBe("PRESCRIPTION_STAGE");
+    // Approve EXPLANATION by supervisor (FR-018)
+    await service.reviewDecision(rCase.id, "EXPLANATION", "user-main", {
+      decision: "APPROVED",
+      expectedVersion: 2,
+    });
+    // Advance to PRESCRIPTION (v4)
+    const v4 = await service.advanceStage(rCase.id, 3);
+    expect(v4.status).toBe("PRESCRIPTION_STAGE");
 
-    // Rollback to SOURCES with expectedVersion 3
+    // Rollback to SOURCES with expectedVersion 4
     const rolledBack = await service.rollbackStage(rCase.id, {
       targetStage: "SOURCES",
       reason: "نیاز به تجدید مصاحبه‌ها",
-      expectedVersion: 3,
+      expectedVersion: 4,
     });
 
-    expect(rolledBack.version).toBe(4);
+    expect(rolledBack.version).toBe(5);
     expect(rolledBack.status).toBe("SOURCES_STAGE");
     expect(rolledBack.getStage("SOURCES")?.status).toBe("IN_PROGRESS");
     expect(rolledBack.getStage("EXPLANATION")?.status).toBe("REVIEW_REQUIRED");

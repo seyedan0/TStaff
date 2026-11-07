@@ -91,10 +91,22 @@ export class ResearchCase {
       throw new StaleRevisionError(this.props.version, expectedVersion);
     }
 
-    const currentActiveStageIndex = STAGE_ORDER.findIndex((stageType) => {
+    let currentActiveStageIndex = STAGE_ORDER.findIndex((stageType) => {
       const stage = this.getStage(stageType);
       return stage && stage.status === "IN_PROGRESS";
     });
+
+    if (currentActiveStageIndex < 0) {
+      // Check if current stage is already approved by review and ready to advance
+      const stageFromStatus = this.props.status.replace(
+        "_STAGE",
+        "",
+      ) as StageType;
+      const stageIdx = STAGE_ORDER.indexOf(stageFromStatus);
+      if (stageIdx >= 0) {
+        currentActiveStageIndex = stageIdx;
+      }
+    }
 
     if (currentActiveStageIndex < 0) {
       throw new InvalidStageTransitionError(
@@ -104,6 +116,18 @@ export class ResearchCase {
 
     const currentStageType = STAGE_ORDER[currentActiveStageIndex]!;
     const nextStageType = STAGE_ORDER[currentActiveStageIndex + 1];
+
+    const currentStage = this.getStage(currentStageType);
+    // FR-018 & FR-021: Advancing EXPLANATION or PRESCRIPTION requires prior scientific review approval
+    if (
+      (currentStageType === "EXPLANATION" ||
+        currentStageType === "PRESCRIPTION") &&
+      currentStage?.status !== "APPROVED"
+    ) {
+      throw new InvalidStageTransitionError(
+        `مرحله ${currentStageType} هنوز توسط مدیر علمی تأیید نشده است و امکان پیشروی وجود ندارد (FR-018, FR-021)`,
+      );
+    }
 
     const updatedStages = this.props.stages.map((s) => {
       if (s.stageType === currentStageType) {
@@ -143,10 +167,21 @@ export class ResearchCase {
       throw new StaleRevisionError(this.props.version, expectedVersion);
     }
 
-    const currentActiveStageIndex = STAGE_ORDER.findIndex((stageType) => {
+    let currentActiveStageIndex = STAGE_ORDER.findIndex((stageType) => {
       const stage = this.getStage(stageType);
-      return stage && stage.status === 'IN_PROGRESS';
+      return stage && stage.status === "IN_PROGRESS";
     });
+
+    if (currentActiveStageIndex < 0) {
+      const stageFromStatus = this.props.status.replace(
+        "_STAGE",
+        "",
+      ) as StageType;
+      const stageIdx = STAGE_ORDER.indexOf(stageFromStatus);
+      if (stageIdx >= 0) {
+        currentActiveStageIndex = stageIdx;
+      }
+    }
 
     const targetIndex = STAGE_ORDER.indexOf(targetStage);
     if (
@@ -155,8 +190,8 @@ export class ResearchCase {
     ) {
       throw new InvalidStageTransitionError(
         `عقب‌گرد صرفاً به مراحل قبلی مجاز است (مرحله جاری: ${
-          currentActiveStageIndex >= 0 ? STAGE_ORDER[currentActiveStageIndex] : 'نامشخص'
-        }، مرحله مقصد: ${targetStage})`
+          currentActiveStageIndex >= 0 ? STAGE_ORDER[currentActiveStageIndex] : "نامشخص"
+        }، مرحله مقصد: ${targetStage})`,
       );
     }
 

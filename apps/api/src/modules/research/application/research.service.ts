@@ -4,15 +4,22 @@ import type {
   RollbackStageDto,
   ReviewDecisionDto,
   StageType,
+  StageStatus,
 } from "@tstaff/contracts";
 import { ResearchCase } from "../domain/research-case.entity.js";
 import {
   ResearchCaseNotFoundError,
   UnauthorizedSupervisorError,
+  InvalidStageTransitionError,
+  ScenarioPrerequisiteNotMetError,
+  PrerequisiteStageReviewRequiredError,
 } from "../domain/research-errors.js";
 import { AssignmentsService } from "../../assignments/application/assignments.service.js";
 import { ResourcesService } from "../../resources/application/resources.service.js";
-import type { ResearchRepositoryPort } from "./ports/research.repository.port.js";
+import type {
+  ResearchRepositoryPort,
+  StageInstanceDto,
+} from "./ports/research.repository.port.js";
 
 export const RESEARCH_REPOSITORY = Symbol("RESEARCH_REPOSITORY");
 
@@ -113,5 +120,56 @@ export class ResearchService {
 
   async listCases(): Promise<ResearchCase[]> {
     return this.researchRepo.findAll();
+  }
+
+  async getStageInstance(stageId: string): Promise<StageInstanceDto> {
+    const stage = await this.researchRepo.findStageInstanceById(stageId);
+    if (!stage) {
+      throw new InvalidStageTransitionError(
+        `مرحله پژوهشی با شناسه ${stageId} یافت نشد`,
+      );
+    }
+    return stage;
+  }
+
+  async updateStageStatus(
+    stageId: string,
+    status: StageStatus,
+  ): Promise<void> {
+    await this.researchRepo.updateStageStatus(stageId, status);
+  }
+
+  /**
+   * Rule D-05 / FR-061 / AT-33:
+   * Asserts that all prerequisite stages (SOURCES, EXPLANATION, PRESCRIPTION) are APPROVED
+   * and none are in REVIEW_REQUIRED.
+   */
+  async assertPrerequisitesApprovedForScenario(caseId: string): Promise<void> {
+    const rCase = await this.getCase(caseId);
+
+    // Check if any stage is in REVIEW_REQUIRED
+    const reviewRequiredStage = rCase.stages.find(
+      (s) => s.status === "REVIEW_REQUIRED",
+    );
+    if (reviewRequiredStage) {
+      throw new PrerequisiteStageReviewRequiredError(
+        reviewRequiredStage.stageType,
+      );
+    }
+
+    // Stages SOURCES, EXPLANATION, PRESCRIPTION must be APPROVED
+    const prerequisiteTypes: StageType[] = [
+      "SOURCES",
+      "EXPLANATION",
+      "PRESCRIPTION",
+    ];
+    for (const pType of prerequisiteTypes) {
+      const stage = rCase.getStage(pType);
+      if (!stage || stage.status !== "APPROVED") {
+        throw new ScenarioPrerequisiteNotMetError(
+          `مراحل پیش‌نیاز (منابع، تبیین و تجویز) باید قبل از ورود یا تأیید سناریو تکمیل و تأیید شده باشند (مرحله ${pType} در وضعیت ${stage?.status ?? "نامشخص"} است)`,
+        );
+      }
+    }
   }
 }
