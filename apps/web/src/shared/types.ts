@@ -1,13 +1,20 @@
-import type { UserStage, StageType, StageStatus, ApplicantStatus, SupervisorRole } from "@tstaff/contracts";
+import type {
+  UserStage,
+  StageType,
+  StageStatus,
+  ApplicantStatus,
+  SupervisorRole,
+  SystemRole,
+} from "@tstaff/contracts";
 
 export interface CurrentUser {
   id: string;
   phoneNumber: string;
-  fullName?: string | null;
+  fullName: string;
   stage: UserStage;
   isSuspended: boolean;
   provinceId?: string | null;
-  role?: string;
+  role: SystemRole;
 }
 
 export type NavigationTab =

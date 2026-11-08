@@ -11,58 +11,74 @@ interface TestUserPreset {
   roleName: string;
   phone: string;
   pass: string;
+  roleLabel: string;
   badgeVariant: "info" | "success" | "warning" | "neutral";
-  stage: "INTERN" | "APPRENTICE";
 }
 
 const TEST_PRESETS: TestUserPreset[] = [
   {
     title: "مهندس محمد علوی",
-    roleName: "مدیر پیگیری و ارشد (امکان ایجاد مدیران)",
+    roleName: "مدیر پیگیری و ارشد (پایش کشوری و ایجاد مدیران)",
     phone: "09121111111",
     pass: "TStaff@123",
+    roleLabel: "مدیر پیگیری",
     badgeVariant: "warning",
-    stage: "INTERN",
   },
   {
     title: "دکتر علی رضایی",
-    roleName: "مدیر استانی (تهران)",
+    roleName: "مدیر استانی (میز پذیرش متقاضیان و مصاحبه علمی)",
     phone: "09122222222",
     pass: "TStaff@123",
+    roleLabel: "مدیر استانی",
     badgeVariant: "info",
-    stage: "INTERN",
   },
   {
     title: "دکتر مریم حسینی",
-    roleName: "مدیر علمی اصلی پرونده‌ها",
+    roleName: "مدیر علمی (داوری پرونده‌ها و ارزیابی کارآموزان)",
     phone: "09123333333",
     pass: "TStaff@123",
+    roleLabel: "مدیر علمی",
     badgeVariant: "success",
-    stage: "INTERN",
   },
   {
     title: "دکتر مهدی کاظمی",
-    roleName: "مدیر علمی همکار پرونده‌ها",
+    roleName: "مدیر علمی (داوری پرونده‌ها با اختیار برابر D-02)",
     phone: "09124444444",
     pass: "TStaff@123",
+    roleLabel: "مدیر علمی",
+    badgeVariant: "success",
+  },
+  {
+    title: "مهندس احمد محمدی",
+    roleName: "مدیر پشتیبانی (رسیدگی به تیکت‌ها و تعلیق/رفع تعلیق)",
+    phone: "09127777777",
+    pass: "TStaff@123",
+    roleLabel: "مدیر پشتیبانی",
+    badgeVariant: "warning",
+  },
+  {
+    title: "دکتر علیرضا راد",
+    roleName: "مدیر کل و ادمین (مهلت مراحل، فریزر آرشیو و سلامت)",
+    phone: "09129999999",
+    pass: "TStaff@123",
+    roleLabel: "مدیر کل سامانه",
     badgeVariant: "info",
-    stage: "INTERN",
   },
   {
     title: "سارا ابراهیمی",
-    roleName: "دستیار پژوهش (پژوهشگر ارتقایافته)",
+    roleName: "کارورز / دستیار پژوهش (ثبت پرونده و چرخه ۴ مرحله‌ای)",
     phone: "09125555555",
     pass: "TStaff@123",
+    roleLabel: "کارورز",
     badgeVariant: "success",
-    stage: "INTERN",
   },
   {
     title: "رضا میرزایی",
-    roleName: "کارآموز پژوهشی (دسترسی محدود AT-02)",
+    roleName: "کارآموز پژوهشی (فقط مطالعه شیوه‌نامه‌ها و درخواست ارتقا)",
     phone: "09126666666",
     pass: "TStaff@123",
+    roleLabel: "کارآموز",
     badgeVariant: "neutral",
-    stage: "APPRENTICE",
   },
 ];
 
@@ -213,7 +229,7 @@ export const LoginForm: React.FC = () => {
                   <div className="flex items-center gap-2">
                     <span className="font-medium text-slate-200">{p.title}</span>
                     <Badge variant={p.badgeVariant} size="sm">
-                      {p.stage === "APPRENTICE" ? "کارآموز" : "کارورز"}
+                      {p.roleLabel}
                     </Badge>
                   </div>
                   <div className="text-[10px] text-slate-400 mt-0.5">{p.roleName}</div>

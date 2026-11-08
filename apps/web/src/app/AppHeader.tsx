@@ -2,16 +2,31 @@ import React from "react";
 import { ShieldCheck, LogOut, User, Bell } from "lucide-react";
 import { useAuth } from "../features/auth/AuthContext.js";
 import { Badge } from "../shared/ui/Badge.js";
-import type { UserStage } from "@tstaff/contracts";
+import type { SystemRole } from "@tstaff/contracts";
 
 export interface AppHeaderProps {
   onNotify: (type: "info", title: string, message?: string) => void;
 }
 
+const ROLE_DISPLAY_NAMES: Record<SystemRole, { label: string; variant: "info" | "success" | "warning" | "neutral" }> = {
+  APPRENTICE: { label: "کارآموز پژوهشی", variant: "neutral" },
+  INTERN: { label: "کارورز پژوهش", variant: "info" },
+  SCIENTIFIC_SUPERVISOR: { label: "مدیر علمی", variant: "success" },
+  PROVINCIAL_DIRECTOR: { label: "مدیر استانی", variant: "info" },
+  SUPPORT_DIRECTOR: { label: "مدیر پشتیبانی", variant: "warning" },
+  TRACKING_DIRECTOR: { label: "مدیر پیگیری", variant: "warning" },
+  SYSTEM_ADMIN: { label: "مدیر کل و ادمین", variant: "info" },
+};
+
 export const AppHeader: React.FC<AppHeaderProps> = ({ onNotify }) => {
-  const { currentUser, logout, setStage } = useAuth();
+  const { currentUser, logout } = useAuth();
 
   if (!currentUser) return null;
+
+  const roleMeta = ROLE_DISPLAY_NAMES[currentUser.role] || {
+    label: currentUser.role,
+    variant: "neutral" as const,
+  };
 
   return (
     <header className="sticky top-0 z-40 apple-glass border-b border-white/10 px-4 py-3">
@@ -36,31 +51,6 @@ export const AppHeader: React.FC<AppHeaderProps> = ({ onNotify }) => {
 
         {/* User Info & Controls */}
         <div className="flex items-center gap-3">
-          {/* User Stage Switcher (for testing apprentice vs intern) */}
-          <div className="hidden md:flex items-center gap-1.5 p-1 rounded-apple-md bg-white/[0.03] border border-white/5 text-[11px]">
-            <span className="text-slate-400 px-1.5">نقش آزمون:</span>
-            {(["APPRENTICE", "INTERN"] as UserStage[]).map((st) => (
-              <button
-                key={st}
-                onClick={() => {
-                  setStage(st);
-                  onNotify(
-                    "info",
-                    "تغییر سطح کاربری",
-                    `سطح کاربری شما به ${st === "APPRENTICE" ? "کارآموز (دسترسی محدود AT-02)" : "کارورز (دسترسی کامل)"} تغییر یافت.`,
-                  );
-                }}
-                className={`px-2.5 py-1 rounded-apple-sm transition-all font-medium ${
-                  currentUser.stage === st
-                    ? "bg-apple-blue text-white shadow-sm font-bold"
-                    : "text-slate-400 hover:text-slate-200"
-                }`}
-              >
-                {st === "APPRENTICE" ? "کارآموز" : "کارورز"}
-              </button>
-            ))}
-          </div>
-
           {/* User Profile Chip */}
           <div className="flex items-center gap-2 px-3 py-1.5 rounded-apple-md bg-white/[0.04] border border-white/10 text-xs">
             <User className="w-3.5 h-3.5 text-apple-blue shrink-0" />
@@ -69,11 +59,8 @@ export const AppHeader: React.FC<AppHeaderProps> = ({ onNotify }) => {
                 {currentUser.fullName || currentUser.phoneNumber}
               </span>
             </div>
-            <Badge
-              variant={currentUser.stage === "INTERN" ? "info" : "warning"}
-              size="sm"
-            >
-              {currentUser.stage}
+            <Badge variant={roleMeta.variant} size="sm">
+              {roleMeta.label}
             </Badge>
           </div>
 
@@ -88,6 +75,7 @@ export const AppHeader: React.FC<AppHeaderProps> = ({ onNotify }) => {
             }
             className="p-2 rounded-apple-md text-slate-300 hover:text-white hover:bg-white/10 active:scale-95 transition-all"
             aria-label="اعلان‌ها"
+            title="مرکز اعلان‌ها"
           >
             <Bell className="w-4 h-4" />
           </button>

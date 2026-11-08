@@ -15,14 +15,15 @@ async function main() {
   const prisma = new PrismaService();
   await prisma.$connect();
 
-  // 1. Seed Roles
+  // 1. Seed Roles (Authoritative System Roles)
   const roles = [
     { name: "TRACKING_DIRECTOR", description: "مدیر پیگیری و ارشد سامانه" },
     { name: "PROVINCIAL_DIRECTOR", description: "مدیر استانی شبکه پژوهشگران" },
-    { name: "MAIN_SUPERVISOR", description: "مدیر علمی اصلی پرونده‌های پژوهشی" },
-    { name: "COLLABORATOR_SUPERVISOR", description: "مدیر علمی همکار پرونده‌های پژوهشی" },
-    { name: "INTERN", description: "دستیار پژوهش (پژوهشگر ارتقایافته)" },
-    { name: "APPRENTICE", description: "کارآموز پژوهشی (تازه پذیرفته‌شده)" },
+    { name: "SCIENTIFIC_SUPERVISOR", description: "مدیر علمی (داوری و راهبری پرونده‌ها)" },
+    { name: "SUPPORT_DIRECTOR", description: "مدیر پشتیبانی و رسیدگی به کاربران" },
+    { name: "SYSTEM_ADMIN", description: "مدیر کل و ادمین سامانه" },
+    { name: "INTERN", description: "کارورز / دستیار پژوهش (پژوهشگر ارتقایافته)" },
+    { name: "APPRENTICE", description: "کارآموز پژوهشی (سطح اولیه)" },
   ];
 
   const roleMap = {};
@@ -39,13 +40,13 @@ async function main() {
   // Common password hash for test users: TStaff@123
   const defaultPasswordHash = await hashPassword("TStaff@123");
 
-  // 2. Seed Test Users
+  // 2. Seed Test Users (One per authoritative role)
   const testUsers = [
     {
       id: "10000000-0000-0000-0000-000000000001",
       phoneNumber: "09121111111",
       email: "tracking@tstaff.ir",
-      firstName: "محمد",
+      firstName: "مهندس محمد",
       lastName: "علوی (مدیر پیگیری)",
       role: "TRACKING_DIRECTOR",
       stage: "INTERN",
@@ -64,8 +65,8 @@ async function main() {
       phoneNumber: "09123333333",
       email: "main.supervisor@tstaff.ir",
       firstName: "دکتر مریم",
-      lastName: "حسینی (مدیر علمی اصلی)",
-      role: "MAIN_SUPERVISOR",
+      lastName: "حسینی (مدیر علمی)",
+      role: "SCIENTIFIC_SUPERVISOR",
       stage: "INTERN",
     },
     {
@@ -73,8 +74,26 @@ async function main() {
       phoneNumber: "09124444444",
       email: "collab.supervisor@tstaff.ir",
       firstName: "دکتر مهدی",
-      lastName: "کاظمی (مدیر علمی همکار)",
-      role: "COLLABORATOR_SUPERVISOR",
+      lastName: "کاظمی (مدیر علمی)",
+      role: "SCIENTIFIC_SUPERVISOR",
+      stage: "INTERN",
+    },
+    {
+      id: "10000000-0000-0000-0000-000000000007",
+      phoneNumber: "09127777777",
+      email: "support@tstaff.ir",
+      firstName: "مهندس احمد",
+      lastName: "محمدی (مدیر پشتیبانی)",
+      role: "SUPPORT_DIRECTOR",
+      stage: "INTERN",
+    },
+    {
+      id: "10000000-0000-0000-0000-000000000009",
+      phoneNumber: "09129999999",
+      email: "admin@tstaff.ir",
+      firstName: "دکتر علیرضا",
+      lastName: "راد (مدیر کل و ادمین)",
+      role: "SYSTEM_ADMIN",
       stage: "INTERN",
     },
     {
@@ -82,7 +101,7 @@ async function main() {
       phoneNumber: "09125555555",
       email: "intern@tstaff.ir",
       firstName: "سارا",
-      lastName: "ابراهیمی (دستیار پژوهش)",
+      lastName: "ابراهیمی (کارورز)",
       role: "INTERN",
       stage: "INTERN",
     },
@@ -91,7 +110,7 @@ async function main() {
       phoneNumber: "09126666666",
       email: "apprentice@tstaff.ir",
       firstName: "رضا",
-      lastName: "میرزایی (کارآموز پژوهشی)",
+      lastName: "میرزایی (کارآموز)",
       role: "APPRENTICE",
       stage: "APPRENTICE",
     },

@@ -37,14 +37,43 @@ class InMemoryUserRepository implements UserRepositoryPort {
         [
           "TRACKING_DIRECTOR",
           "PROVINCIAL_DIRECTOR",
-          "MAIN_SUPERVISOR",
-          "COLLABORATOR_SUPERVISOR",
+          "SCIENTIFIC_SUPERVISOR",
+          "SUPPORT_DIRECTOR",
+          "SYSTEM_ADMIN",
         ].includes(u.role),
     );
   }
 
   async save(user: User): Promise<void> {
     this.users.set(user.id, user);
+  }
+
+  async createStudyEvaluation(userId: string, notes?: string): Promise<any> {
+    return { id: "eval-1", userId, status: "PENDING", notes, createdAt: new Date(), updatedAt: new Date() };
+  }
+
+  async getPendingStudyEvaluations(): Promise<any[]> {
+    return [];
+  }
+
+  async getStudyEvaluationByUserId(userId: string): Promise<any> {
+    return null;
+  }
+
+  async decideStudyEvaluation(id: string, supervisorId: string, decision: any, feedback: string): Promise<any> {
+    return { id, supervisorId, status: decision, feedback, createdAt: new Date(), updatedAt: new Date() };
+  }
+
+  async createSupportTicket(userId: string, subject: string, description: string): Promise<any> {
+    return { id: "ticket-1", userId, subject, description, status: "OPEN", createdAt: new Date(), updatedAt: new Date() };
+  }
+
+  async getAllSupportTickets(): Promise<any[]> {
+    return [];
+  }
+
+  async resolveSupportTicket(id: string, response: string, status: any): Promise<any> {
+    return { id, response, status, createdAt: new Date(), updatedAt: new Date() };
   }
 }
 

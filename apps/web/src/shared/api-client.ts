@@ -1,7 +1,7 @@
 import type { ProblemDetails } from "@tstaff/contracts";
 import { safeStorage } from "./storage.js";
 
-const API_BASE_URL = import.meta.env.VITE_API_URL || "http://localhost:4000/api/v1";
+const API_BASE_URL = import.meta.env.VITE_API_URL || "http://localhost:3000/api/v1";
 
 export class ApiError extends Error {
   public problem: ProblemDetails;
@@ -98,6 +98,13 @@ class ApiClient {
   public put<T>(endpoint: string, body?: unknown): Promise<T> {
     return this.request<T>(endpoint, {
       method: "PUT",
+      body: body ? JSON.stringify(body) : undefined,
+    });
+  }
+
+  public patch<T>(endpoint: string, body?: unknown): Promise<T> {
+    return this.request<T>(endpoint, {
+      method: "PATCH",
       body: body ? JSON.stringify(body) : undefined,
     });
   }

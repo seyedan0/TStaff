@@ -170,4 +170,67 @@ export class IdentityService {
   async getManagers(): Promise<User[]> {
     return this.userRepo.findAllManagers();
   }
+
+  /**
+   * Apprentice Study Evaluation methods
+   */
+  async requestStudyEvaluation(userId: string, notes?: string) {
+    const user = await this.userRepo.findById(userId);
+    if (!user) {
+      throw new UserNotFoundError(userId);
+    }
+    return this.userRepo.createStudyEvaluation(userId, notes);
+  }
+
+  async getPendingStudyEvaluations() {
+    return this.userRepo.getPendingStudyEvaluations();
+  }
+
+  async getStudyEvaluationForUser(userId: string) {
+    return this.userRepo.getStudyEvaluationByUserId(userId);
+  }
+
+  async decideStudyEvaluation(
+    evaluationId: string,
+    supervisorId: string,
+    decision: "APPROVED" | "REVISION_REQUIRED",
+    feedback: string,
+  ) {
+    const updatedRecord = await this.userRepo.decideStudyEvaluation(
+      evaluationId,
+      supervisorId,
+      decision,
+      feedback,
+    );
+
+    // If approved, automatically promote the apprentice to INTERN!
+    if (decision === "APPROVED") {
+      const user = await this.userRepo.findById(updatedRecord.userId);
+      if (user && user.stage === "APPRENTICE") {
+        const promoted = user.promoteToIntern();
+        await this.userRepo.save(promoted);
+      }
+    }
+
+    return updatedRecord;
+  }
+
+  /**
+   * Support Tickets methods
+   */
+  async createSupportTicket(userId: string, subject: string, description: string) {
+    return this.userRepo.createSupportTicket(userId, subject, description);
+  }
+
+  async getSupportTickets() {
+    return this.userRepo.getAllSupportTickets();
+  }
+
+  async resolveSupportTicket(
+    ticketId: string,
+    response: string,
+    status: "RESOLVED" | "CLOSED",
+  ) {
+    return this.userRepo.resolveSupportTicket(ticketId, response, status);
+  }
 }

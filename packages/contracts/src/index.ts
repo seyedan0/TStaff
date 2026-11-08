@@ -117,11 +117,23 @@ export const PromoteToInternDtoSchema = z.object({
 });
 export type PromoteToInternDto = z.infer<typeof PromoteToInternDtoSchema>;
 
+export const SystemRoleSchema = z.enum([
+  "APPRENTICE",
+  "INTERN",
+  "SCIENTIFIC_SUPERVISOR",
+  "PROVINCIAL_DIRECTOR",
+  "SUPPORT_DIRECTOR",
+  "TRACKING_DIRECTOR",
+  "SYSTEM_ADMIN",
+]);
+export type SystemRole = z.infer<typeof SystemRoleSchema>;
+
 export const ManagerRoleSchema = z.enum([
   "TRACKING_DIRECTOR",
   "PROVINCIAL_DIRECTOR",
-  "MAIN_SUPERVISOR",
-  "COLLABORATOR_SUPERVISOR",
+  "SCIENTIFIC_SUPERVISOR",
+  "SUPPORT_DIRECTOR",
+  "SYSTEM_ADMIN",
 ]);
 export type ManagerRole = z.infer<typeof ManagerRoleSchema>;
 
@@ -136,6 +148,30 @@ export const CreateManagerDtoSchema = z.object({
   notes: z.string().optional(),
 });
 export type CreateManagerDto = z.infer<typeof CreateManagerDtoSchema>;
+
+export const RequestStudyEvaluationDtoSchema = z.object({
+  completedGuidelines: z.array(z.string()).min(1, "حداقل یک عنوان شیوه‌نامه باید علامت خورده باشد"),
+  notes: z.string().optional(),
+});
+export type RequestStudyEvaluationDto = z.infer<typeof RequestStudyEvaluationDtoSchema>;
+
+export const EvaluateStudyDtoSchema = z.object({
+  decision: z.enum(["APPROVED", "REVISION_REQUIRED"]),
+  feedback: z.string().min(5, "ثبت بازخورد یا توضیحات ارزیابی الزامی است"),
+});
+export type EvaluateStudyDto = z.infer<typeof EvaluateStudyDtoSchema>;
+
+export const CreateSupportTicketDtoSchema = z.object({
+  subject: z.string().min(3, "موضوع پیام پشتیبانی الزامی است"),
+  description: z.string().min(10, "شرح پیام باید حداقل ۱۰ کاراکتر باشد"),
+});
+export type CreateSupportTicketDto = z.infer<typeof CreateSupportTicketDtoSchema>;
+
+export const ResolveSupportTicketDtoSchema = z.object({
+  response: z.string().min(5, "پاسخ پشتیبانی الزامی است"),
+  status: z.enum(["RESOLVED", "CLOSED"]),
+});
+export type ResolveSupportTicketDto = z.infer<typeof ResolveSupportTicketDtoSchema>;
 
 /**
  * ----------------------------------------------------------------------------

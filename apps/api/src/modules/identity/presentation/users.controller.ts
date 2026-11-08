@@ -4,6 +4,7 @@ import {
   Post,
   Body,
   Param,
+  Headers,
   HttpCode,
   HttpStatus,
   UseGuards,
@@ -15,6 +16,10 @@ import {
   SuspendUserDtoSchema,
   ReactivateUserDtoSchema,
   CreateManagerDtoSchema,
+  RequestStudyEvaluationDtoSchema,
+  EvaluateStudyDtoSchema,
+  CreateSupportTicketDtoSchema,
+  ResolveSupportTicketDtoSchema,
 } from "@tstaff/contracts";
 import { IdentityService } from "../application/identity.service.js";
 import {
@@ -60,6 +65,104 @@ export class UsersController {
   async getManagers() {
     const managers = await this.identityService.getManagers();
     return managers.map((m) => m.toJSON());
+  }
+
+  // Apprentice Study Evaluation Endpoints
+  @Post("study-evaluations/request")
+  @HttpCode(HttpStatus.CREATED)
+  @ApiOperation({
+    summary: "ارسال درخواست ارزیابی مطالعه شیوه‌نامه‌ها توسط کارآموز جهت ارتقا به کارورز",
+  })
+  async requestStudyEvaluation(
+    @Headers("x-user-id") userId: string,
+    @Body() body: unknown,
+  ) {
+    const validated = RequestStudyEvaluationDtoSchema.parse(body);
+    const targetUserId = userId || "10000000-0000-0000-0000-000000000006";
+    return this.identityService.requestStudyEvaluation(targetUserId, validated.notes);
+  }
+
+  @Get("study-evaluations/my-status")
+  @ApiOperation({
+    summary: "مشاهده وضعیت آخرین درخواست ارزیابی شیوه‌نامه کارآموز",
+  })
+  async getMyStudyStatus(@Headers("x-user-id") userId: string) {
+    const targetUserId = userId || "10000000-0000-0000-0000-000000000006";
+    return this.identityService.getStudyEvaluationForUser(targetUserId);
+  }
+
+  @Get("study-evaluations/pending")
+  @RequireStage("INTERN")
+  @ApiOperation({
+    summary: "کارتابل مدیر علمی: فهرست کارآموزان در انتظار ارزیابی شیوه‌نامه‌ها",
+  })
+  async getPendingStudyEvaluations() {
+    return this.identityService.getPendingStudyEvaluations();
+  }
+
+  @Post("study-evaluations/:id/decide")
+  @RequireStage("INTERN")
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({
+    summary: "کارتابل مدیر علمی: ثبت تصمیم ارزیابی کارآموز (تأیید و ارتقا / نیازمند اصلاح)",
+  })
+  async decideStudyEvaluation(
+    @Param("id") id: string,
+    @Headers("x-user-id") supervisorId: string,
+    @Body() body: unknown,
+  ) {
+    const validated = EvaluateStudyDtoSchema.parse(body);
+    return this.identityService.decideStudyEvaluation(
+      id,
+      supervisorId || "10000000-0000-0000-0000-000000000003",
+      validated.decision,
+      validated.feedback,
+    );
+  }
+
+  // Support Tickets Endpoints
+  @Post("support-tickets")
+  @HttpCode(HttpStatus.CREATED)
+  @ApiOperation({
+    summary: "ارسال تیکت پشتیبانی توسط کاربر",
+  })
+  async createSupportTicket(
+    @Headers("x-user-id") userId: string,
+    @Body() body: unknown,
+  ) {
+    const validated = CreateSupportTicketDtoSchema.parse(body);
+    return this.identityService.createSupportTicket(
+      userId || "10000000-0000-0000-0000-000000000005",
+      validated.subject,
+      validated.description,
+    );
+  }
+
+  @Get("support-tickets")
+  @RequireStage("INTERN")
+  @ApiOperation({
+    summary: "مشاهده تیکت‌های پشتیبانی توسط مدیر پشتیبانی",
+  })
+  async getSupportTickets() {
+    return this.identityService.getSupportTickets();
+  }
+
+  @Post("support-tickets/:id/resolve")
+  @RequireStage("INTERN")
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({
+    summary: "پاسخ و تعیین تکلیف تیکت پشتیبانی توسط مدیر پشتیبانی",
+  })
+  async resolveSupportTicket(
+    @Param("id") id: string,
+    @Body() body: unknown,
+  ) {
+    const validated = ResolveSupportTicketDtoSchema.parse(body);
+    return this.identityService.resolveSupportTicket(
+      id,
+      validated.response,
+      validated.status,
+    );
   }
 
   @Post(":id/promote-to-intern")

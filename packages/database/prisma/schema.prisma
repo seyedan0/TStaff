@@ -87,6 +87,8 @@ model User {
   profile   Profile?
   sessions  UserSession[]
   userRoles UserRole[]
+  apprenticeEvaluations ApprenticeEvaluation[]
+  supportTickets        SupportTicket[]
 
   @@map("users")
 }
@@ -118,6 +120,36 @@ model UserSession {
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@map("user_sessions")
+}
+
+model ApprenticeEvaluation {
+  id           String   @id @default(uuid())
+  userId       String   @map("user_id")
+  supervisorId String?  @map("supervisor_id")
+  status       String   @default("PENDING") // PENDING, APPROVED, REVISION_REQUIRED
+  notes        String?  @db.Text
+  feedback     String?  @db.Text
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("apprentice_evaluations")
+}
+
+model SupportTicket {
+  id          String   @id @default(uuid())
+  userId      String   @map("user_id")
+  subject     String
+  description String   @db.Text
+  status      String   @default("OPEN") // OPEN, IN_PROGRESS, RESOLVED, CLOSED
+  response    String?  @db.Text
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("support_tickets")
 }
 
 model Role {

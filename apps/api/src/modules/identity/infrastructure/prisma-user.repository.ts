@@ -1,7 +1,11 @@
 import { Injectable } from "@nestjs/common";
 import { PrismaService } from "@tstaff/database";
 import { User, UserStageType } from "../domain/user.entity.js";
-import type { UserRepositoryPort } from "../application/ports/user.repository.port.js";
+import type {
+  UserRepositoryPort,
+  StudyEvaluationRecord,
+  SupportTicketRecord,
+} from "../application/ports/user.repository.port.js";
 
 @Injectable()
 export class PrismaUserRepository implements UserRepositoryPort {
@@ -53,8 +57,9 @@ export class PrismaUserRepository implements UserRepositoryPort {
                 in: [
                   "TRACKING_DIRECTOR",
                   "PROVINCIAL_DIRECTOR",
-                  "MAIN_SUPERVISOR",
-                  "COLLABORATOR_SUPERVISOR",
+                  "SCIENTIFIC_SUPERVISOR",
+                  "SUPPORT_DIRECTOR",
+                  "SYSTEM_ADMIN",
                 ],
               },
             },
@@ -128,6 +133,224 @@ export class PrismaUserRepository implements UserRepositoryPort {
         update: {},
       });
     }
+  }
+
+  async createStudyEvaluation(userId: string, notes?: string): Promise<StudyEvaluationRecord> {
+    const raw = await this.prisma.apprenticeEvaluation.create({
+      data: {
+        userId,
+        status: "PENDING",
+        notes: notes ?? null,
+      },
+      include: {
+        user: {
+          include: { profile: true },
+        },
+      },
+    });
+
+    const userFullName = raw.user.profile
+      ? `${raw.user.profile.firstName} ${raw.user.profile.lastName}`.trim()
+      : undefined;
+
+    return {
+      id: raw.id,
+      userId: raw.userId,
+      userFullName,
+      userPhone: raw.user.phoneNumber,
+      supervisorId: raw.supervisorId,
+      status: raw.status,
+      notes: raw.notes,
+      feedback: raw.feedback,
+      createdAt: raw.createdAt,
+      updatedAt: raw.updatedAt,
+    };
+  }
+
+  async getPendingStudyEvaluations(): Promise<StudyEvaluationRecord[]> {
+    const list = await this.prisma.apprenticeEvaluation.findMany({
+      where: { status: "PENDING" },
+      include: {
+        user: {
+          include: { profile: true },
+        },
+      },
+      orderBy: { createdAt: "desc" },
+    });
+
+    return list.map((raw) => ({
+      id: raw.id,
+      userId: raw.userId,
+      userFullName: raw.user.profile
+        ? `${raw.user.profile.firstName} ${raw.user.profile.lastName}`.trim()
+        : undefined,
+      userPhone: raw.user.phoneNumber,
+      supervisorId: raw.supervisorId,
+      status: raw.status,
+      notes: raw.notes,
+      feedback: raw.feedback,
+      createdAt: raw.createdAt,
+      updatedAt: raw.updatedAt,
+    }));
+  }
+
+  async getStudyEvaluationByUserId(userId: string): Promise<StudyEvaluationRecord | null> {
+    const raw = await this.prisma.apprenticeEvaluation.findFirst({
+      where: { userId },
+      include: {
+        user: {
+          include: { profile: true },
+        },
+      },
+      orderBy: { createdAt: "desc" },
+    });
+    if (!raw) return null;
+
+    return {
+      id: raw.id,
+      userId: raw.userId,
+      userFullName: raw.user.profile
+        ? `${raw.user.profile.firstName} ${raw.user.profile.lastName}`.trim()
+        : undefined,
+      userPhone: raw.user.phoneNumber,
+      supervisorId: raw.supervisorId,
+      status: raw.status,
+      notes: raw.notes,
+      feedback: raw.feedback,
+      createdAt: raw.createdAt,
+      updatedAt: raw.updatedAt,
+    };
+  }
+
+  async decideStudyEvaluation(
+    id: string,
+    supervisorId: string,
+    decision: "APPROVED" | "REVISION_REQUIRED",
+    feedback: string,
+  ): Promise<StudyEvaluationRecord> {
+    const raw = await this.prisma.apprenticeEvaluation.update({
+      where: { id },
+      data: {
+        supervisorId,
+        status: decision,
+        feedback,
+      },
+      include: {
+        user: {
+          include: { profile: true },
+        },
+      },
+    });
+
+    return {
+      id: raw.id,
+      userId: raw.userId,
+      userFullName: raw.user.profile
+        ? `${raw.user.profile.firstName} ${raw.user.profile.lastName}`.trim()
+        : undefined,
+      userPhone: raw.user.phoneNumber,
+      supervisorId: raw.supervisorId,
+      status: raw.status,
+      notes: raw.notes,
+      feedback: raw.feedback,
+      createdAt: raw.createdAt,
+      updatedAt: raw.updatedAt,
+    };
+  }
+
+  async createSupportTicket(
+    userId: string,
+    subject: string,
+    description: string,
+  ): Promise<SupportTicketRecord> {
+    const raw = await this.prisma.supportTicket.create({
+      data: {
+        userId,
+        subject,
+        description,
+        status: "OPEN",
+      },
+      include: {
+        user: {
+          include: { profile: true },
+        },
+      },
+    });
+
+    return {
+      id: raw.id,
+      userId: raw.userId,
+      userFullName: raw.user.profile
+        ? `${raw.user.profile.firstName} ${raw.user.profile.lastName}`.trim()
+        : undefined,
+      userPhone: raw.user.phoneNumber,
+      subject: raw.subject,
+      description: raw.description,
+      status: raw.status,
+      response: raw.response,
+      createdAt: raw.createdAt,
+      updatedAt: raw.updatedAt,
+    };
+  }
+
+  async getAllSupportTickets(): Promise<SupportTicketRecord[]> {
+    const list = await this.prisma.supportTicket.findMany({
+      include: {
+        user: {
+          include: { profile: true },
+        },
+      },
+      orderBy: { createdAt: "desc" },
+    });
+
+    return list.map((raw) => ({
+      id: raw.id,
+      userId: raw.userId,
+      userFullName: raw.user.profile
+        ? `${raw.user.profile.firstName} ${raw.user.profile.lastName}`.trim()
+        : undefined,
+      userPhone: raw.user.phoneNumber,
+      subject: raw.subject,
+      description: raw.description,
+      status: raw.status,
+      response: raw.response,
+      createdAt: raw.createdAt,
+      updatedAt: raw.updatedAt,
+    }));
+  }
+
+  async resolveSupportTicket(
+    id: string,
+    response: string,
+    status: "RESOLVED" | "CLOSED",
+  ): Promise<SupportTicketRecord> {
+    const raw = await this.prisma.supportTicket.update({
+      where: { id },
+      data: {
+        response,
+        status,
+      },
+      include: {
+        user: {
+          include: { profile: true },
+        },
+      },
+    });
+
+    return {
+      id: raw.id,
+      userId: raw.userId,
+      userFullName: raw.user.profile
+        ? `${raw.user.profile.firstName} ${raw.user.profile.lastName}`.trim()
+        : undefined,
+      userPhone: raw.user.phoneNumber,
+      subject: raw.subject,
+      description: raw.description,
+      status: raw.status,
+      response: raw.response,
+      createdAt: raw.createdAt,
+      updatedAt: raw.updatedAt,
+    };
   }
 
   private toDomain(raw: any): User {
