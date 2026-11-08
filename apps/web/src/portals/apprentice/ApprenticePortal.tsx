@@ -210,12 +210,22 @@ export const ApprenticePortal: React.FC<ApprenticePortalProps> = ({
       return;
     }
 
+    const completedTitles = STUDY_MATERIALS.filter(
+      (m) => completedMaterials[m.id],
+    ).map((m) => m.title);
+
     setIsSubmitting(true);
     try {
       const res = await apiClient.post<StudyEvaluationStatus>(
         "/users/study-evaluations/request",
         {
-          notes: studyNotes.trim() || "کلیه شیوه‌نامه‌های آموزشی و فرآیندی با موفقیت مطالعه گردید.",
+          completedGuidelines:
+            completedTitles.length > 0
+              ? completedTitles
+              : ["شیوه‌نامه‌های آموزشی و فرآیندی"],
+          notes:
+            studyNotes.trim() ||
+            "کلیه شیوه‌نامه‌های آموزشی و فرآیندی با موفقیت مطالعه گردید.",
         },
       );
       setEvaluation(res);

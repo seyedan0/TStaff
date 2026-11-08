@@ -9,6 +9,7 @@ import {
   HttpStatus,
   UseGuards,
   Inject,
+  UnauthorizedException,
 } from "@nestjs/common";
 import { ApiTags, ApiOperation, ApiResponse, ApiHeader } from "@nestjs/swagger";
 import {
@@ -77,9 +78,11 @@ export class UsersController {
     @Headers("x-user-id") userId: string,
     @Body() body: unknown,
   ) {
+    if (!userId) {
+      throw new UnauthorizedException("شناسه کاربر معتبر الزامی است (x-user-id)");
+    }
     const validated = RequestStudyEvaluationDtoSchema.parse(body);
-    const targetUserId = userId || "10000000-0000-0000-0000-000000000006";
-    return this.identityService.requestStudyEvaluation(targetUserId, validated.notes);
+    return this.identityService.requestStudyEvaluation(userId, validated.notes);
   }
 
   @Get("study-evaluations/my-status")
@@ -87,8 +90,10 @@ export class UsersController {
     summary: "مشاهده وضعیت آخرین درخواست ارزیابی شیوه‌نامه کارآموز",
   })
   async getMyStudyStatus(@Headers("x-user-id") userId: string) {
-    const targetUserId = userId || "10000000-0000-0000-0000-000000000006";
-    return this.identityService.getStudyEvaluationForUser(targetUserId);
+    if (!userId) {
+      throw new UnauthorizedException("شناسه کاربر معتبر الزامی است (x-user-id)");
+    }
+    return this.identityService.getStudyEvaluationForUser(userId);
   }
 
   @Get("study-evaluations/pending")
@@ -111,10 +116,13 @@ export class UsersController {
     @Headers("x-user-id") supervisorId: string,
     @Body() body: unknown,
   ) {
+    if (!supervisorId) {
+      throw new UnauthorizedException("شناسه مدیر علمی معتبر الزامی است (x-user-id)");
+    }
     const validated = EvaluateStudyDtoSchema.parse(body);
     return this.identityService.decideStudyEvaluation(
       id,
-      supervisorId || "10000000-0000-0000-0000-000000000003",
+      supervisorId,
       validated.decision,
       validated.feedback,
     );
@@ -130,9 +138,12 @@ export class UsersController {
     @Headers("x-user-id") userId: string,
     @Body() body: unknown,
   ) {
+    if (!userId) {
+      throw new UnauthorizedException("شناسه کاربر معتبر الزامی است (x-user-id)");
+    }
     const validated = CreateSupportTicketDtoSchema.parse(body);
     return this.identityService.createSupportTicket(
-      userId || "10000000-0000-0000-0000-000000000005",
+      userId,
       validated.subject,
       validated.description,
     );

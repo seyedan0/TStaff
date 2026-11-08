@@ -43,3 +43,4 @@ describe("Strict Role Portals Architecture & Isolation", () => {
     expect(SystemRoleSchema.safeParse("MAIN_SUPERVISOR").success).toBe(false);
   });
 });
+

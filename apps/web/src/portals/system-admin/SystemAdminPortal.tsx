@@ -85,14 +85,9 @@ export const SystemAdminPortal: React.FC<SystemAdminPortalProps> = ({
 
     setIsCreatingManager(true);
     try {
-      const parts = newMgrName.trim().split(" ");
-      const firstName = parts[0] || "مدیر";
-      const lastName = parts.slice(1).join(" ") || "جدید";
-
-      await apiClient.post("/users/directors", {
+      await apiClient.post("/users/managers", {
+        fullName: newMgrName.trim(),
         phoneNumber: newMgrPhone.trim(),
-        firstName,
-        lastName,
         role: newMgrRole,
         password: newMgrPassword,
       });

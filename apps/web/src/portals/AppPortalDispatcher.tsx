@@ -50,3 +50,4 @@ export const AppPortalDispatcher: React.FC<AppPortalDispatcherProps> = ({
       return <ApprenticePortal onNotify={onNotify} />;
   }
 };
+

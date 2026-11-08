@@ -33,6 +33,8 @@ interface PendingEvaluationItem {
   notes?: string;
   feedback?: string;
   createdAt: string;
+  userFullName?: string;
+  userPhone?: string;
   user?: {
     id: string;
     fullName?: string;
@@ -239,10 +241,10 @@ export const ScientificSupervisorPortal: React.FC<
                         <div className="flex items-center gap-2">
                           <UserCheck className="w-4 h-4 text-apple-blue" />
                           <span className="font-bold text-sm text-slate-100">
-                            {ev.user?.fullName || "کارآموز پژوهشی"}
+                            {ev.userFullName || ev.user?.fullName || "کارآموز پژوهشی"}
                           </span>
                           <span className="text-xs font-mono text-slate-400">
-                            {ev.user?.phoneNumber}
+                            {ev.userPhone || ev.user?.phoneNumber || "-"}
                           </span>
                           <Badge variant="warning" size="sm">
                             در انتظار ارزیابی مدیر علمی
@@ -294,18 +296,20 @@ export const ScientificSupervisorPortal: React.FC<
         <Modal
           isOpen={true}
           onClose={() => setSelectedEvaluation(null)}
-          title={`ارزیابی و تعیین صلاحیت علمی: ${selectedEvaluation.user?.fullName || "کارآموز"}`}
+          title={`ارزیابی و تعیین صلاحیت علمی: ${selectedEvaluation.userFullName || selectedEvaluation.user?.fullName || "کارآموز"}`}
           maxWidth="md"
         >
           <div className="space-y-4 text-right">
             <div className="p-3 rounded-apple-md bg-white/[0.03] border border-white/10 text-xs text-slate-300 space-y-1">
               <div>
                 <strong>نام کارآموز: </strong>
-                {selectedEvaluation.user?.fullName || "رضا میرزایی"}
+                {selectedEvaluation.userFullName || selectedEvaluation.user?.fullName || "رضا میرزایی"}
               </div>
               <div>
                 <strong>شماره تماس: </strong>
-                <span className="font-mono">{selectedEvaluation.user?.phoneNumber}</span>
+                <span className="font-mono">
+                  {selectedEvaluation.userPhone || selectedEvaluation.user?.phoneNumber || "-"}
+                </span>
               </div>
               <div>
                 <strong>توضیحات و خلاصه یادگیری متقاضی: </strong>

@@ -30,6 +30,8 @@ interface SupportTicketItem {
   response?: string;
   createdAt: string;
   updatedAt: string;
+  userFullName?: string;
+  userPhone?: string;
   user?: {
     id: string;
     fullName?: string;
@@ -183,16 +185,20 @@ export const SupportDirectorPortal: React.FC<SupportDirectorPortalProps> = ({
   ) => {
     try {
       if (currentStatus) {
-        // Suspend
-        await apiClient.patch(`/users/${userId}/suspend`, {});
+        // Suspend (POST /users/:id/suspend with reason)
+        await apiClient.post(`/users/${userId}/suspend`, {
+          reason: "تعلیق انضباطی حساب توسط مدیر پشتیبانی (FR-035)",
+        });
         onNotify(
           "warning",
           "حساب کاربر تعلیق شد",
           "دسترسی کاربر به سامانه تا زمان رفع تعلیق مسدود گردید (FR-035).",
         );
       } else {
-        // Unsuspend
-        await apiClient.patch(`/users/${userId}/unsuspend`, {});
+        // Reactivate (POST /users/:id/reactivate with reason)
+        await apiClient.post(`/users/${userId}/reactivate`, {
+          reason: "رفع تعلیق حساب و فعال‌سازی مجدد توسط مدیر پشتیبانی",
+        });
         onNotify(
           "success",
           "حساب کاربر فعال شد",
@@ -343,8 +349,8 @@ export const SupportDirectorPortal: React.FC<SupportDirectorPortalProps> = ({
 
                         <div className="flex items-center gap-3 text-[11px] text-slate-400">
                           <span>
-                            ارسال‌کننده: {t.user?.fullName || t.userId} (
-                            <span className="font-mono">{t.user?.phoneNumber}</span>)
+                            ارسال‌کننده: {t.userFullName || t.user?.fullName || t.userId} (
+                            <span className="font-mono">{t.userPhone || t.user?.phoneNumber || "-"}</span>)
                           </span>
                           <span>•</span>
                           <span>
@@ -471,7 +477,7 @@ export const SupportDirectorPortal: React.FC<SupportDirectorPortalProps> = ({
             <div className="p-3 rounded-apple-md bg-white/[0.03] border border-white/10 text-xs text-slate-300 space-y-1">
               <div>
                 <strong>ارسال‌کننده: </strong>
-                {selectedTicket.user?.fullName || selectedTicket.userId}
+                {selectedTicket.userFullName || selectedTicket.user?.fullName || selectedTicket.userId}
               </div>
               <div>
                 <strong>شرح پیام متقاضی: </strong>
