@@ -17,13 +17,14 @@ export const UserNavigation: React.FC<{
   ];
   return (
     <nav aria-label="منوی کاربر" className="flex items-center gap-1 overflow-x-auto rounded-apple-lg border border-white/10 bg-white/[0.03] p-1">
-      {tabs.map((tab) => (
-        <button key={tab.id} type="button" disabled={tab.disabled} aria-current={active === tab.id ? "page" : undefined}
-          onClick={() => onChange(tab.id)} title={tab.disabled ? "در حال حاضر غیرفعال" : undefined}
+      {tabs.map((tab) => tab.disabled ? <span key={tab.id} aria-disabled="true" title="در فاز بعدی فعال می‌شود"
+          className="flex min-w-fit flex-1 items-center justify-center gap-2 rounded-apple-md px-3 py-2 text-xs font-semibold cursor-default text-slate-600 opacity-50">
+          {tab.icon}<span>{tab.label}</span>
+        </span> : <button key={tab.id} type="button" aria-current={active === tab.id ? "page" : undefined}
+          onClick={() => onChange(tab.id)}
           className={`flex min-w-fit flex-1 items-center justify-center gap-2 rounded-apple-md px-3 py-2 text-xs font-semibold transition-all ${active === tab.id ? "bg-apple-blue text-white" : tab.disabled ? "cursor-not-allowed text-slate-600 opacity-50" : "text-slate-300 hover:bg-white/[0.05]"}`}>
           {tab.icon}<span>{tab.label}</span>
-        </button>
-      ))}
+        </button>)}
     </nav>
   );
 };

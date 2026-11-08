@@ -182,6 +182,7 @@ describe("E2E System Integration: M1 to M6 Complete Flow & Pre-UI Readiness", ()
           else mocks.assignments.push(a);
         },
         isScientificSupervisor: async (id: string) => [mainSupervisorId, collabSupervisorId].includes(id),
+        isIntern: async (userId: string) => mocks.users.get(userId)?.stage === "INTERN",
         assignToUser: async (input: { userId: string; supervisorId: string; assignedById: string }) => {
           if (mocks.userAssignments.some((item) => item.userId === input.userId && item.supervisorId === input.supervisorId)) return;
           mocks.userAssignments.push({ ...input, isPrimary: !mocks.userAssignments.some((item) => item.userId === input.userId) });

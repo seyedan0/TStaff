@@ -44,6 +44,8 @@ class InMemoryAssignmentRepository implements AssignmentRepositoryPort {
   async isScientificSupervisor(userId: string): Promise<boolean> {
     return this.scientificSupervisors.has(userId);
   }
+
+  async isIntern(_userId: string): Promise<boolean> { return true; }
 }
 
 describe("AssignmentsService (D-03, AT-01, AT-29, AT-31)", () => {

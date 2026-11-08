@@ -15,6 +15,7 @@ export interface CurrentUser {
   isSuspended: boolean;
   provinceId?: string | null;
   role: SystemRole;
+  roles?: SystemRole[];
 }
 
 export type NavigationTab =

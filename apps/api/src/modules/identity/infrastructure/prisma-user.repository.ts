@@ -6,6 +6,7 @@ import type {
   StudyEvaluationRecord,
   SupportTicketRecord,
 } from "../application/ports/user.repository.port.js";
+import { extractSystemRoles } from "../domain/system-roles.js";
 
 @Injectable()
 export class PrismaUserRepository implements UserRepositoryPort {
@@ -13,6 +14,10 @@ export class PrismaUserRepository implements UserRepositoryPort {
 
   async createSession(input: { userId: string; tokenHash: string; expiresAt: Date }): Promise<void> {
     await this.prisma.userSession.create({ data: input });
+  }
+
+  async revokeSession(tokenHash: string): Promise<void> {
+    await this.prisma.userSession.deleteMany({ where: { tokenHash } });
   }
 
   async findById(id: string): Promise<User | null> {
@@ -131,6 +136,11 @@ export class PrismaUserRepository implements UserRepositoryPort {
     }
 
     if (user.role) {
+      if (user.role === "APPRENTICE" || user.role === "INTERN") {
+        await this.prisma.userRole.deleteMany({
+          where: { userId: user.id, role: { name: { in: ["APPRENTICE", "INTERN"] } } },
+        });
+      }
       const roleRecord = await this.prisma.role.upsert({
         where: { name: user.role },
         create: { name: user.role },
@@ -374,10 +384,11 @@ export class PrismaUserRepository implements UserRepositoryPort {
     const fullName = raw.profile
       ? `${raw.profile.firstName} ${raw.profile.lastName}`.trim()
       : null;
-    const role =
-      raw.userRoles && raw.userRoles.length > 0
-        ? raw.userRoles[0].role?.name || null
-        : null;
+    const roles: string[] = (raw.userRoles ?? [])
+      .map((entry: { role?: { name?: string } }) => entry.role?.name)
+      .filter((name: string | undefined): name is string => !!name);
+    const authorizedRoles = extractSystemRoles(roles);
+    const role = authorizedRoles[0] ?? null;
 
     return User.reconstitute({
       id: raw.id,
@@ -390,6 +401,7 @@ export class PrismaUserRepository implements UserRepositoryPort {
       isMfaEnabled: raw.isMfaEnabled,
       fullName,
       role,
+      roles: authorizedRoles,
       createdAt: raw.createdAt,
       updatedAt: raw.updatedAt,
     });

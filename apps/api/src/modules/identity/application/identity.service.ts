@@ -43,15 +43,14 @@ export class IdentityService {
     const defaultPassword =
       applicant.initialPassword ||
       process.env.DEFAULT_APPLICANT_PASSWORD ||
-      (process.env.NODE_ENV === "production"
-        ? randomBytes(12).toString("base64url")
-        : "TStaff@123456");
+      randomBytes(18).toString("base64url");
     const passwordHash = await this.passwordHasher.hash(defaultPassword);
 
     const user = User.create({
       id: crypto.randomUUID(),
       applicantId: applicant.id,
       phoneNumber: applicant.phoneNumber,
+      fullName: applicant.fullName,
       initialPasswordHash: passwordHash,
     });
 
@@ -99,6 +98,11 @@ export class IdentityService {
     return user;
   }
 
+  async revokeSession(token: string): Promise<void> {
+    if (!this.userRepo.revokeSession) return;
+    await this.userRepo.revokeSession(createHash("sha256").update(token).digest("hex"));
+  }
+
   /**
    * Rule FR-035 / AT-12 / BR-18: Suspend user account
    */
@@ -136,8 +140,7 @@ export class IdentityService {
       throw new Error("کاربری با این شماره همراه از قبل در سامانه ثبت شده است");
     }
 
-    const initialPassword = dto.password || "TStaff@123";
-    const passwordHash = await this.passwordHasher.hash(initialPassword);
+    const passwordHash = await this.passwordHasher.hash(dto.password);
 
     const user = User.reconstitute({
       id: crypto.randomUUID(),

@@ -51,7 +51,7 @@ export const TrackingDirectorPortal: React.FC<TrackingDirectorPortalProps> = ({
   const [newMgrName, setNewMgrName] = useState("");
   const [newMgrPhone, setNewMgrPhone] = useState("");
   const [newMgrRole, setNewMgrRole] = useState("SCIENTIFIC_SUPERVISOR");
-  const [newMgrPassword, setNewMgrPassword] = useState("TStaff@123");
+  const [newMgrPassword, setNewMgrPassword] = useState("");
   const [isCreatingManager, setIsCreatingManager] = useState(false);
   const [interns, setInterns] = useState<InternRecord[]>([]);
   const [selectedInternId, setSelectedInternId] = useState("");
@@ -124,6 +124,7 @@ export const TrackingDirectorPortal: React.FC<TrackingDirectorPortalProps> = ({
       setIsCreateModalOpen(false);
       setNewMgrName("");
       setNewMgrPhone("");
+      setNewMgrPassword("");
       fetchManagers();
     } catch (err: unknown) {
       onNotify(
@@ -511,10 +512,11 @@ export const TrackingDirectorPortal: React.FC<TrackingDirectorPortalProps> = ({
             </div>
 
             <Input
-              label="گذرواژه پیش‌فرض"
-              type="text"
+              label="گذرواژه اولیه"
+              type="password"
               dir="ltr"
               required
+              minLength={8}
               value={newMgrPassword}
               onChange={(e) => setNewMgrPassword(e.target.value)}
             />

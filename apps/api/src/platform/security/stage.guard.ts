@@ -29,6 +29,12 @@ export class StageGuard implements CanActivate {
 
   async canActivate(context: ExecutionContext): Promise<boolean> {
     const request = context.switchToHttp().getRequest();
+    const cookieHeader = request.headers?.cookie ?? "";
+    const cookies = Object.fromEntries(cookieHeader.split(";").map((part: string) => {
+      const [key, ...value] = part.trim().split("=");
+      return [key, decodeURIComponent(value.join("="))];
+    }).filter(([key]: [string, string]) => !!key));
+    const cookieToken = cookies.tstaff_session as string | undefined;
     if (process.env.NODE_ENV === "test") {
       request.user = {
         id: request.headers?.["x-user-id"],
@@ -38,8 +44,15 @@ export class StageGuard implements CanActivate {
       };
       if (!request.user.id) throw new UnauthorizedException("هویت کاربر در درخواست آزمایشی الزامی است");
     } else {
-      const rawToken = request.headers?.authorization?.replace(/^Bearer\s+/i, "");
+      const rawToken = cookieToken ?? request.headers?.authorization?.replace(/^Bearer\s+/i, "");
       if (!rawToken || !this.prisma) throw new UnauthorizedException("نشست معتبر الزامی است");
+      if (cookieToken && !["GET", "HEAD", "OPTIONS"].includes(request.method)) {
+        const csrfCookie = cookies.tstaff_csrf;
+        const csrfHeader = request.headers?.["x-csrf-token"];
+        if (!csrfCookie || !csrfHeader || csrfCookie !== csrfHeader) {
+          throw new ForbiddenException("اعتبارسنجی CSRF ناموفق بود");
+        }
+      }
       const tokenHash = createHash("sha256").update(rawToken).digest("hex");
       const session = await this.prisma.userSession.findUnique({
         where: { tokenHash },

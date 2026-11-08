@@ -34,6 +34,7 @@ export interface UserRepositoryPort {
   findAllInterns?(): Promise<User[]>;
   save(user: User): Promise<void>;
   createSession?(input: { userId: string; tokenHash: string; expiresAt: Date }): Promise<void>;
+  revokeSession?(tokenHash: string): Promise<void>;
 
   // Apprentice Study Evaluations
   createStudyEvaluation(userId: string, notes?: string): Promise<StudyEvaluationRecord>;

@@ -13,6 +13,7 @@ export interface UserProps {
   isMfaEnabled: boolean;
   fullName?: string | null | undefined;
   role?: string | null | undefined;
+  roles?: string[] | undefined;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -35,6 +36,8 @@ export class User {
       phoneNumber: params.phoneNumber,
       email: params.email,
       passwordHash: params.initialPasswordHash,
+      fullName: params.fullName,
+      role: params.role ?? "APPRENTICE",
       stage: "APPRENTICE", // Starts as Apprentice (FR-003)
       isActive: true,
       isMfaEnabled: false,
@@ -105,6 +108,7 @@ export class User {
     return new User({
       ...this.props,
       stage: "INTERN",
+      role: "INTERN",
       updatedAt: new Date(),
     });
   }

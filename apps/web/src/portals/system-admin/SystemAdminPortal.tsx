@@ -47,7 +47,7 @@ export const SystemAdminPortal: React.FC<SystemAdminPortalProps> = ({
   const [newMgrName, setNewMgrName] = useState("");
   const [newMgrPhone, setNewMgrPhone] = useState("");
   const [newMgrRole, setNewMgrRole] = useState("SCIENTIFIC_SUPERVISOR");
-  const [newMgrPassword, setNewMgrPassword] = useState("TStaff@123");
+  const [newMgrPassword, setNewMgrPassword] = useState("");
   const [isCreatingManager, setIsCreatingManager] = useState(false);
 
   const fetchManagers = async () => {
@@ -101,6 +101,7 @@ export const SystemAdminPortal: React.FC<SystemAdminPortalProps> = ({
       setIsCreateModalOpen(false);
       setNewMgrName("");
       setNewMgrPhone("");
+      setNewMgrPassword("");
       fetchManagers();
     } catch (err: unknown) {
       onNotify(
@@ -475,10 +476,11 @@ export const SystemAdminPortal: React.FC<SystemAdminPortalProps> = ({
             </div>
 
             <Input
-              label="گذرواژه پیش‌فرض"
-              type="text"
+              label="گذرواژه اولیه"
+              type="password"
               dir="ltr"
               required
+              minLength={8}
               value={newMgrPassword}
               onChange={(e) => setNewMgrPassword(e.target.value)}
             />

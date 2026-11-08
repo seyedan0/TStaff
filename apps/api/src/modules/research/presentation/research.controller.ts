@@ -43,6 +43,9 @@ export class ResearchController {
   @RequireRoles("SCIENTIFIC_SUPERVISOR", "SYSTEM_ADMIN")
   async createCase(@Body() body: unknown, @Req() request: any) {
     const validated = CreateResearchCaseDtoSchema.parse(body);
+    if (!validated.researcherId || !(await this.researchService.isResearchEligibleUser(validated.researcherId))) {
+      throw new ForbiddenException("پرونده پژوهشی فقط برای کارورز فعال ایجاد می‌شود (AT-02)");
+    }
     if (!validated.researcherId || !(await this.researchService.isSupervisorAssignedToUser(validated.researcherId, request.user.id))) {
       throw new UnauthorizedException("فقط مدیر علمی منتسب می‌تواند برای این کارورز پژوهش ایجاد کند");
     }

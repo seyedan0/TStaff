@@ -143,7 +143,7 @@ export const CreateManagerDtoSchema = z.object({
   phoneNumber: z
     .string()
     .regex(/^09\d{9}$/, "شماره همراه باید با 09 آغاز شده و ۱۱ رقم باشد"),
-  password: z.string().min(6, "رمز عبور اولیه باید حداقل ۶ کاراکتر باشد").optional(),
+  password: z.string().min(8, "رمز عبور اولیه باید حداقل ۸ کاراکتر باشد"),
   role: ManagerRoleSchema,
   provinceId: z.string().optional(),
   notes: z.string().optional(),

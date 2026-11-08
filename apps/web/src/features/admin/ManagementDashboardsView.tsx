@@ -48,7 +48,7 @@ export const ManagementDashboardsView: React.FC<ManagementDashboardsViewProps> =
   const [newMgrName, setNewMgrName] = useState("");
   const [newMgrPhone, setNewMgrPhone] = useState("");
   const [newMgrRole, setNewMgrRole] = useState<ManagerUser["role"]>("PROVINCIAL_DIRECTOR");
-  const [newMgrPassword, setNewMgrPassword] = useState("TStaff@123");
+  const [newMgrPassword, setNewMgrPassword] = useState("");
   const [creatingManager, setCreatingManager] = useState(false);
 
   const loadManagers = async () => {
@@ -57,45 +57,7 @@ export const ManagementDashboardsView: React.FC<ManagementDashboardsViewProps> =
       const data = await apiClient.get<ManagerUser[]>("/users/managers");
       setManagers(data);
     } catch {
-      // Fallback demo managers list
-      setManagers([
-        {
-          id: "10000000-0000-0000-0000-000000000001",
-          fullName: "محمد علوی (مدیر پیگیری)",
-          phoneNumber: "09121111111",
-          role: "TRACKING_DIRECTOR",
-          stage: "INTERN",
-          isActive: true,
-          createdAt: "هم‌اکنون",
-        },
-        {
-          id: "10000000-0000-0000-0000-000000000002",
-          fullName: "دکتر علی رضایی (مدیر استانی)",
-          phoneNumber: "09122222222",
-          role: "PROVINCIAL_DIRECTOR",
-          stage: "INTERN",
-          isActive: true,
-          createdAt: "هم‌اکنون",
-        },
-        {
-          id: "10000000-0000-0000-0000-000000000003",
-          fullName: "دکتر مریم حسینی (مدیر علمی اصلی)",
-          phoneNumber: "09123333333",
-          role: "MAIN_SUPERVISOR",
-          stage: "INTERN",
-          isActive: true,
-          createdAt: "هم‌اکنون",
-        },
-        {
-          id: "10000000-0000-0000-0000-000000000004",
-          fullName: "دکتر مهدی کاظمی (مدیر علمی همکار)",
-          phoneNumber: "09124444444",
-          role: "COLLABORATOR_SUPERVISOR",
-          stage: "INTERN",
-          isActive: true,
-          createdAt: "هم‌اکنون",
-        },
-      ]);
+      setManagers([]);
     } finally {
       setLoadingManagers(false);
     }
@@ -135,6 +97,7 @@ export const ManagementDashboardsView: React.FC<ManagementDashboardsViewProps> =
       setIsCreateModalOpen(false);
       setNewMgrName("");
       setNewMgrPhone("");
+      setNewMgrPassword("");
       loadManagers();
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : "خطا در ایجاد مدیر";
@@ -649,12 +612,13 @@ export const ManagementDashboardsView: React.FC<ManagementDashboardsViewProps> =
           </div>
 
           <Input
-            label="رمز عبور اولیه حساب"
-            type="text"
+            label="گذرواژه اولیه حساب"
+            type="password"
+            required
             dir="ltr"
             value={newMgrPassword}
             onChange={(e) => setNewMgrPassword(e.target.value)}
-            hint="پیش‌فرض: TStaff@123"
+            minLength={8}
           />
 
           <div className="p-3 rounded-apple-md bg-apple-amber/10 border border-apple-amber/20 text-apple-amber text-xs leading-relaxed">

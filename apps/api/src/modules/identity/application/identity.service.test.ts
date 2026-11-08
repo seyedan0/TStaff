@@ -107,6 +107,7 @@ describe("IdentityService (FR-001, FR-003, FR-004, AT-01, AT-03)", () => {
 
     expect(user.id).toBeDefined();
     expect(user.applicantId).toBe("app-1");
+    expect(user.fullName).toBe("امیر رضایی");
     expect(user.stage).toBe("APPRENTICE");
     expect(user.isActive).toBe(true);
 

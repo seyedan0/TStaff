@@ -1,86 +1,10 @@
 import React, { useState } from "react";
-import { Phone, Lock, ArrowLeft, ShieldCheck, UserCheck } from "lucide-react";
+import { Phone, Lock, ArrowLeft, ShieldCheck } from "lucide-react";
 import { Card } from "../../shared/ui/Card.js";
 import { Input } from "../../shared/ui/Input.js";
 import { Button } from "../../shared/ui/Button.js";
-import { Badge } from "../../shared/ui/Badge.js";
 import { useAuth } from "./AuthContext.js";
-
-interface TestUserPreset {
-  title: string;
-  roleName: string;
-  phone: string;
-  pass: string;
-  roleLabel: string;
-  badgeVariant: "info" | "success" | "warning" | "neutral";
-}
-
-const TEST_PRESETS: TestUserPreset[] = [
-  {
-    title: "مهندس محمد علوی",
-    roleName: "مدیر پیگیری و ارشد (پایش کشوری و ایجاد مدیران)",
-    phone: "09121111111",
-    pass: "TStaff@123",
-    roleLabel: "مدیر پیگیری",
-    badgeVariant: "warning",
-  },
-  {
-    title: "دکتر علی رضایی",
-    roleName: "مدیر استانی (میز پذیرش متقاضیان و مصاحبه علمی)",
-    phone: "09122222222",
-    pass: "TStaff@123",
-    roleLabel: "مدیر استانی",
-    badgeVariant: "info",
-  },
-  {
-    title: "دکتر مریم حسینی",
-    roleName: "مدیر علمی (داوری پرونده‌ها و ارزیابی کارآموزان)",
-    phone: "09123333333",
-    pass: "TStaff@123",
-    roleLabel: "مدیر علمی",
-    badgeVariant: "success",
-  },
-  {
-    title: "دکتر مهدی کاظمی",
-    roleName: "مدیر علمی (داوری پرونده‌ها با اختیار برابر D-02)",
-    phone: "09124444444",
-    pass: "TStaff@123",
-    roleLabel: "مدیر علمی",
-    badgeVariant: "success",
-  },
-  {
-    title: "مهندس احمد محمدی",
-    roleName: "مدیر پشتیبانی (رسیدگی به تیکت‌ها و تعلیق/رفع تعلیق)",
-    phone: "09127777777",
-    pass: "TStaff@123",
-    roleLabel: "مدیر پشتیبانی",
-    badgeVariant: "warning",
-  },
-  {
-    title: "دکتر علیرضا راد",
-    roleName: "مدیر کل و ادمین (مهلت مراحل، فریزر آرشیو و سلامت)",
-    phone: "09129999999",
-    pass: "TStaff@123",
-    roleLabel: "مدیر کل سامانه",
-    badgeVariant: "info",
-  },
-  {
-    title: "سارا ابراهیمی",
-    roleName: "کارورز / دستیار پژوهش (ثبت پرونده و چرخه ۴ مرحله‌ای)",
-    phone: "09125555555",
-    pass: "TStaff@123",
-    roleLabel: "کارورز",
-    badgeVariant: "success",
-  },
-  {
-    title: "رضا میرزایی",
-    roleName: "کارآموز پژوهشی (فقط مطالعه شیوه‌نامه‌ها و درخواست ارتقا)",
-    phone: "09126666666",
-    pass: "TStaff@123",
-    roleLabel: "کارآموز",
-    badgeVariant: "neutral",
-  },
-];
+import { getLocalQuickLoginConfig, type LocalQuickLoginUser } from "./local-quick-login.js";
 
 export const LoginForm: React.FC = () => {
   const { login } = useAuth();
@@ -88,6 +12,17 @@ export const LoginForm: React.FC = () => {
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const localHostname = typeof window === "undefined" ? "" : window.location.hostname;
+  const isLoopbackHost = ["localhost", "127.0.0.1", "::1"].includes(localHostname.toLowerCase());
+  const quickLoginConfig = import.meta.env.DEV && isLoopbackHost
+    ? getLocalQuickLoginConfig({
+        isDevelopment: true,
+        enabled: import.meta.env.VITE_LOCAL_TEST_LOGIN,
+        hostname: localHostname,
+        password: import.meta.env.VITE_LOCAL_TEST_PASSWORD,
+        usersJson: import.meta.env.VITE_LOCAL_TEST_USERS,
+      })
+    : null;
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -112,21 +47,14 @@ export const LoginForm: React.FC = () => {
     }
   };
 
-  const handleSelectPreset = (preset: TestUserPreset) => {
-    setPhone(preset.phone);
-    setPassword(preset.pass);
-    setError(null);
-  };
-
-  const handleQuickLogin = async (preset: TestUserPreset) => {
-    setPhone(preset.phone);
-    setPassword(preset.pass);
+  const handleQuickLogin = async (user: LocalQuickLoginUser) => {
+    if (!quickLoginConfig || loading) return;
     setError(null);
     setLoading(true);
     try {
-      await login(preset.phone, preset.pass);
+      await login(user.phoneNumber, quickLoginConfig.password);
     } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : "شماره همراه یا گذرواژه واردشده نادرست است");
+      setError(err instanceof Error ? err.message : "ورود سریع محلی انجام نشد");
     } finally {
       setLoading(false);
     }
@@ -193,6 +121,26 @@ export const LoginForm: React.FC = () => {
             </Button>
           </form>
 
+          {quickLoginConfig && (
+            <section className="mt-5 border-t border-white/10 pt-4" aria-label="ورود سریع محلی">
+              <h3 className="mb-3 text-sm font-semibold text-slate-200">ورود سریع برای تست محلی</h3>
+              <div className="grid max-h-72 grid-cols-1 gap-2 overflow-y-auto sm:grid-cols-2">
+                {quickLoginConfig.users.map((user) => (
+                  <button
+                    key={`${user.phoneNumber}-${user.role}`}
+                    type="button"
+                    disabled={loading}
+                    onClick={() => void handleQuickLogin(user)}
+                    className="rounded-apple-md border border-white/10 bg-slate-900/70 px-3 py-2 text-right transition-colors hover:border-apple-blue/50 hover:bg-apple-blue/10 disabled:cursor-wait disabled:opacity-50"
+                  >
+                    <span className="block text-xs font-medium text-slate-100">{user.label}</span>
+                    <span className="mt-1 block text-[10px] text-slate-400">{user.role} · {user.phoneNumber}</span>
+                  </button>
+                ))}
+              </div>
+            </section>
+          )}
+
           <div className="mt-4 pt-4 border-t border-white/5 text-center">
             <p className="text-[11px] text-slate-500">
               احراز هویت فاز ۱ مبتنی بر گذرواژه امن (بدون ارسال پیامک OTP)
@@ -200,55 +148,6 @@ export const LoginForm: React.FC = () => {
           </div>
         </Card>
 
-        {/* Quick Role Tester Presets */}
-        <Card variant="glass" className="w-full border-white/10 p-4">
-          <div className="flex items-center gap-2 mb-3 text-slate-300">
-            <UserCheck className="w-4 h-4 text-apple-blue" />
-            <h3 className="text-xs font-semibold">
-              کاربران آزمایشی پیش‌فرض (تست سریع نقش‌ها)
-            </h3>
-          </div>
-          <p className="text-[11px] text-slate-400 mb-3 leading-relaxed">
-            روی هر نقش کلیک کنید تا مشخصات آن برای تست سریع در فرم بارگذاری شود (رمز پیش‌فرض تمام کاربران: <code className="text-apple-blue font-mono">TStaff@123</code>):
-          </p>
-
-          <div className="space-y-2">
-            {TEST_PRESETS.map((p) => (
-              <div
-                key={p.phone}
-                className={`w-full text-right p-2.5 rounded-apple-md border text-xs transition-all flex items-center justify-between ${
-                  phone === p.phone
-                    ? "bg-apple-blue/15 border-apple-blue/40 text-apple-blue"
-                    : "bg-white/[0.02] border-white/5 text-slate-300 hover:bg-white/[0.05]"
-                }`}
-              >
-                <div
-                  className="cursor-pointer flex-1"
-                  onClick={() => handleSelectPreset(p)}
-                >
-                  <div className="flex items-center gap-2">
-                    <span className="font-medium text-slate-200">{p.title}</span>
-                    <Badge variant={p.badgeVariant} size="sm">
-                      {p.roleLabel}
-                    </Badge>
-                  </div>
-                  <div className="text-[10px] text-slate-400 mt-0.5">{p.roleName}</div>
-                </div>
-                <div className="flex items-center gap-2">
-                  <span className="font-mono text-[10px] text-slate-400">{p.phone}</span>
-                  <button
-                    type="button"
-                    onClick={() => handleQuickLogin(p)}
-                    className="px-2 py-1 rounded-apple-sm bg-apple-blue/20 hover:bg-apple-blue text-apple-blue hover:text-white transition-all text-[11px] font-semibold active:scale-95"
-                    title="ورود مستقیم به پنل با این نقش"
-                  >
-                    ورود مستقیم
-                  </button>
-                </div>
-              </div>
-            ))}
-          </div>
-        </Card>
       </div>
     </div>
   );

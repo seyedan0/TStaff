@@ -41,6 +41,7 @@ class MockAssignmentRepository {
     if (index < 0) this.caseAssignments.push(item); else this.caseAssignments[index] = item;
   }
   async isScientificSupervisor(id: string) { return id === mainSupervisorId || id === collabSupervisorId; }
+  async isIntern(userId: string) { return userId === researcherUserId; }
   async assignToUser(input: { userId: string; supervisorId: string; assignedById: string }) {
     if (!(await this.isScientificSupervisor(input.supervisorId))) throw new Error("مدیر علمی نامعتبر است");
     if (this.userAssignments.some((item) => item.userId === input.userId && item.supervisorId === input.supervisorId)) return;

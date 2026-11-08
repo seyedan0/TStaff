@@ -11,6 +11,11 @@ import type {
 export class PrismaAssignmentRepository implements AssignmentRepositoryPort {
   constructor(private readonly prisma: PrismaService) {}
 
+  async isIntern(userId: string): Promise<boolean> {
+    const user = await this.prisma.user.findUnique({ where: { id: userId }, select: { stage: true, isActive: true } });
+    return user?.stage === "INTERN" && user.isActive;
+  }
+
   async assignToUser(input: { userId: string; supervisorId: string; assignedById: string }): Promise<void> {
     if (!(await this.isScientificSupervisor(input.supervisorId))) throw new InvalidScientificSupervisorError();
     const trainee = await this.prisma.user.findUnique({ where: { id: input.userId }, include: { userRoles: { include: { role: true } } } });
@@ -19,7 +24,7 @@ export class PrismaAssignmentRepository implements AssignmentRepositoryPort {
 
     // Serialize assignments per trainee so exactly the first active assignment is MAIN.
     await this.prisma.$transaction(async (tx) => {
-      await tx.$queryRaw`SELECT pg_advisory_xact_lock(hashtext(${input.userId}))`;
+      await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${input.userId}))`;
       const activeCount = await tx.scientificSupervisorAssignment.count({ where: { userId: input.userId, revokedAt: null } });
       const existing = await tx.scientificSupervisorAssignment.findUnique({
         where: { userId_supervisorId: { userId: input.userId, supervisorId: input.supervisorId } },

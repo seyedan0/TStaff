@@ -29,4 +29,8 @@ export class AssignmentsService {
   async isScientificSupervisor(userId: string): Promise<boolean> {
     return this.assignmentRepo.isScientificSupervisor(userId);
   }
+
+  async isIntern(userId: string): Promise<boolean> {
+    return this.assignmentRepo.isIntern(userId);
+  }
 }

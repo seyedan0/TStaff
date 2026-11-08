@@ -1,5 +1,4 @@
 import type { ProblemDetails } from "@tstaff/contracts";
-import { safeStorage } from "./storage.js";
 
 const API_BASE_URL = import.meta.env.VITE_API_URL || "http://localhost:4000/api/v1";
 
@@ -13,27 +12,15 @@ export class ApiError extends Error {
 }
 
 class ApiClient {
-  private token: string | null = null;
-
-  constructor() {
-    this.token = safeStorage.getItem("tstaff_token");
-  }
-
-  public setAuth(token: string | null, stage: string = "INTERN", userId: string | null = null) {
-    this.token = token;
-    if (token) safeStorage.setItem("tstaff_token", token);
-    else safeStorage.removeItem("tstaff_token");
-    safeStorage.setItem("tstaff_user_stage", stage);
-    if (userId) safeStorage.setItem("tstaff_user_id", userId);
-    else safeStorage.removeItem("tstaff_user_id");
-  }
+  public setAuth(_token: string | null, _stage: string = "INTERN", _userId: string | null = null) {}
 
   public getHeaders(): HeadersInit {
     const headers: Record<string, string> = {
       "Content-Type": "application/json",
     };
-    if (this.token) {
-      headers["Authorization"] = `Bearer ${this.token}`;
+    if (typeof document !== "undefined") {
+      const csrf = document.cookie.split(";").map((item) => item.trim()).find((item) => item.startsWith("tstaff_csrf="))?.split("=").slice(1).join("=");
+      if (csrf) headers["X-CSRF-Token"] = decodeURIComponent(csrf);
     }
     return headers;
   }
@@ -48,6 +35,7 @@ class ApiClient {
     const response = await fetch(url, {
       ...options,
       headers: mergedHeaders,
+      credentials: "include",
     });
 
     if (!response.ok) {
@@ -91,7 +79,7 @@ class ApiClient {
     const url = `${API_BASE_URL}${endpoint.startsWith("/") ? endpoint : `/${endpoint}`}`;
     const headers = new Headers(this.getHeaders());
     headers.delete("Content-Type");
-    const response = await fetch(url, { method: "POST", headers, body: form });
+    const response = await fetch(url, { method: "POST", headers, body: form, credentials: "include" });
     if (!response.ok) {
       let problem: ProblemDetails;
       try { problem = await response.json(); }
@@ -105,7 +93,7 @@ class ApiClient {
     const url = `${API_BASE_URL}${endpoint.startsWith("/") ? endpoint : `/${endpoint}`}`;
     const headers = new Headers(this.getHeaders());
     headers.delete("Content-Type");
-    const response = await fetch(url, { headers });
+    const response = await fetch(url, { headers, credentials: "include" });
     if (!response.ok) throw new Error("دریافت فایل مجاز نیست یا فایل در دسترس نیست");
     const objectUrl = URL.createObjectURL(await response.blob());
     const link = document.createElement("a");

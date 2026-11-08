@@ -156,6 +156,10 @@ export class ResearchService {
     return this.assignmentsService.isSupervisorAssignedToUser(userId, supervisorId);
   }
 
+  async isResearchEligibleUser(userId: string): Promise<boolean> {
+    return this.assignmentsService.isIntern(userId);
+  }
+
   async isSupervisorAssignedToCase(caseId: string, supervisorId: string): Promise<boolean> {
     const researchCase = await this.getCase(caseId);
     return !!researchCase.researcherId && this.isSupervisorAssignedToUser(researchCase.researcherId, supervisorId);

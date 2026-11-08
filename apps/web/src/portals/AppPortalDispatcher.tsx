@@ -46,8 +46,12 @@ export const AppPortalDispatcher: React.FC<AppPortalDispatcherProps> = ({
       return <SystemAdminPortal onNotify={onNotify} />;
 
     default:
-      // Fallback for safety
-      return <ApprenticePortal onNotify={onNotify} />;
+      return (
+        <section role="alert" className="rounded-apple-lg border border-apple-red/30 bg-apple-red/10 p-6 text-right">
+          <h2 className="font-bold text-apple-red">دسترسی نامعتبر</h2>
+          <p className="mt-2 text-sm text-slate-300">نقش این حساب در سامانه معتبر نیست. لطفاً خارج شوید و دوباره وارد شوید.</p>
+        </section>
+      );
   }
 };
 

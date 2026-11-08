@@ -7,7 +7,7 @@ import { Toast } from "../shared/ui/Toast.js";
 import type { ToastMessage } from "../shared/types.js";
 
 const AppContent: React.FC = () => {
-  const { isAuthenticated } = useAuth();
+  const { isAuthenticated, isLoading, currentUser, requiresRoleSelection, chooseRole, logout } = useAuth();
   const [toasts, setToasts] = useState<ToastMessage[]>([]);
 
   const addToast = (
@@ -22,6 +22,25 @@ const AppContent: React.FC = () => {
   const removeToast = (id: string) => {
     setToasts((prev) => prev.filter((t) => t.id !== id));
   };
+
+  if (isLoading) {
+    return <div className="min-h-screen bg-[#0b0f17]" aria-busy="true" />;
+  }
+
+  if (isAuthenticated && currentUser && requiresRoleSelection) {
+    return <div className="min-h-screen bg-[#0b0f17] text-slate-100 flex items-center justify-center p-6">
+      <section className="w-full max-w-xl rounded-2xl border border-white/10 bg-slate-900 p-6 text-right">
+        <h1 className="text-xl font-bold">انتخاب فضای کاری</h1>
+        <p className="mt-2 text-sm text-slate-400">یکی از نقش‌های مجاز این حساب را انتخاب کنید.</p>
+        <div className="mt-5 grid gap-3 sm:grid-cols-2">
+          {(currentUser.roles ?? []).map((role) => <button key={role} type="button" onClick={() => chooseRole(role)} className="rounded-xl border border-white/10 bg-white/[0.04] p-4 text-right hover:border-apple-blue/50 hover:bg-apple-blue/10">
+            <span className="block font-semibold">{role}</span><span className="mt-1 block text-xs text-slate-400">ورود به پنل این نقش</span>
+          </button>)}
+        </div>
+        <button type="button" onClick={logout} className="mt-5 text-sm text-slate-400 hover:text-white">خروج</button>
+      </section>
+    </div>;
+  }
 
   if (!isAuthenticated) {
     return (

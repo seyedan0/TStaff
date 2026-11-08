@@ -21,4 +21,5 @@ export interface AssignmentRepositoryPort {
   listUsersForSupervisor(supervisorId: string): Promise<AssignedTraineeRecord[]>;
   isSupervisorAssignedToUser(userId: string, supervisorId: string): Promise<boolean>;
   isScientificSupervisor(userId: string): Promise<boolean>;
+  isIntern(userId: string): Promise<boolean>;
 }
