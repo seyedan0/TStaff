@@ -1,315 +1,90 @@
-import React, { useState } from "react";
-import {
-  FileSignature,
-  CheckCircle2,
-  Scale,
-  Sparkles,
-} from "lucide-react";
-import { Card } from "../../shared/ui/Card.js";
-import { Button } from "../../shared/ui/Button.js";
-import { Badge } from "../../shared/ui/Badge.js";
-import { Modal } from "../../shared/ui/Modal.js";
+import React, { useCallback, useEffect, useState } from "react";
+import { CheckCircle2, FileCheck2, RotateCcw } from "lucide-react";
 import { apiClient } from "../../shared/api-client.js";
+import { Badge } from "../../shared/ui/Badge.js";
+import { Button } from "../../shared/ui/Button.js";
+import { Card } from "../../shared/ui/Card.js";
+import { Modal } from "../../shared/ui/Modal.js";
 
-export interface ScientificReviewsViewProps {
-  onNotify: (type: "success" | "error" | "info" | "warning", title: string, message?: string) => void;
-}
-
-interface PendingReviewItem {
+type Notice = (type: "success" | "error" | "info" | "warning", title: string, message?: string) => void;
+interface PendingReview {
   id: string;
+  kind: "SUBMISSION" | "SOURCE_STAGE";
+  submissionId?: string;
   caseId: string;
   caseCode: string;
   caseTitle: string;
+  researcherId: string;
+  internName: string;
+  stageId: string;
   stageType: string;
   stageName: string;
-  internName: string;
+  caseVersion: number;
+  version?: number;
   submittedAt: string;
-  version: number;
   summary: string;
+  storedObjectId?: string | null;
 }
+interface ScenarioReview { id: string; version: number; caseVersion: number; title: string; summary: string; content: string; caseId: string; caseCode: string; caseTitle: string; internName: string }
 
-export const ScientificReviewsView: React.FC<ScientificReviewsViewProps> = ({ onNotify }) => {
+export const ScientificReviewsView: React.FC<{ onNotify: Notice }> = ({ onNotify }) => {
+  const [items, setItems] = useState<PendingReview[]>([]);
+  const [scenarios, setScenarios] = useState<ScenarioReview[]>([]);
   const [activeTab, setActiveTab] = useState<"WORKLIST" | "SCENARIOS">("WORKLIST");
+  const [activeReview, setActiveReview] = useState<PendingReview | null>(null);
+  const [activeScenario, setActiveScenario] = useState<ScenarioReview | null>(null);
+  const [notes, setNotes] = useState("");
+  const [busy, setBusy] = useState(false);
 
-  const [reviews, setReviews] = useState<PendingReviewItem[]>([
-    {
-      id: "rev-1",
-      caseId: "case-001",
-      caseCode: "CASE-101",
-      caseTitle: "مطالعه تحلیلی زیست‌بوم شرکت‌های دانش‌بنیان",
-      stageType: "EXPLANATION",
-      stageName: "مرحله دوم: تبیین مسئله",
-      internName: "پژوهشگر علی حسینی",
-      submittedAt: "امروز، ساعت ۱۰:۳۰",
-      version: 2,
-      summary: "تحلیل میدانی مصاحبه‌ها و استخراج مدل علّی چالش‌های زیست‌بوم نوآوری کشور",
-    },
-    {
-      id: "rev-2",
-      caseId: "case-002",
-      caseCode: "CASE-102",
-      caseTitle: "واکاوی آسیب‌های فرهنگی رسانه‌های نوین",
-      stageType: "SOURCES",
-      stageName: "مرحله اول: منابع و مصاحبه‌ها",
-      internName: "پژوهشگر سارا رضوانی",
-      submittedAt: "دیروز، ساعت ۱۶:۴۵",
-      version: 1,
-      summary: "ثبت ۳ مصاحبه تخصصی نخبگانی همراه با گزارش‌های مکتوب نسخه‌دار (D-07)",
-    },
-  ]);
-
-  // Decision Modal
-  const [activeReview, setActiveReview] = useState<PendingReviewItem | null>(null);
-  const [decisionNotes, setDecisionNotes] = useState("");
-  const [loading, setLoading] = useState(false);
-
-  // Scenarios Bank (Internal MVP only)
-  const scenarios = [
-    {
-      id: "sc-1",
-      code: "SCN-2026-A",
-      title: "سناریوی آینده‌نگاری اشتغال و هوش مصنوعی در ایران",
-      caseCode: "CASE-088",
-      approvedBy: "دکتر رضایی (مدیر علمی)",
-      status: "APPROVED_INTERNAL",
-      approvedAt: "۱۴۰۵/۰۸/۱۵",
-      summary: "سناریوی سه‌گانه مواجهه با تحول بازار کار تا افق ۱۴۱۰ با تمرکز بر بهره‌وری.",
-    },
-    {
-      id: "sc-2",
-      code: "SCN-2026-B",
-      title: "سناریوی بازآفرینی حکمرانی داده در دستگاه‌های اجرایی",
-      caseCode: "CASE-074",
-      approvedBy: "دکتر حسینی (مدیر همکار)",
-      status: "APPROVED_INTERNAL",
-      approvedAt: "۱۴۰۵/۰۸/۱۰",
-      summary: "چارچوب سیاستی یکپارچه‌سازی سامانه‌ها و تبادل امن اطلاعات میان‌بخشی.",
-    },
-  ];
-
-  const handleDecision = async (decision: "APPROVED" | "REVISION_REQUIRED") => {
-    if (!activeReview) return;
-    setLoading(true);
-
+  const load = useCallback(async () => {
     try {
-      // Rule D-02 & D-03: Single valid decision is sufficient.
-      // If another supervisor has submitted concurrently, 409 STALE_REVISION is returned.
-      await apiClient.post(`/research-cases/${activeReview.caseId}/reviews/decisions`, {
-        decision,
-        comments: decisionNotes || (decision === "APPROVED" ? "مورد تأیید است" : "نیازمند اصلاح"),
-        expectedVersion: activeReview.version,
-      });
+      const list = await apiClient.get<PendingReview[]>("/scientific-supervisors/me/reviews");
+      setItems(list);
+    } catch (error) { setItems([]); onNotify("error", "کارتابل داوری بارگذاری نشد", error instanceof Error ? error.message : undefined); }
+    try {
+      setScenarios(await apiClient.get<ScenarioReview[]>("/scientific-supervisors/me/scenarios"));
+    } catch { setScenarios([]); }
+  }, [onNotify]);
+  useEffect(() => { void load(); }, [load]);
 
-      onNotify(
-        decision === "APPROVED" ? "success" : "info",
-        `داوری علمی ثبت شد (D-02)`,
-        `تصمیم ${decision === "APPROVED" ? "تأیید" : "اصلاح"} برای پرونده ${activeReview.caseCode} اعمال گردید.`,
-      );
-      setReviews(reviews.filter((r) => r.id !== activeReview.id));
-      setActiveReview(null);
-      setDecisionNotes("");
-    } catch (err: any) {
-      if (err.problem?.code === "STALE_REVISION" || err.problem?.status === 409) {
-        onNotify(
-          "error",
-          "تعارض همزمانی داوران (D-03 / AT-29)",
-          "مدیر علمی دیگر در همین لحظه تصمیم دیگری را برای این نسخه ثبت کرده است (409 STALE_REVISION). صفحه به‌روزرسانی شد.",
-        );
-      } else {
-        onNotify("error", "خطا در ثبت داوری", err.message);
-      }
-    } finally {
-      setLoading(false);
+  const decide = async (decision: "APPROVED" | "REVISION_REQUIRED") => {
+    if (!activeReview) return;
+    if (decision === "REVISION_REQUIRED" && notes.trim().length < 5) {
+      onNotify("warning", "دلیل اصلاح را بنویسید", "برای درخواست اصلاح، دست‌کم ۵ نویسه لازم است."); return;
     }
+    setBusy(true);
+    try {
+      if (activeReview.kind === "SOURCE_STAGE") {
+        await apiClient.post(`/research-cases/${activeReview.caseId}/stages/SOURCES/review`, { decision: decision === "APPROVED" ? "APPROVED" : "REVISION_REQUESTED", notes: notes.trim(), expectedVersion: activeReview.caseVersion });
+      } else {
+        await apiClient.post(`/submissions/${activeReview.submissionId}/review`, { decision: decision === "APPROVED" ? "APPROVED" : "CHANGES_REQUESTED", reason: notes.trim() || "محتوا تأیید شد", expectedVersion: activeReview.version, caseVersion: activeReview.caseVersion, idempotencyKey: crypto.randomUUID() });
+      }
+      onNotify(decision === "APPROVED" ? "success" : "warning", decision === "APPROVED" ? "مرحله تأیید شد" : "اصلاح برای کارورز ثبت شد", "تغییر وضعیت در پرونده و کارتابل ثبت شد.");
+      setActiveReview(null); setNotes(""); await load();
+    } catch (error) { onNotify("error", "ثبت داوری انجام نشد", error instanceof Error ? error.message : undefined); }
+    finally { setBusy(false); }
   };
 
-  return (
-    <div className="space-y-6">
-      {/* Header & Tabs */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-        <div>
-          <h2 className="text-xl font-bold text-slate-100 flex items-center gap-2">
-            <Scale className="w-6 h-6 text-apple-indigo" />
-            کارتابل داوری علمی و بانک سناریوها (D-02, D-03, FR-027)
-          </h2>
-          <p className="text-xs text-slate-400 mt-1">
-            اختیار داوری برابر مدیر اصلی و همکار، کنترل همزمانی نسخه (CAS) و بانک داخلی سناریوهای مصوب
-          </p>
-        </div>
+  const decideScenario = async (decision: "APPROVED" | "CHANGES_REQUESTED") => {
+    if (!activeScenario || notes.trim().length < 5) { onNotify("warning", "دلیل داوری را بنویسید", "حداقل ۵ نویسه لازم است."); return; }
+    setBusy(true);
+    try {
+      await apiClient.post(`/scenarios/${activeScenario.id}/review`, { decision, reason: notes.trim(), expectedVersion: activeScenario.version, caseVersion: activeScenario.caseVersion, idempotencyKey: crypto.randomUUID() });
+      onNotify(decision === "APPROVED" ? "success" : "warning", decision === "APPROVED" ? "سناریو تأیید شد" : "اصلاح سناریو درخواست شد", decision === "APPROVED" ? "سناریو به بانک داخلی سامانه افزوده شد." : undefined);
+      setActiveScenario(null); setNotes(""); await load();
+    } catch (error) { onNotify("error", "داوری سناریو انجام نشد", error instanceof Error ? error.message : undefined); }
+    finally { setBusy(false); }
+  };
 
-        {/* Tab Switcher */}
-        <div className="inline-flex p-1 rounded-apple-md apple-glass border border-white/5 text-xs">
-          <button
-            onClick={() => setActiveTab("WORKLIST")}
-            className={`px-3.5 py-1.5 rounded-apple-sm transition-all font-medium ${
-              activeTab === "WORKLIST"
-                ? "bg-apple-indigo text-white shadow-sm"
-                : "text-slate-400 hover:text-white"
-            }`}
-          >
-            کارتابل داوری ({reviews.length})
-          </button>
-          <button
-            onClick={() => setActiveTab("SCENARIOS")}
-            className={`px-3.5 py-1.5 rounded-apple-sm transition-all font-medium ${
-              activeTab === "SCENARIOS"
-                ? "bg-apple-indigo text-white shadow-sm"
-                : "text-slate-400 hover:text-white"
-            }`}
-          >
-            بانک سناریوها ({scenarios.length})
-          </button>
-        </div>
-      </div>
+  return <div className="space-y-5">
+    <div className="flex flex-wrap items-center justify-between gap-3"><div><h2 className="flex items-center gap-2 text-xl font-bold text-slate-100"><FileCheck2 className="h-5 w-5 text-apple-indigo" />کارتابل مدیر علمی</h2><p className="mt-1 text-xs text-slate-400">ارسال‌های کارورزان منتسب و تصمیم‌های هم‌سطح مدیران علمی (D-02 / AT-29)</p></div><div className="flex rounded-apple-md border border-white/10 p-1"><button onClick={() => setActiveTab("WORKLIST")} className={`rounded-apple-sm px-3 py-1.5 text-xs ${activeTab === "WORKLIST" ? "bg-apple-indigo text-white" : "text-slate-400"}`}>مراحل پژوهش ({items.length})</button><button onClick={() => setActiveTab("SCENARIOS")} className={`rounded-apple-sm px-3 py-1.5 text-xs ${activeTab === "SCENARIOS" ? "bg-apple-indigo text-white" : "text-slate-400"}`}>سناریوها ({scenarios.length})</button></div></div>
+    {activeTab === "WORKLIST" ? items.length === 0 ? <Card variant="glass" className="p-10 text-center"><CheckCircle2 className="mx-auto mb-2 h-8 w-8 text-apple-green"/><p className="text-sm text-slate-200">ارسالی در انتظار بررسی ندارید.</p></Card> : <div className="space-y-3">{items.map((item) => <Card key={item.id} variant="glass" className="space-y-3 p-4"><div className="flex flex-wrap items-start justify-between gap-3"><div><div className="flex items-center gap-2"><Badge variant="indigo" size="sm">{item.caseCode}</Badge><Badge variant={item.kind === "SOURCE_STAGE" ? "warning" : "info"} size="sm">{item.stageName}</Badge></div><h3 className="mt-2 font-semibold text-slate-100">{item.caseTitle}</h3><p className="mt-1 text-xs text-slate-400">کارورز: {item.internName} · {new Date(item.submittedAt).toLocaleString("fa-IR")}{item.version ? ` · نسخه ${item.version}` : ""}</p></div><Button variant="primary" size="sm" onClick={() => { setActiveReview(item); setNotes(""); }}>بررسی و تصمیم</Button></div><p className="rounded-apple-sm bg-white/[0.03] p-3 text-xs leading-6 text-slate-300">{item.summary}</p>{item.storedObjectId && <Button variant="ghost" size="sm" onClick={() => void apiClient.download(`/files/${item.storedObjectId}/download`, `${item.stageName}-v${item.version}`)}>دریافت فایل پیوست</Button>}</Card>)}</div> : scenarios.length === 0 ? <Card variant="glass" className="p-10 text-center text-sm text-slate-400">سناریویی در انتظار داوری نیست.</Card> : <div className="grid gap-3 md:grid-cols-2">{scenarios.map((scenario) => <Card key={scenario.id} variant="glass" className="space-y-3 p-4"><div><Badge variant="warning" size="sm">{scenario.caseCode}</Badge><h3 className="mt-2 font-semibold text-slate-100">{scenario.title}</h3><p className="mt-1 text-xs text-slate-400">{scenario.caseTitle} · {scenario.internName} · نسخه {scenario.version}</p></div><p className="text-xs leading-6 text-slate-300">{scenario.summary}</p><Button variant="primary" size="sm" onClick={() => { setActiveScenario(scenario); setNotes(""); }}>بررسی سناریو</Button></Card>)}</div>}
 
-      {activeTab === "WORKLIST" ? (
-        <div className="space-y-4">
-          {reviews.length === 0 ? (
-            <Card variant="glass" className="text-center p-12">
-              <CheckCircle2 className="w-8 h-8 text-apple-green mx-auto mb-2 opacity-80" />
-              <p className="text-sm font-semibold text-slate-200">
-                تمام پرونده‌های ارجاع‌شده داوری شده‌اند.
-              </p>
-              <p className="text-xs text-slate-400 mt-1">
-                کارتابل داوری علمی شما در حال حاضر خالی است.
-              </p>
-            </Card>
-          ) : (
-            reviews.map((item) => (
-              <Card key={item.id} variant="glass" className="space-y-3">
-                <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 pb-3 border-b border-white/5">
-                  <div>
-                    <div className="flex items-center gap-2">
-                      <span className="font-mono text-xs px-2 py-0.5 rounded-apple-sm bg-apple-indigo/15 text-apple-indigo border border-apple-indigo/30 font-bold">
-                        {item.caseCode}
-                      </span>
-                      <h3 className="text-base font-bold text-slate-100">{item.caseTitle}</h3>
-                      <Badge variant="indigo" size="sm">{item.stageName}</Badge>
-                    </div>
-                    <div className="text-xs text-slate-400 mt-1 flex items-center gap-3">
-                      <span>ارائه‌دهنده: {item.internName}</span>
-                      <span>•</span>
-                      <span>زمان ثبت: {item.submittedAt}</span>
-                    </div>
-                  </div>
-
-                  <Button
-                    variant="primary"
-                    size="sm"
-                    className="bg-apple-indigo hover:bg-apple-indigo/90"
-                    icon={<FileSignature className="w-4 h-4" />}
-                    onClick={() => setActiveReview(item)}
-                  >
-                    بررسی و ثبت رأی داوری
-                  </Button>
-                </div>
-
-                <div className="p-3 rounded-apple-md bg-white/[0.03] border border-white/5 text-xs text-slate-300">
-                  <span className="text-slate-400 font-semibold block mb-1">خلاصه یافته‌های این مرحله:</span>
-                  <p className="leading-relaxed">{item.summary}</p>
-                </div>
-              </Card>
-            ))
-          )}
-        </div>
-      ) : (
-        /* Scenarios Bank View */
-        <div className="space-y-4">
-          <div className="p-3 rounded-apple-md bg-apple-blue/10 border border-apple-blue/20 text-xs text-apple-blue flex items-center gap-2">
-            <Sparkles className="w-4 h-4 shrink-0" />
-            <span>
-              نکته محدوده MVP: بانک سناریو صرفاً داخلی و برای کاربران مجاز در دسترس است؛ اکسپلور عمومی سناریوها خارج از محدوده فاز اول است.
-            </span>
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {scenarios.map((sc) => (
-              <Card key={sc.id} variant="glass" className="space-y-2">
-                <div className="flex items-start justify-between gap-2">
-                  <div>
-                    <span className="font-mono text-[11px] px-2 py-0.5 rounded-apple-sm bg-apple-green/15 text-apple-green border border-apple-green/30">
-                      {sc.code}
-                    </span>
-                    <h3 className="text-sm font-bold text-slate-100 mt-2">{sc.title}</h3>
-                  </div>
-                  <Badge variant="success" size="sm">سناریوی نهایی مصوب</Badge>
-                </div>
-
-                <p className="text-xs text-slate-400 leading-relaxed">{sc.summary}</p>
-
-                <div className="pt-2 border-t border-white/5 flex items-center justify-between text-[11px] text-slate-400">
-                  <span>تأیید توسط: {sc.approvedBy}</span>
-                  <span>تاریخ: {sc.approvedAt}</span>
-                </div>
-              </Card>
-            ))}
-          </div>
-        </div>
-      )}
-
-      {/* Review Decision Modal */}
-      <Modal
-        isOpen={!!activeReview}
-        onClose={() => setActiveReview(null)}
-        title="ثبت تصمیم داوری علمی مرحله (D-02 / D-03 / AT-29)"
-        subtitle="کفایت یک تصمیم معتبر: تصمیم هر یک از مدیران علمی فعال (اصلی یا همکار) برای این مرحله نافذ است."
-      >
-        {activeReview && (
-          <div className="space-y-4 text-right">
-            <div className="p-3 rounded-apple-md bg-white/[0.03] border border-white/5 text-xs space-y-1">
-              <div>
-                <span className="text-slate-400">پرونده:</span>{" "}
-                <strong className="text-slate-200">{activeReview.caseTitle}</strong> ({activeReview.caseCode})
-              </div>
-              <div>
-                <span className="text-slate-400">مرحله ارزیابی:</span>{" "}
-                <span className="text-apple-indigo font-semibold">{activeReview.stageName}</span>
-              </div>
-            </div>
-
-            <div>
-              <label className="text-xs font-medium text-slate-300 block mb-1">
-                یادداشت داوری و نکات علمی:
-              </label>
-              <textarea
-                className="w-full bg-slate-900/60 text-slate-100 placeholder-slate-500 text-sm rounded-apple-md border border-white/10 p-3 outline-none focus:border-apple-indigo"
-                rows={4}
-                placeholder="ارزیابی روش‌شناسی، کیفیت منابع، قوت استدلال و اصلاحات لازم..."
-                value={decisionNotes}
-                onChange={(e) => setDecisionNotes(e.target.value)}
-              />
-            </div>
-
-            <div className="p-3 rounded-apple-md bg-white/[0.02] border border-white/5 text-[11px] text-slate-400 leading-relaxed">
-              <span className="text-slate-300 font-semibold">قانون همزمانی D-03:</span> اگر مدیر علمی همکار زودتر رأی داده باشد، تصمیم وی ثبت و این اقدام با پیام تعارض رد می‌شود تا تکرار تصمیم پیش نیاید.
-            </div>
-
-            <div className="flex items-center justify-end gap-3 pt-3 border-t border-white/10">
-              <Button type="button" variant="ghost" onClick={() => setActiveReview(null)}>
-                انصراف
-              </Button>
-              <Button
-                type="button"
-                variant="secondary"
-                loading={loading}
-                className="text-apple-amber hover:text-white"
-                onClick={() => handleDecision("REVISION_REQUIRED")}
-              >
-                نیازمند اصلاح
-              </Button>
-              <Button
-                type="button"
-                variant="primary"
-                loading={loading}
-                className="bg-apple-green hover:bg-apple-green/90 text-white"
-                onClick={() => handleDecision("APPROVED")}
-              >
-                تأیید علمی مرحله
-              </Button>
-            </div>
-          </div>
-        )}
-      </Modal>
-    </div>
-  );
+    <Modal isOpen={!!activeReview} onClose={() => setActiveReview(null)} title="داوری مرحله پژوهش" subtitle="تصمیم معتبر هر مدیر علمی منتسب کافی است؛ نسخه قدیمی با خطای STALE_REVISION رد می‌شود.">
+      {activeReview && <div className="space-y-4 text-right"><div className="text-xs text-slate-300">{activeReview.caseTitle} · {activeReview.stageName}</div><label className="block text-xs text-slate-300">نظر داوری<textarea rows={4} value={notes} onChange={(event) => setNotes(event.target.value)} className="mt-1 w-full rounded-apple-md border border-white/10 bg-slate-900/70 p-3 text-sm" placeholder="نکته‌های علمی یا دلیل نیاز به اصلاح…" /></label><div className="flex justify-end gap-2"><Button variant="ghost" onClick={() => setActiveReview(null)}>انصراف</Button><Button variant="secondary" loading={busy} icon={<RotateCcw className="h-3.5 w-3.5" />} onClick={() => void decide("REVISION_REQUIRED")}>درخواست اصلاح</Button><Button variant="primary" loading={busy} onClick={() => void decide("APPROVED")}>تأیید مرحله</Button></div></div>}
+    </Modal>
+    <Modal isOpen={!!activeScenario} onClose={() => setActiveScenario(null)} title="داوری سناریو" subtitle="سناریوی تأییدشده در بانک داخلی سامانه ثبت می‌شود.">
+      {activeScenario && <div className="space-y-4 text-right"><div><h3 className="font-semibold text-slate-100">{activeScenario.title}</h3><p className="mt-2 text-xs text-slate-300">{activeScenario.summary}</p><pre className="mt-3 max-h-64 overflow-auto whitespace-pre-wrap rounded-apple-sm bg-black/20 p-3 text-xs text-slate-300">{activeScenario.content}</pre></div><label className="block text-xs text-slate-300">نظر داوری<textarea rows={3} required value={notes} onChange={(event) => setNotes(event.target.value)} className="mt-1 w-full rounded-apple-md border border-white/10 bg-slate-900/70 p-3 text-sm" /></label><div className="flex justify-end gap-2"><Button variant="ghost" onClick={() => setActiveScenario(null)}>انصراف</Button><Button variant="secondary" loading={busy} onClick={() => void decideScenario("CHANGES_REQUESTED")}>درخواست اصلاح</Button><Button variant="primary" loading={busy} onClick={() => void decideScenario("APPROVED")}>تأیید و ثبت در بانک</Button></div></div>}
+    </Modal>
+  </div>;
 };

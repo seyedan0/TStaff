@@ -1,4 +1,4 @@
-import { Module } from "@nestjs/common";
+import { forwardRef, Module } from "@nestjs/common";
 import { ResearchController } from "./presentation/research.controller.js";
 import {
   ResearchService,
@@ -9,7 +9,7 @@ import { AssignmentsModule } from "../assignments/assignments.module.js";
 import { ResourcesModule } from "../resources/resources.module.js";
 
 @Module({
-  imports: [AssignmentsModule, ResourcesModule],
+  imports: [AssignmentsModule, forwardRef(() => ResourcesModule)],
   controllers: [ResearchController],
   providers: [
     ResearchService,

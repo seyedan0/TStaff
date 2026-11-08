@@ -10,6 +10,7 @@ export interface ResearchCaseProps {
   title: string;
   code: string;
   subject: string;
+  researcherId?: string | null;
   status: ResearchStatus;
   version: number;
   stages: StageInstance[];
@@ -32,6 +33,7 @@ export class ResearchCase {
     title: string;
     code: string;
     subject: string;
+    researcherId?: string;
   }): ResearchCase {
     const now = new Date();
     const stages: StageInstance[] = [
@@ -66,6 +68,7 @@ export class ResearchCase {
       title: params.title,
       code: params.code,
       subject: params.subject,
+      researcherId: params.researcherId ?? null,
       status: "DRAFT",
       version: 1,
       stages,
@@ -80,76 +83,6 @@ export class ResearchCase {
 
   getStage(type: StageType): StageInstance | undefined {
     return this.props.stages.find((s) => s.stageType === type);
-  }
-
-  /**
-   * Rule D-02 & D-03 / AT-29: Optimistic Concurrency Control (CAS)
-   * Advances the research case to next stage if expectedVersion matches.
-   */
-  advanceStage(expectedVersion: number): ResearchCase {
-    if (this.props.version !== expectedVersion) {
-      throw new StaleRevisionError(this.props.version, expectedVersion);
-    }
-
-    let currentActiveStageIndex = STAGE_ORDER.findIndex((stageType) => {
-      const stage = this.getStage(stageType);
-      return stage && stage.status === "IN_PROGRESS";
-    });
-
-    if (currentActiveStageIndex < 0) {
-      // Check if current stage is already approved by review and ready to advance
-      const stageFromStatus = this.props.status.replace(
-        "_STAGE",
-        "",
-      ) as StageType;
-      const stageIdx = STAGE_ORDER.indexOf(stageFromStatus);
-      if (stageIdx >= 0) {
-        currentActiveStageIndex = stageIdx;
-      }
-    }
-
-    if (currentActiveStageIndex < 0) {
-      throw new InvalidStageTransitionError(
-        "هیچ مرحله‌ای در وضعیت فعال (IN_PROGRESS) نیست",
-      );
-    }
-
-    const currentStageType = STAGE_ORDER[currentActiveStageIndex]!;
-    const nextStageType = STAGE_ORDER[currentActiveStageIndex + 1];
-
-    const currentStage = this.getStage(currentStageType);
-    // FR-018 & FR-021: Advancing EXPLANATION or PRESCRIPTION requires prior scientific review approval
-    if (
-      (currentStageType === "EXPLANATION" ||
-        currentStageType === "PRESCRIPTION") &&
-      currentStage?.status !== "APPROVED"
-    ) {
-      throw new InvalidStageTransitionError(
-        `مرحله ${currentStageType} هنوز توسط مدیر علمی تأیید نشده است و امکان پیشروی وجود ندارد (FR-018, FR-021)`,
-      );
-    }
-
-    const updatedStages = this.props.stages.map((s) => {
-      if (s.stageType === currentStageType) {
-        return s.updateStatus("APPROVED");
-      }
-      if (nextStageType && s.stageType === nextStageType) {
-        return s.updateStatus("IN_PROGRESS");
-      }
-      return s;
-    });
-
-    const nextStatus: ResearchStatus = nextStageType
-      ? (`${nextStageType}_STAGE` as ResearchStatus)
-      : "COMPLETED";
-
-    return new ResearchCase({
-      ...this.props,
-      status: nextStatus,
-      version: this.props.version + 1,
-      stages: updatedStages,
-      updatedAt: new Date(),
-    });
   }
 
   /**
@@ -217,6 +150,40 @@ export class ResearchCase {
     });
   }
 
+  submitStageForReview(stageType: StageType, expectedVersion: number): ResearchCase {
+    if (this.props.version !== expectedVersion) {
+      throw new StaleRevisionError(this.props.version, expectedVersion);
+    }
+    const stage = this.getStage(stageType);
+    if (!stage || !["IN_PROGRESS", "REVISION_REQUESTED", "REVIEW_REQUIRED"].includes(stage.status)) {
+      throw new InvalidStageTransitionError(`مرحله ${stageType} برای ارسال به داوری باز نیست`);
+    }
+    const updatedStages = this.props.stages.map((item) => item.stageType === stageType ? item.updateStatus("SUBMITTED") : item);
+    return new ResearchCase({
+      ...this.props,
+      version: this.props.version + 1,
+      stages: updatedStages,
+      updatedAt: new Date(),
+    });
+  }
+
+  reopenStageForEditing(stageType: StageType, expectedVersion: number): ResearchCase {
+    if (this.props.version !== expectedVersion) {
+      throw new StaleRevisionError(this.props.version, expectedVersion);
+    }
+    const stage = this.getStage(stageType);
+    if (!stage || !["REVISION_REQUESTED", "REVIEW_REQUIRED"].includes(stage.status)) {
+      throw new InvalidStageTransitionError(`مرحله ${stageType} نیازمند بازگشایی برای اصلاح نیست`);
+    }
+    const updatedStages = this.props.stages.map((item) => item.stageType === stageType ? item.updateStatus("IN_PROGRESS") : item);
+    return new ResearchCase({
+      ...this.props,
+      version: this.props.version + 1,
+      stages: updatedStages,
+      updatedAt: new Date(),
+    });
+  }
+
   /**
    * Rule D-02 / D-03 / AT-29:
    * Scientific Review Decision with CAS check
@@ -228,6 +195,12 @@ export class ResearchCase {
   ): ResearchCase {
     if (this.props.version !== expectedVersion) {
       throw new StaleRevisionError(this.props.version, expectedVersion);
+    }
+    const currentStage = this.getStage(stageType);
+    if (!currentStage || currentStage.status !== "SUBMITTED") {
+      throw new InvalidStageTransitionError(
+        `مرحله ${stageType} تا زمان ارسال برای داوری قابل تصمیم‌گیری نیست`,
+      );
     }
 
     const stageStatus =
@@ -244,10 +217,21 @@ export class ResearchCase {
       return s;
     });
 
+    const nextStageType = STAGE_ORDER[STAGE_ORDER.indexOf(stageType) + 1];
+    const nextStages = updatedStages.map((stage) =>
+      stage.stageType === nextStageType && decision === "APPROVED"
+        ? stage.updateStatus("IN_PROGRESS")
+        : stage,
+    );
+    const nextStatus: ResearchStatus = decision === "APPROVED" && nextStageType
+      ? (`${nextStageType}_STAGE` as ResearchStatus)
+      : decision === "APPROVED" ? "COMPLETED" : this.props.status;
+
     return new ResearchCase({
       ...this.props,
+      status: nextStatus,
       version: this.props.version + 1,
-      stages: updatedStages,
+      stages: nextStages,
       updatedAt: new Date(),
     });
   }
@@ -268,6 +252,10 @@ export class ResearchCase {
     return this.props.subject;
   }
 
+  get researcherId(): string | null | undefined {
+    return this.props.researcherId;
+  }
+
   get status(): ResearchStatus {
     return this.props.status;
   }
@@ -286,6 +274,7 @@ export class ResearchCase {
       title: this.props.title,
       code: this.props.code,
       subject: this.props.subject,
+      researcherId: this.props.researcherId ?? null,
       status: this.props.status,
       version: this.props.version,
       stages: this.props.stages.map((s) => s.toJSON()),

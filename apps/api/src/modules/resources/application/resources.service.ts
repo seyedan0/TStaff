@@ -3,6 +3,9 @@ import type {
   CreateResourceDto,
   CreateInterviewDto,
   CreateInterviewReportDto,
+  UpdateResourceDto,
+  UpdateInterviewDto,
+  ResourceOrganizationDto,
 } from "@tstaff/contracts";
 import { Resource } from "../domain/resource.entity.js";
 import { Interview } from "../domain/interview.entity.js";
@@ -14,6 +17,7 @@ import {
   IncompleteSourcesStageError,
 } from "../domain/resource-errors.js";
 import type { ResourceRepositoryPort } from "./ports/resource.repository.port.js";
+import { FilesService } from "../../files/application/files.service.js";
 
 export const RESOURCE_REPOSITORY = Symbol("RESOURCE_REPOSITORY");
 
@@ -22,6 +26,7 @@ export class ResourcesService {
   constructor(
     @Inject(RESOURCE_REPOSITORY)
     private readonly resourceRepo: ResourceRepositoryPort,
+    @Inject(FilesService) private readonly files: FilesService,
   ) {}
 
   async createResource(
@@ -35,9 +40,20 @@ export class ResourcesService {
       title: dto.title,
       description: dto.description ?? null,
       contactInfo: dto.contactInfo ?? null,
+      personAge: dto.personAge ?? null,
+      position: dto.position ?? null,
+      province: dto.province ?? null,
+      county: dto.county ?? null,
     });
 
     await this.resourceRepo.createResource(resource);
+    if (dto.type === "ORGANIZATION" && dto.organizationName) {
+      await this.resourceRepo.saveOrganization?.(resource.id, {
+        name: dto.organizationName,
+        ...(dto.organizationEducationLevel ? { educationLevel: dto.organizationEducationLevel } : {}),
+        ...(dto.organizationType ? { organizationType: dto.organizationType } : {}),
+      });
+    }
     return resource;
   }
 
@@ -60,11 +76,15 @@ export class ResourcesService {
       id: crypto.randomUUID(),
       resourceId,
       intervieweeName: dto.intervieweeName,
-      intervieweeAge: dto.intervieweeAge ?? null,
+      intervieweeAge: dto.intervieweeAge ?? resource.toJSON().personAge ?? null,
       conductedAt:
         typeof dto.conductedAt === "string"
           ? new Date(dto.conductedAt)
           : dto.conductedAt,
+      ...(dto.durationMinutes !== undefined ? { durationMinutes: dto.durationMinutes } : {}),
+      ...(dto.mode !== undefined ? { mode: dto.mode } : {}),
+      ...(dto.location !== undefined ? { location: dto.location } : {}),
+      ...(dto.notes !== undefined ? { notes: dto.notes } : {}),
     });
 
     await this.resourceRepo.createInterview(interview);
@@ -75,20 +95,62 @@ export class ResourcesService {
     return interview;
   }
 
+  async updateResource(resourceId: string, dto: UpdateResourceDto): Promise<Resource> {
+    const resource = await this.resourceRepo.findResourceById(resourceId);
+    if (!resource) throw new ResourceNotFoundError(resourceId);
+    const updated = resource.updateInfo(dto);
+    await this.resourceRepo.saveResource(updated);
+    return updated;
+  }
+
+  async updateInterview(interviewId: string, dto: UpdateInterviewDto): Promise<Interview> {
+    const interview = await this.resourceRepo.findInterviewById(interviewId);
+    if (!interview) throw new InterviewNotFoundError(interviewId);
+    const updated = interview.updateInfo({
+      ...(dto.intervieweeName !== undefined ? { intervieweeName: dto.intervieweeName } : {}),
+      ...(dto.intervieweeAge !== undefined ? { intervieweeAge: dto.intervieweeAge } : {}),
+      ...(dto.conductedAt !== undefined ? { conductedAt: typeof dto.conductedAt === "string" ? new Date(dto.conductedAt) : dto.conductedAt } : {}),
+      ...(dto.durationMinutes !== undefined ? { durationMinutes: dto.durationMinutes } : {}),
+      ...(dto.mode !== undefined ? { mode: dto.mode } : {}),
+      ...(dto.location !== undefined ? { location: dto.location } : {}),
+      ...(dto.notes !== undefined ? { notes: dto.notes } : {}),
+    });
+    await this.resourceRepo.saveInterview(updated);
+    return updated;
+  }
+
+  async saveOrganization(resourceId: string, dto: ResourceOrganizationDto): Promise<void> {
+    const resource = await this.resourceRepo.findResourceById(resourceId);
+    if (!resource) throw new ResourceNotFoundError(resourceId);
+    if (!this.resourceRepo.saveOrganization) throw new Error("ذخیره مجموعه پشتیبانی نمی‌شود");
+    await this.resourceRepo.saveOrganization(resourceId, {
+      name: dto.name,
+      ...(dto.educationLevel !== undefined ? { educationLevel: dto.educationLevel } : {}),
+      ...(dto.organizationType !== undefined ? { organizationType: dto.organizationType } : {}),
+      ...(dto.description !== undefined ? { description: dto.description } : {}),
+    });
+  }
+
   async createReport(
     interviewId: string,
     dto: CreateInterviewReportDto,
+    authorId: string,
   ): Promise<InterviewReport> {
     const interview = await this.resourceRepo.findInterviewById(interviewId);
     if (!interview) {
       throw new InterviewNotFoundError(interviewId);
     }
+    await this.files.assertReadyForUse(dto.fileId, authorId);
 
+    const previousReports = await this.resourceRepo.findReportsByInterviewId(interviewId);
     const report = InterviewReport.create({
       id: crypto.randomUUID(),
       interviewId,
+      authorId,
       title: dto.title,
-      content: dto.content,
+      version: previousReports.reduce((max, item) => Math.max(max, item.version), 0) + 1,
+      ...(dto.content !== undefined ? { content: dto.content } : {}),
+      ...(dto.fileId !== undefined ? { storedObjectId: dto.fileId } : {}),
     });
 
     await this.resourceRepo.createReport(report);
@@ -97,6 +159,24 @@ export class ResourcesService {
 
   async getResourcesByCaseId(caseId: string): Promise<Resource[]> {
     return this.resourceRepo.findResourcesByCaseId(caseId);
+  }
+
+  async getResourceById(resourceId: string): Promise<Resource> {
+    const resource = await this.resourceRepo.findResourceById(resourceId);
+    if (!resource) throw new ResourceNotFoundError(resourceId);
+    return resource;
+  }
+
+  async getInterviewById(interviewId: string): Promise<Interview | null> {
+    return this.resourceRepo.findInterviewById(interviewId);
+  }
+
+  async getOrganizationByResourceId(resourceId: string) {
+    return this.resourceRepo.findOrganizationByResourceId?.(resourceId) ?? null;
+  }
+
+  async getReportsByInterviewId(interviewId: string) {
+    return this.resourceRepo.findReportsByInterviewId(interviewId);
   }
 
   async getInterviewByResourceId(
@@ -135,9 +215,13 @@ export class ResourcesService {
       const reports = await this.resourceRepo.findReportsByInterviewId(
         interview.id,
       );
-      if (reports.length === 0) {
+      const hasScannedReport = await Promise.all(reports.map(async (report) => {
+        const storedObjectId = report.toJSON().storedObjectId;
+        return !!storedObjectId && this.files.isAvailable(storedObjectId);
+      })).then((results) => results.some(Boolean));
+      if (!hasScannedReport) {
         missingDetails.push(
-          `مصاحبه برای منبع «${res.title}» فاقد گزارش مکتوب است`,
+          `مصاحبه برای منبع «${res.title}» فاقد گزارش مکتوبِ اسکن‌شده است`,
         );
       }
     }

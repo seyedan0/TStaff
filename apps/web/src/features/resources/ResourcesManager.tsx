@@ -1,459 +1,283 @@
-import React, { useState, useEffect } from "react";
-import {
-  FileSpreadsheet,
-  User,
-  Building2,
-  Mic,
-  FileCheck,
-  Plus,
-  AlertCircle,
-} from "lucide-react";
-import { Card } from "../../shared/ui/Card.js";
-import { Button } from "../../shared/ui/Button.js";
-import { Badge } from "../../shared/ui/Badge.js";
-import { Modal } from "../../shared/ui/Modal.js";
-import { Input } from "../../shared/ui/Input.js";
+import React, { useCallback, useEffect, useState } from "react";
+import { Building2, FileCheck2, FileText, Mic, Plus, UserRound } from "lucide-react";
 import { apiClient } from "../../shared/api-client.js";
-import type { ResourceItem, InterviewItem } from "../../shared/types.js";
+import type { ResourceItem } from "../../shared/types.js";
+import { Badge } from "../../shared/ui/Badge.js";
+import { Button } from "../../shared/ui/Button.js";
+import { Card } from "../../shared/ui/Card.js";
+import { Input } from "../../shared/ui/Input.js";
+import { Modal } from "../../shared/ui/Modal.js";
+import type { StageStatus } from "@tstaff/contracts";
+
+type Notice = (type: "success" | "error" | "info" | "warning", title: string, message?: string) => void;
+type WizardStep = 1 | 2 | 3 | 4;
+
+interface UploadedFile {
+  id: string;
+  originalName: string;
+  size: number;
+  scanStatus: "AVAILABLE" | "QUARANTINED" | "REJECTED";
+}
 
 export interface ResourcesManagerProps {
   caseId: string;
   caseTitle: string;
   onBack: () => void;
-  onNotify: (type: "success" | "error" | "info", title: string, message?: string) => void;
+  onNotify: Notice;
+  canEdit?: boolean;
+  caseVersion: number;
+  stageStatus: StageStatus;
+  onWorkflowChanged: () => Promise<void>;
 }
+
+const steps = ["اطلاعات فردی", "مجموعه وابسته", "اطلاعات مصاحبه", "گزارش مکتوب"] as const;
 
 export const ResourcesManager: React.FC<ResourcesManagerProps> = ({
   caseId,
   caseTitle,
   onBack,
   onNotify,
+  canEdit = true,
+  caseVersion,
+  stageStatus,
+  onWorkflowChanged,
 }) => {
   const [resources, setResources] = useState<ResourceItem[]>([]);
   const [loading, setLoading] = useState(true);
-
-  // Modals state
-  const [isNewResourceOpen, setIsNewResourceOpen] = useState(false);
-  const [isInterviewModalOpen, setIsInterviewModalOpen] = useState(false);
-  const [isReportModalOpen, setIsReportModalOpen] = useState(false);
-  const [activeResource, setActiveResource] = useState<ResourceItem | null>(null);
-  const [activeInterview, setActiveInterview] = useState<InterviewItem | null>(null);
-
-  // Forms
-  const [resourceType, setResourceType] = useState<"INDIVIDUAL" | "ORGANIZATION">("INDIVIDUAL");
-  const [resourceTitle, setResourceTitle] = useState("");
-  const [resourceDesc, setResourceDesc] = useState("");
-
-  const [intervieweeName, setIntervieweeName] = useState("");
-  const [intervieweeAge, setIntervieweeAge] = useState(45);
-
+  const [wizardOpen, setWizardOpen] = useState(false);
+  const [wizardStep, setWizardStep] = useState<WizardStep>(1);
+  const [selectedResource, setSelectedResource] = useState<ResourceItem | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [personName, setPersonName] = useState("");
+  const [personAge, setPersonAge] = useState("");
+  const [position, setPosition] = useState("");
+  const [province, setProvince] = useState("");
+  const [county, setCounty] = useState("");
+  const [contactInfo, setContactInfo] = useState("");
+  const [personDescription, setPersonDescription] = useState("");
+  const [organizationName, setOrganizationName] = useState("");
+  const [organizationEducation, setOrganizationEducation] = useState("");
+  const [organizationType, setOrganizationType] = useState("");
+  const [organizationDescription, setOrganizationDescription] = useState("");
+  const [interviewMode, setInterviewMode] = useState("حضوری");
+  const [interviewLocation, setInterviewLocation] = useState("");
+  const [interviewDate, setInterviewDate] = useState(new Date().toISOString().slice(0, 16));
+  const [interviewDuration, setInterviewDuration] = useState("60");
+  const [interviewNotes, setInterviewNotes] = useState("");
   const [reportTitle, setReportTitle] = useState("");
-  const [reportContent, setReportContent] = useState("");
+  const [reportFile, setReportFile] = useState<File | null>(null);
+  const [uploadedFile, setUploadedFile] = useState<UploadedFile | null>(null);
 
-  const loadResources = async () => {
+  const submitSources = async () => {
+    setBusy(true);
+    try {
+      await apiClient.post(`/research-cases/${caseId}/resources/complete`, { expectedVersion: caseVersion });
+      await onWorkflowChanged();
+      onNotify("success", "منابع برای داوری ارسال شد", "مرحله بعد پس از تأیید مدیر علمی باز می‌شود.");
+    } catch (error) {
+      onNotify("error", "اتمام منابع انجام نشد", error instanceof Error ? error.message : undefined);
+    } finally { setBusy(false); }
+  };
+
+  const loadResources = useCallback(async () => {
     setLoading(true);
     try {
       const data = await apiClient.get<ResourceItem[]>(`/research-cases/${caseId}/resources`);
       setResources(data);
-    } catch {
-      // Fallback demo resources demonstrating single interview rule
-      setResources([
-        {
-          id: "res-101",
-          researchCaseId: caseId,
-          type: "INDIVIDUAL",
-          title: "مصاحبه با معاون فناوری و توسعه هوش مصنوعی",
-          description: "بررسی الگوهای پذیرش فناوری در سازمان‌های حاکمیتی",
-          hasInterview: true,
-          interview: {
-            id: "int-101",
-            resourceId: "res-101",
-            intervieweeName: "دکتر حسینی",
-            intervieweeAge: 48,
-            conductedAt: new Date().toISOString(),
-            hasReport: true,
-            reportsCount: 1,
-          },
-          createdAt: new Date().toISOString(),
-          updatedAt: new Date().toISOString(),
-        },
-        {
-          id: "res-102",
-          researchCaseId: caseId,
-          type: "ORGANIZATION",
-          title: "اندیشکده حکمرانی و مطالعات راهبردی فضای مجازی",
-          description: "تحلیل اسناد بالادستی و گزارش‌های میدانی",
-          hasInterview: false,
-          createdAt: new Date().toISOString(),
-          updatedAt: new Date().toISOString(),
-        },
-      ]);
+    } catch (error) {
+      setResources([]);
+      onNotify("error", "بارگذاری منابع انجام نشد", error instanceof Error ? error.message : undefined);
     } finally {
       setLoading(false);
     }
+  }, [caseId, onNotify]);
+
+  useEffect(() => { void loadResources(); }, [loadResources]);
+
+  const resetPersonForm = () => {
+    setSelectedResource(null);
+    setWizardStep(1);
+    setPersonName(""); setPersonAge(""); setPosition(""); setProvince(""); setCounty(""); setContactInfo(""); setPersonDescription("");
+    setOrganizationName(""); setOrganizationEducation(""); setOrganizationType(""); setOrganizationDescription("");
+    setInterviewMode("حضوری"); setInterviewLocation(""); setInterviewDate(new Date().toISOString().slice(0, 16)); setInterviewDuration("60"); setInterviewNotes("");
+    setReportTitle(""); setReportFile(null); setUploadedFile(null);
   };
 
-  useEffect(() => {
-    loadResources();
-  }, [caseId]);
+  const startNew = () => { resetPersonForm(); setWizardOpen(true); };
 
-  const handleCreateResource = async (e: React.FormEvent) => {
-    e.preventDefault();
-    try {
-      await apiClient.post(`/research-cases/${caseId}/resources`, {
-        type: resourceType,
-        title: resourceTitle,
-        description: resourceDesc,
-      });
-      onNotify("success", "منبع ثبت شد", "منبع پژوهشی با موفقیت به پرونده افزوده شد.");
-      setIsNewResourceOpen(false);
-      setResourceTitle("");
-      setResourceDesc("");
-      loadResources();
-    } catch (err: any) {
-      onNotify("error", "خطا در ثبت منبع", err.message);
-    }
+  const resume = (resource: ResourceItem) => {
+    resetPersonForm();
+    setSelectedResource(resource);
+    setPersonName(resource.title);
+    setPersonAge(String(resource.personAge ?? ""));
+    setPosition(resource.position ?? ""); setProvince(resource.province ?? ""); setCounty(resource.county ?? "");
+    setContactInfo(resource.contactInfo ?? "");
+    setOrganizationName(resource.organization?.name ?? "");
+    setOrganizationEducation(resource.organization?.educationLevel ?? "");
+    setOrganizationType(resource.organization?.organizationType ?? "");
+    setOrganizationDescription(resource.organization?.description ?? "");
+    setInterviewMode(resource.interview?.mode ?? "حضوری");
+    setInterviewLocation(resource.interview?.location ?? "");
+    setInterviewNotes(resource.interview?.notes ?? "");
+    setInterviewDate(resource.interview?.conductedAt ? new Date(resource.interview.conductedAt).toISOString().slice(0, 16) : new Date().toISOString().slice(0, 16));
+    setInterviewDuration(String(resource.interview?.durationMinutes ?? 60));
+    setWizardStep(!resource.organization ? 2 : !resource.interview ? 3 : 4);
+    setWizardOpen(true);
   };
 
-  const handleRecordInterview = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!activeResource) return;
-
-    // Rule D-07 / FR-058 / AT-30: Check if resource already has an interview
-    if (activeResource.hasInterview) {
-      onNotify(
-        "error",
-        "تعارض D-07: مصاحبه تکراری",
-        "برای هر منبع پژوهشی، در طول حیاتش حداکثر ۱ مصاحبه مجاز است. ثبت مصاحبه دوم مسدود است.",
-      );
+  const savePerson = async (event: React.FormEvent) => {
+    event.preventDefault();
+    if (!personAge || !Number.isInteger(Number(personAge)) || Number(personAge) < 1) {
+      onNotify("error", "سن نامعتبر است", "سن باید عدد صحیح مثبت باشد.");
       return;
     }
-
+    setBusy(true);
     try {
-      await apiClient.post(`/resources/${activeResource.id}/interview`, {
-        intervieweeName,
-        intervieweeAge: Number(intervieweeAge),
-        conductedAt: new Date().toISOString(),
-      });
-      onNotify("success", "مصاحبه ثبت شد", "مصاحبه منبع پژوهشی با موفقیت ثبت شد (حداکثر ۱ مصاحبه D-07).");
-      setIsInterviewModalOpen(false);
-      loadResources();
-    } catch (err: any) {
-      onNotify("error", "خطا در ثبت مصاحبه", err.message);
-    }
+      const data = {
+        type: "INDIVIDUAL", title: personName.trim(), personAge: Number(personAge), position: position.trim(), province: province.trim(), county: county.trim(), contactInfo: contactInfo.trim(), description: personDescription.trim(),
+      };
+      const resource = selectedResource
+        ? await apiClient.patch<ResourceItem>(`/resources/${selectedResource.id}`, data)
+        : await apiClient.post<ResourceItem>(`/research-cases/${caseId}/resources`, data);
+      setSelectedResource((current) => current ? { ...current, ...resource } : resource);
+      setWizardStep(2);
+      await loadResources();
+      await onWorkflowChanged();
+      onNotify("success", "اطلاعات فرد ذخیره شد", "منبع همین حالا به فهرست منابع اضافه شد؛ ادامه فرم را می‌توانید بعداً تکمیل کنید.");
+    } catch (error) {
+      onNotify("error", "ذخیره اطلاعات فرد انجام نشد", error instanceof Error ? error.message : undefined);
+    } finally { setBusy(false); }
   };
 
-  const handleCreateReport = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!activeInterview) return;
-
+  const saveOrganization = async (event: React.FormEvent) => {
+    event.preventDefault();
+    if (!selectedResource) return;
+    setBusy(true);
     try {
-      await apiClient.post(`/interviews/${activeInterview.id}/reports`, {
-        title: reportTitle,
-        content: reportContent,
-      });
-      onNotify("success", "گزارش مکتوب ثبت شد", "گزارش مصاحبه نسخه‌دار شد و الزامات مرحله منابع تکمیل گردید.");
-      setIsReportModalOpen(false);
-      setReportTitle("");
-      setReportContent("");
-      loadResources();
-    } catch (err: any) {
-      onNotify("error", "خطا در ثبت گزارش", err.message);
-    }
+      if (organizationName.trim()) {
+        await apiClient.patch(`/resources/${selectedResource.id}/organization`, {
+          name: organizationName.trim(), educationLevel: organizationEducation.trim(), organizationType: organizationType.trim(), description: organizationDescription.trim(),
+        });
+      }
+      setWizardStep(3);
+      await loadResources();
+      await onWorkflowChanged();
+      onNotify("success", organizationName.trim() ? "مجموعه ذخیره شد" : "از ثبت مجموعه عبور شد");
+    } catch (error) {
+      onNotify("error", "ذخیره مجموعه انجام نشد", error instanceof Error ? error.message : undefined);
+    } finally { setBusy(false); }
   };
+
+  const saveInterview = async (event: React.FormEvent) => {
+    event.preventDefault();
+    if (!selectedResource) return;
+    setBusy(true);
+    try {
+      const interviewData = {
+        intervieweeName: personName.trim(), intervieweeAge: Number(personAge), conductedAt: new Date(interviewDate).toISOString(), durationMinutes: Number(interviewDuration), mode: interviewMode, location: interviewLocation.trim(), notes: interviewNotes.trim(),
+      };
+      const interview = selectedResource.interview?.id
+        ? await apiClient.patch<NonNullable<ResourceItem["interview"]>>(`/interviews/${selectedResource.interview.id}`, interviewData)
+        : await apiClient.post<NonNullable<ResourceItem["interview"]>>(`/resources/${selectedResource.id}/interview`, interviewData);
+      setSelectedResource((current) => current ? { ...current, interview: { ...interview, hasReport: current.interview?.hasReport ?? false, reportsCount: current.interview?.reportsCount ?? 0, latestReport: current.interview?.latestReport ?? null } } : current);
+      setWizardStep(4);
+      await loadResources();
+      await onWorkflowChanged();
+      onNotify("success", "اطلاعات مصاحبه ذخیره شد", "برای این منبع فقط یک مصاحبه ثبت می‌شود.");
+    } catch (error) {
+      onNotify("error", "ثبت مصاحبه انجام نشد", error instanceof Error ? error.message : undefined);
+    } finally { setBusy(false); }
+  };
+
+  const uploadReport = async (event: React.FormEvent) => {
+    event.preventDefault();
+    if (!selectedResource?.interview?.id || !reportFile) return;
+    setBusy(true);
+    try {
+      const uploaded = uploadedFile?.scanStatus === "QUARANTINED"
+        ? await apiClient.post<UploadedFile>(`/files/${uploadedFile.id}/rescan`)
+        : await apiClient.upload<UploadedFile>("/files", reportFile);
+      setUploadedFile(uploaded);
+      if (uploaded.scanStatus !== "AVAILABLE") {
+        onNotify("warning", "فایل در قرنطینه است", "تا پایان اسکن امنیتی، گزارش برای داوری یا دانلود قابل استفاده نیست.");
+        return;
+      }
+      await apiClient.post(`/interviews/${selectedResource.interview.id}/reports`, {
+        title: reportTitle.trim() || reportFile.name, fileId: uploaded.id,
+      });
+      await loadResources();
+      await onWorkflowChanged();
+      setWizardOpen(false);
+      onNotify("success", "گزارش مکتوب ثبت شد", "گزارش نسخه‌دار و به‌صورت خصوصی به مصاحبه پیوست شد.");
+    } catch (error) {
+      onNotify("error", "بارگذاری گزارش انجام نشد", error instanceof Error ? error.message : undefined);
+    } finally { setBusy(false); }
+  };
+
+  const canContinue = canEdit;
 
   return (
-    <div className="space-y-6">
-      {/* Top Header */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+    <div className="space-y-5">
+      <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
-          <button
-            onClick={onBack}
-            className="text-xs text-apple-blue hover:underline mb-2 flex items-center gap-1 font-medium"
-          >
-            ← بازگشت به فهرست پرونده‌ها
-          </button>
-          <h2 className="text-xl font-bold text-slate-100 flex items-center gap-2">
-            <FileSpreadsheet className="w-6 h-6 text-apple-blue" />
-            منابع و مصاحبه‌های میدانی پرونده ({caseTitle})
-          </h2>
-          <p className="text-xs text-slate-400 mt-1">
-            قاعده D-07 و AT-30: هر منبع حداکثر ۱ مصاحبه و ۱ گزارش مکتوب نسخه‌دار دارد.
-          </p>
+          <button onClick={onBack} className="mb-2 text-xs text-apple-blue hover:underline">← بازگشت به روند پژوهش</button>
+          <h2 className="flex items-center gap-2 text-xl font-bold text-slate-100"><FileText className="h-5 w-5 text-apple-blue" />منابع و مصاحبه‌ها</h2>
+          <p className="mt-1 text-xs text-slate-400">{caseTitle} · ثبت مرحله‌ای و ذخیره‌شونده (D-07 / AT-04 / AT-18 / AT-30)</p>
         </div>
-
-        <Button
-          variant="primary"
-          size="md"
-          icon={<Plus className="w-4 h-4" />}
-          onClick={() => setIsNewResourceOpen(true)}
-        >
-          افزودن منبع جدید
-        </Button>
+        <div className="flex gap-2"><Button variant="secondary" size="sm" disabled={!canEdit || resources.length === 0 || busy} onClick={() => void submitSources()}>اتمام منابع و ارسال برای تأیید</Button><Button variant="primary" size="sm" icon={<Plus className="h-4 w-4" />} disabled={!canEdit} onClick={startNew}>افزودن منبع</Button></div>
       </div>
 
-      {/* Resources Cards */}
-      {loading ? (
-        <div className="p-12 text-center text-slate-400">در حال بارگذاری منابع...</div>
-      ) : resources.length === 0 ? (
-        <Card variant="glass" className="text-center p-12">
-          <p className="text-sm text-slate-400">هیچ منبعی برای این پرونده ثبت نشده است.</p>
-        </Card>
-      ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          {resources.map((res) => (
-            <Card key={res.id} variant="glass" className="flex flex-col justify-between">
-              <div>
-                <div className="flex items-start justify-between gap-3 mb-2">
-                  <div className="flex items-center gap-2">
-                    {res.type === "INDIVIDUAL" ? (
-                      <span className="p-2 rounded-apple-sm bg-apple-blue/15 text-apple-blue">
-                        <User className="w-4 h-4" />
-                      </span>
-                    ) : (
-                      <span className="p-2 rounded-apple-sm bg-apple-purple/15 text-apple-purple">
-                        <Building2 className="w-4 h-4" />
-                      </span>
-                    )}
-                    <h3 className="text-base font-bold text-slate-100">{res.title}</h3>
-                  </div>
-                  <Badge variant={res.type === "INDIVIDUAL" ? "info" : "indigo"} size="sm">
-                    {res.type === "INDIVIDUAL" ? "فرد" : "سازمان/مجموعه"}
-                  </Badge>
-                </div>
-
-                {res.description && (
-                  <p className="text-xs text-slate-400 leading-relaxed mb-4">{res.description}</p>
-                )}
-
-                {/* Interview Section (Invariant D-07) */}
-                <div className="p-3.5 rounded-apple-md bg-white/[0.03] border border-white/5 space-y-2 mb-4">
-                  <div className="flex items-center justify-between">
-                    <span className="text-xs font-semibold text-slate-300 flex items-center gap-1.5">
-                      <Mic className="w-3.5 h-3.5 text-apple-blue" />
-                      وضعیت مصاحبه منبع (D-07):
-                    </span>
-                    {res.hasInterview ? (
-                      <Badge variant="success" size="sm" dot>مصاحبه ثبت‌شده (یکتا)</Badge>
-                    ) : (
-                      <Badge variant="warning" size="sm" dot>بدون مصاحبه</Badge>
-                    )}
-                  </div>
-
-                  {res.hasInterview && res.interview ? (
-                    <div className="text-[11px] text-slate-300 pt-1 border-t border-white/5 space-y-1">
-                      <div className="flex justify-between">
-                        <span className="text-slate-400">مصاحبه‌شونده:</span>
-                        <span>{res.interview.intervieweeName} ({res.interview.intervieweeAge} سال)</span>
-                      </div>
-                      <div className="flex justify-between items-center">
-                        <span className="text-slate-400">گزارش مکتوب نسخه‌دار:</span>
-                        {res.interview.hasReport ? (
-                          <span className="text-apple-green flex items-center gap-1">
-                            <FileCheck className="w-3.5 h-3.5" /> ثبت‌شده
-                          </span>
-                        ) : (
-                          <span className="text-apple-amber">در انتظار ثبت گزارش</span>
-                        )}
-                      </div>
-                    </div>
-                  ) : (
-                    <p className="text-[11px] text-slate-400">
-                      جهت خاتمه مرحله منابع، ثبت دقیقاً ۱ مصاحبه الزامی است.
-                    </p>
-                  )}
-                </div>
-              </div>
-
-              {/* Action buttons */}
-              <div className="flex items-center justify-end gap-2 pt-2 border-t border-white/5">
-                {!res.hasInterview ? (
-                  <Button
-                    variant="primary"
-                    size="sm"
-                    icon={<Mic className="w-3.5 h-3.5" />}
-                    onClick={() => {
-                      setActiveResource(res);
-                      setIntervieweeName("");
-                      setIsInterviewModalOpen(true);
-                    }}
-                  >
-                    ثبت مصاحبه یکتا (D-07)
-                  </Button>
-                ) : (
-                  <>
-                    <Button
-                      variant="secondary"
-                      size="sm"
-                      disabled
-                      icon={<AlertCircle className="w-3.5 h-3.5 text-slate-500" />}
-                    >
-                      مصاحبه ثبت شده (مسدود D-07)
-                    </Button>
-                    {res.interview && !res.interview.hasReport && (
-                      <Button
-                        variant="primary"
-                        size="sm"
-                        icon={<FileCheck className="w-3.5 h-3.5" />}
-                        onClick={() => {
-                          setActiveInterview(res.interview!);
-                          setIsReportModalOpen(true);
-                        }}
-                      >
-                        ثبت گزارش مکتوب
-                      </Button>
-                    )}
-                  </>
-                )}
-              </div>
-            </Card>
-          ))}
-        </div>
-      )}
-
-      {/* New Resource Modal */}
-      <Modal
-        isOpen={isNewResourceOpen}
-        onClose={() => setIsNewResourceOpen(false)}
-        title="ثبت منبع پژوهشی جدید"
-        subtitle="تعریف افراد کلیدی یا سازمان‌های مورد مصاحبه"
-      >
-        <form onSubmit={handleCreateResource} className="space-y-4 text-right">
-          <div className="flex gap-4">
-            <label className="flex items-center gap-2 text-xs text-slate-200 cursor-pointer">
-              <input
-                type="radio"
-                name="type"
-                value="INDIVIDUAL"
-                checked={resourceType === "INDIVIDUAL"}
-                onChange={() => setResourceType("INDIVIDUAL")}
-                className="accent-apple-blue"
-              />
-              فرد حقیقی (متخصص/مسئول)
-            </label>
-            <label className="flex items-center gap-2 text-xs text-slate-200 cursor-pointer">
-              <input
-                type="radio"
-                name="type"
-                value="ORGANIZATION"
-                checked={resourceType === "ORGANIZATION"}
-                onChange={() => setResourceType("ORGANIZATION")}
-                className="accent-apple-blue"
-              />
-              سازمان / نهاد / اندیشکده
-            </label>
+      {!canEdit && <div className="rounded-apple-md border border-white/10 bg-white/[0.03] p-3 text-xs text-slate-300">{stageStatus === "SUBMITTED" ? "منابع برای داوری ارسال شده و در کارتابل مدیر علمی قرار دارد." : stageStatus === "APPROVED" ? "مرحله منابع تأیید شده است و برای مشاهده سابقه فقط خواندنی است." : "این مرحله فعلاً فقط برای مشاهده در دسترس است."}</div>}
+      {loading ? <div className="p-10 text-center text-sm text-slate-400">در حال بارگذاری منابع…</div> : resources.length === 0 ? (
+        <Card variant="glass" className="p-10 text-center text-sm text-slate-400">هنوز منبعی ثبت نشده است.</Card>
+      ) : <div className="grid gap-3 md:grid-cols-2">
+        {resources.map((resource) => <Card key={resource.id} variant="glass" className="space-y-3">
+          <div className="flex items-start justify-between gap-3">
+            <div className="flex items-start gap-2"><UserRound className="mt-0.5 h-4 w-4 text-apple-blue" /><div><h3 className="font-semibold text-slate-100">{resource.title}</h3><p className="mt-1 text-xs text-slate-400">{resource.position || "سمت ثبت نشده"}{resource.personAge ? ` · ${resource.personAge} سال` : ""}</p></div></div>
+            <Badge variant={resource.interview?.hasReport ? "success" : resource.interview ? "warning" : "neutral"} size="sm">{resource.interview?.hasReport ? "تکمیل" : resource.interview ? "گزارش ناقص" : "در حال تکمیل"}</Badge>
           </div>
-
-          <Input
-            label="عنوان منبع"
-            placeholder="مثال: کارشناس ارشد حکمرانی هوش مصنوعی"
-            value={resourceTitle}
-            onChange={(e) => setResourceTitle(e.target.value)}
-            required
-          />
-
-          <div className="text-right">
-            <label className="text-xs font-medium text-slate-300 block mb-1">
-              توضیحات و زمینه مصاحبه
-            </label>
-            <textarea
-              className="w-full bg-slate-900/60 text-slate-100 placeholder-slate-500 text-sm rounded-apple-md border border-white/10 p-3 outline-none focus:border-apple-blue focus:ring-2 focus:ring-apple-blue/30"
-              rows={3}
-              placeholder="شرح مختصری از ارتباط این منبع با پرونده پژوهشی..."
-              value={resourceDesc}
-              onChange={(e) => setResourceDesc(e.target.value)}
-            />
+          {resource.organization && <div className="flex items-center gap-2 text-xs text-slate-300"><Building2 className="h-3.5 w-3.5 text-apple-purple" />{resource.organization.name} · {resource.organization.educationLevel || resource.organization.organizationType || ""}</div>}
+          {resource.interview && <div className="flex items-center gap-2 text-xs text-slate-300"><Mic className="h-3.5 w-3.5 text-apple-blue" />مصاحبه {resource.interview.hasReport ? "و گزارش ثبت شده" : "ثبت شده؛ گزارش در انتظار"}{resource.interview.latestReport ? ` · نسخه ${resource.interview.latestReport.version}` : ""}</div>}
+          <div className="flex justify-end gap-2 border-t border-white/5 pt-2">
+            {resource.interview?.latestReport?.storedObjectId && <Button variant="ghost" size="sm" icon={<FileCheck2 className="h-3.5 w-3.5" />} onClick={() => void apiClient.download(`/files/${resource.interview!.latestReport!.storedObjectId}/download`, resource.interview!.latestReport!.title)}>دانلود گزارش</Button>}
+            <Button variant="secondary" size="sm" disabled={!canEdit} onClick={() => resume(resource)}>{resource.interview?.hasReport ? "ویرایش / نسخه جدید" : "ادامه فرم"}</Button>
           </div>
+        </Card>)}
+      </div>}
 
-          <div className="flex items-center justify-end gap-3 pt-3 border-t border-white/10">
-            <Button type="button" variant="ghost" onClick={() => setIsNewResourceOpen(false)}>
-              انصراف
-            </Button>
-            <Button type="submit" variant="primary">
-              ثبت منبع
-            </Button>
-          </div>
-        </form>
-      </Modal>
-
-      {/* Record Interview Modal */}
-      <Modal
-        isOpen={isInterviewModalOpen}
-        onClose={() => setIsInterviewModalOpen(false)}
-        title="ثبت مصاحبه منبع پژوهشی"
-        subtitle="قاعده D-07 و AT-30: برای هر منبع صرفاً یک مصاحبه ثبت می‌شود و امکان ثبت مصاحبه دوم وجود ندارد."
-      >
-        <form onSubmit={handleRecordInterview} className="space-y-4 text-right">
-          <Input
-            label="نام و نام خانوادگی مصاحبه‌شونده"
-            placeholder="مثال: دکتر مهدی حسینی"
-            value={intervieweeName}
-            onChange={(e) => setIntervieweeName(e.target.value)}
-            required
-          />
-
-          <Input
-            label="سن مصاحبه‌شونده (فقط عدد صحیح مثبت - D-01)"
-            type="number"
-            step="1"
-            min="18"
-            max="99"
-            dir="ltr"
-            value={intervieweeAge}
-            onChange={(e) => setIntervieweeAge(Number(e.target.value))}
-            required
-          />
-
-          <div className="flex items-center justify-end gap-3 pt-3 border-t border-white/10">
-            <Button type="button" variant="ghost" onClick={() => setIsInterviewModalOpen(false)}>
-              انصراف
-            </Button>
-            <Button type="submit" variant="primary">
-              ثبت نهایی مصاحبه (قفل دائم D-07)
-            </Button>
-          </div>
-        </form>
-      </Modal>
-
-      {/* Report Modal */}
-      <Modal
-        isOpen={isReportModalOpen}
-        onClose={() => setIsReportModalOpen(false)}
-        title="ثبت گزارش مکتوب نسخه‌دار مصاحبه (FR-058)"
-        subtitle="تحلیل تفصیلی و داده‌های میدانی استخراج‌شده از مصاحبه"
-      >
-        <form onSubmit={handleCreateReport} className="space-y-4 text-right">
-          <Input
-            label="عنوان گزارش"
-            placeholder="مثال: گزارش مصاحبه تحلیلی اولویت‌های تحول دیجیتال"
-            value={reportTitle}
-            onChange={(e) => setReportTitle(e.target.value)}
-            required
-          />
-
-          <div className="text-right">
-            <label className="text-xs font-medium text-slate-300 block mb-1">
-              متن مشروح گزارش (حداقل ۱۰ کاراکتر)
-            </label>
-            <textarea
-              className="w-full bg-slate-900/60 text-slate-100 placeholder-slate-500 text-sm rounded-apple-md border border-white/10 p-3 outline-none focus:border-apple-blue focus:ring-2 focus:ring-apple-blue/30"
-              rows={5}
-              placeholder="متن کامل تحلیل و یافته‌های کلیدی حاصل از مصاحبه..."
-              value={reportContent}
-              onChange={(e) => setReportContent(e.target.value)}
-              required
-            />
-          </div>
-
-          <div className="flex items-center justify-end gap-3 pt-3 border-t border-white/10">
-            <Button type="button" variant="ghost" onClick={() => setIsReportModalOpen(false)}>
-              انصراف
-            </Button>
-            <Button type="submit" variant="primary">
-              ثبت و الصاق گزارش
-            </Button>
-          </div>
-        </form>
+      <Modal isOpen={wizardOpen} onClose={() => setWizardOpen(false)} title={selectedResource ? "ادامه ثبت منبع" : "ثبت منبع پژوهشی"} subtitle={`${steps[wizardStep - 1]} · گام ${wizardStep} از ۴`} maxWidth="lg">
+        <div className="mb-5 grid grid-cols-4 gap-2">{steps.map((step, index) => { const target = (index + 1) as WizardStep; const available = canEdit && (target === 1 || !!selectedResource) && (target < 4 || !!selectedResource?.interview?.id); return <button type="button" key={step} disabled={!available} onClick={() => setWizardStep(target)} className={`rounded-apple-sm px-2 py-2 text-center text-[10px] disabled:opacity-40 ${target === wizardStep ? "bg-apple-blue/20 text-apple-blue" : target < wizardStep ? "bg-apple-green/10 text-apple-green" : "bg-white/[0.03] text-slate-500"}`}>{index + 1}. {step}</button>; })}</div>
+        {wizardStep === 1 && canContinue && <form onSubmit={savePerson} className="grid gap-3 text-right md:grid-cols-2">
+          <Input label="نام و نام خانوادگی" required value={personName} onChange={(event) => setPersonName(event.target.value)} />
+          <Input label="سن (عدد صحیح مثبت)" required type="number" min="1" step="1" value={personAge} onChange={(event) => setPersonAge(event.target.value)} />
+          <Input label="سمت / شغل" required value={position} onChange={(event) => setPosition(event.target.value)} placeholder="مثلاً معلم ریاضی" />
+          <Input label="استان" value={province} onChange={(event) => setProvince(event.target.value)} />
+          <Input label="شهرستان" value={county} onChange={(event) => setCounty(event.target.value)} />
+          <Input label="راه ارتباطی" value={contactInfo} onChange={(event) => setContactInfo(event.target.value)} />
+          <label className="text-xs text-slate-300 md:col-span-2">توضیحات فرد<textarea rows={3} value={personDescription} onChange={(event) => setPersonDescription(event.target.value)} className="mt-1 w-full rounded-apple-md border border-white/10 bg-slate-900/70 p-3 text-sm text-slate-100" /></label>
+          <div className="flex justify-end md:col-span-2"><Button type="submit" variant="primary" loading={busy}>ذخیره فرد و ادامه</Button></div>
+        </form>}
+        {wizardStep === 2 && canContinue && <form onSubmit={saveOrganization} className="space-y-3 text-right">
+          <p className="text-xs text-slate-400">اطلاعات مجموعه اختیاری است. اگر فرد در مجموعه‌ای کار می‌کند، مشخصات آن را ثبت کنید.</p>
+          <Input label="نام مجموعه" value={organizationName} onChange={(event) => setOrganizationName(event.target.value)} placeholder="مثلاً دبیرستان علامه" />
+          <div className="grid gap-3 md:grid-cols-2"><Input label="مقطع / دوره" value={organizationEducation} onChange={(event) => setOrganizationEducation(event.target.value)} placeholder="دوره اول متوسطه" /><Input label="نوع مجموعه" value={organizationType} onChange={(event) => setOrganizationType(event.target.value)} placeholder="مدرسه هیئت امنایی" /></div>
+          <label className="text-xs text-slate-300">توضیحات مجموعه<textarea rows={3} value={organizationDescription} onChange={(event) => setOrganizationDescription(event.target.value)} className="mt-1 w-full rounded-apple-md border border-white/10 bg-slate-900/70 p-3 text-sm text-slate-100" /></label>
+          <div className="flex justify-between"><Button type="button" variant="ghost" onClick={() => setWizardStep(1)}>بازگشت</Button><Button type="button" variant="secondary" onClick={() => { setWizardStep(3); }}>بدون مجموعه، ادامه</Button><Button type="submit" variant="primary" loading={busy}>ذخیره مجموعه و ادامه</Button></div>
+        </form>}
+        {wizardStep === 3 && canContinue && <form onSubmit={saveInterview} className="space-y-3 text-right">
+          <p className="text-xs text-slate-400">برای هر منبع یک مصاحبه ثبت می‌شود؛ ویرایش اطلاعات، همان مصاحبه را به‌روزرسانی می‌کند و مصاحبه دوم نمی‌سازد.</p>
+          <div className="grid gap-3 md:grid-cols-2"><Input label="نام مصاحبه‌شونده" required value={personName} onChange={(event) => setPersonName(event.target.value)} /><Input label="سن" required type="number" min="1" step="1" value={personAge} onChange={(event) => setPersonAge(event.target.value)} /><Input label="شیوه مصاحبه" required value={interviewMode} onChange={(event) => setInterviewMode(event.target.value)} /><Input label="مدت (دقیقه)" required type="number" min="1" step="1" value={interviewDuration} onChange={(event) => setInterviewDuration(event.target.value)} /><Input label="تاریخ و ساعت" required type="datetime-local" value={interviewDate} onChange={(event) => setInterviewDate(event.target.value)} /><Input label="مکان / پیوند" value={interviewLocation} onChange={(event) => setInterviewLocation(event.target.value)} /></div>
+          <label className="text-xs text-slate-300">یادداشت مصاحبه<textarea rows={3} value={interviewNotes} onChange={(event) => setInterviewNotes(event.target.value)} className="mt-1 w-full rounded-apple-md border border-white/10 bg-slate-900/70 p-3 text-sm text-slate-100" /></label>
+          <div className="flex justify-between"><Button type="button" variant="ghost" onClick={() => setWizardStep(2)}>بازگشت</Button><Button type="submit" variant="primary" loading={busy}>ثبت مصاحبه و ادامه</Button></div>
+        </form>}
+        {wizardStep === 4 && canContinue && <form onSubmit={uploadReport} className="space-y-3 text-right">
+          {selectedResource?.interview?.hasReport && <p className="text-xs text-apple-amber">نسخه {selectedResource.interview.latestReport?.version} قبلاً ثبت شده است؛ فایل جدید به‌عنوان نسخه بعدی نگهداری می‌شود.</p>}
+          <p className="text-xs text-slate-400">گزارش مکتوب مستقل از اطلاعات مصاحبه ثبت می‌شود. فقط PDF و DOCX تا سقف پیش‌فرض ۲۵ مگابایت پذیرفته می‌شود و فایل تا پایان اسکن امنیتی قرنطینه می‌ماند.</p>
+          <Input label="عنوان گزارش" value={reportTitle} onChange={(event) => setReportTitle(event.target.value)} placeholder="گزارش مصاحبه با ..." />
+          <label className="block text-xs text-slate-300">فایل گزارش (PDF یا DOCX)<input required type="file" accept=".pdf,.docx,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document" onChange={(event) => setReportFile(event.target.files?.[0] ?? null)} className="mt-2 block w-full text-xs text-slate-300 file:ml-3 file:rounded-apple-sm file:border-0 file:bg-white/10 file:px-3 file:py-2" /></label>
+          {uploadedFile?.scanStatus === "QUARANTINED" && <p className="text-xs text-apple-amber">فایل در انتظار اسکن است؛ پس از تأیید مدیر سامانه دوباره فرم را ادامه دهید.</p>}
+          <div className="flex justify-between"><Button type="button" variant="ghost" onClick={() => setWizardStep(3)}>بازگشت</Button><Button type="submit" variant="primary" loading={busy} disabled={!reportFile}>بارگذاری و ثبت گزارش</Button></div>
+        </form>}
       </Modal>
     </div>
   );

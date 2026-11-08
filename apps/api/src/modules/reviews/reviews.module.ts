@@ -7,9 +7,10 @@ import {
 import { PrismaReviewRepository } from "./infrastructure/prisma-review.repository.js";
 import { ResearchModule } from "../research/research.module.js";
 import { AssignmentsModule } from "../assignments/assignments.module.js";
+import { FilesModule } from "../files/files.module.js";
 
 @Module({
-  imports: [ResearchModule, AssignmentsModule],
+  imports: [ResearchModule, AssignmentsModule, FilesModule],
   controllers: [ReviewsController],
   providers: [
     ReviewsService,

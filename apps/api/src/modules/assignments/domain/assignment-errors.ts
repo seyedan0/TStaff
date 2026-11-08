@@ -40,3 +40,15 @@ export class AssignmentNotFoundError extends DomainError {
     super(`انتساب با شناسه ${id} یافت نشد`, "ASSIGNMENT_NOT_FOUND");
   }
 }
+
+export class InvalidScientificSupervisorError extends DomainError {
+  constructor() {
+    super("کاربر انتخاب‌شده مدیر علمی فعال نیست", "BAD_REQUEST");
+  }
+}
+
+export class InvalidTraineeAssignmentTargetError extends DomainError {
+  constructor() {
+    super("انتساب مدیر علمی فقط برای حساب کارآموز یا کارورز مجاز است", "BAD_REQUEST");
+  }
+}

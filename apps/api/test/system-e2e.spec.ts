@@ -18,6 +18,7 @@ import { MESSAGING_REPOSITORY } from "../src/modules/messaging/application/messa
 import { ARCHIVE_JOB_REPOSITORY } from "../src/modules/archival/application/archival.service.js";
 import { SETTING_REPOSITORY } from "../src/modules/settings/application/settings.service.js";
 import { REPORTING_REPOSITORY } from "../src/modules/reporting/application/reporting.service.js";
+import { FilesService } from "../src/modules/files/application/files.service.js";
 
 import { Applicant } from "../src/modules/applicants/domain/applicant.entity.js";
 import { User } from "../src/modules/identity/domain/user.entity.js";
@@ -37,7 +38,6 @@ import { ArchiveJob } from "../src/modules/archival/domain/archive-job.entity.js
 import { SystemSetting } from "../src/modules/settings/domain/system-setting.entity.js";
 import { StaleRevisionError } from "../src/modules/research/domain/research-errors.js";
 import { StaleRevisionError as ReviewStaleRevisionError } from "../src/modules/reviews/domain/reviews-errors.js";
-import type { StageStatus } from "@tstaff/contracts";
 
 class SystemMockRepositories {
   applicants = new Map<string, Applicant>();
@@ -56,6 +56,8 @@ class SystemMockRepositories {
   messages = new Map<string, Message>();
   archiveJobs = new Map<string, ArchiveJob>();
   settings = new Map<string, SystemSetting>();
+  userAssignments: Array<{ userId: string; supervisorId: string; assignedById: string; isPrimary: boolean }> = [];
+  studyEvaluations = new Map<string, { id: string; userId: string; status: string; notes?: string; feedback?: string; createdAt: Date; updatedAt: Date }>();
 }
 
 describe("E2E System Integration: M1 to M6 Complete Flow & Pre-UI Readiness", () => {
@@ -118,6 +120,23 @@ describe("E2E System Integration: M1 to M6 Complete Flow & Pre-UI Readiness", ()
             (u) => u.applicantId === appId,
           ) || null,
         save: async (u: User) => mocks.users.set(u.id, u),
+        findAllManagers: async () => [],
+        findAllInterns: async () => Array.from(mocks.users.values()).filter((user) => user.stage === "INTERN"),
+        createStudyEvaluation: async (userId: string, notes?: string) => {
+          const record = { id: crypto.randomUUID(), userId, status: "PENDING", notes, createdAt: new Date(), updatedAt: new Date() };
+          mocks.studyEvaluations.set(record.id, record);
+          return record;
+        },
+        getPendingStudyEvaluations: async () => Array.from(mocks.studyEvaluations.values()).filter((item) => item.status === "PENDING"),
+        getStudyEvaluationByUserId: async (userId: string) => Array.from(mocks.studyEvaluations.values()).find((item) => item.userId === userId) ?? null,
+        decideStudyEvaluation: async (id: string, _supervisorId: string, decision: string, feedback: string) => {
+          const current = mocks.studyEvaluations.get(id);
+          if (!current) throw new Error("ارزیابی پیدا نشد");
+          const updated = { ...current, status: decision, feedback, updatedAt: new Date() };
+          mocks.studyEvaluations.set(id, updated);
+          return updated;
+        },
+        createSupportTicket: async () => ({}), getAllSupportTickets: async () => [], resolveSupportTicket: async () => ({}),
       })
       .overrideProvider(RESEARCH_REPOSITORY)
       .useValue({
@@ -138,30 +157,12 @@ describe("E2E System Integration: M1 to M6 Complete Flow & Pre-UI Readiness", ()
           }
           mocks.cases.set(c.id, c);
         },
-        updateStageStatus: async (
-          caseId: string,
-          stageType: any,
-          status: StageStatus,
-        ) => {
-          const c = mocks.cases.get(caseId);
-          if (c) {
-            const stIdx = c.stages.findIndex((s) => s.stageType === stageType);
-            if (stIdx >= 0) {
-              const updatedStages = [...c.stages];
-              updatedStages[stIdx] = {
-                ...updatedStages[stIdx]!,
-                status,
-                version: (updatedStages[stIdx]?.version ?? 1) + 1,
-              };
-              mocks.cases.set(
-                caseId,
-                ResearchCase.reconstitute({
-                  ...c.toJSON(),
-                  stages: updatedStages,
-                }),
-              );
-            }
+        findStageInstanceById: async (stageId: string) => {
+          for (const researchCase of mocks.cases.values()) {
+            const stage = researchCase.stages.find((item) => item.id === stageId);
+            if (stage) return { id: stage.id, researchCaseId: stage.researchCaseId, stageType: stage.stageType, status: stage.status, version: stage.version };
           }
+          return null;
         },
       })
       .overrideProvider(ASSIGNMENT_REPOSITORY)
@@ -180,6 +181,14 @@ describe("E2E System Integration: M1 to M6 Complete Flow & Pre-UI Readiness", ()
           if (idx >= 0) mocks.assignments[idx] = a;
           else mocks.assignments.push(a);
         },
+        isScientificSupervisor: async (id: string) => [mainSupervisorId, collabSupervisorId].includes(id),
+        assignToUser: async (input: { userId: string; supervisorId: string; assignedById: string }) => {
+          if (mocks.userAssignments.some((item) => item.userId === input.userId && item.supervisorId === input.supervisorId)) return;
+          mocks.userAssignments.push({ ...input, isPrimary: !mocks.userAssignments.some((item) => item.userId === input.userId) });
+        },
+        listSupervisorsForUser: async (userId: string) => mocks.userAssignments.filter((item) => item.userId === userId).map((item) => ({ id: `${item.userId}:${item.supervisorId}`, ...item, supervisorName: "مدیر علمی آزمایشی", phoneNumber: "09120000000", assignedAt: new Date() })),
+        listUsersForSupervisor: async (supervisorId: string) => mocks.userAssignments.filter((item) => item.supervisorId === supervisorId).map((item) => ({ id: item.userId, fullName: "کارورز آزمایشی", stage: mocks.users.get(item.userId)?.stage ?? "APPRENTICE", phoneNumber: "09120000001" })),
+        isSupervisorAssignedToUser: async (userId: string, supervisorId: string) => mocks.userAssignments.some((item) => item.userId === userId && item.supervisorId === supervisorId),
       })
       .overrideProvider(RESOURCE_REPOSITORY)
       .useValue({
@@ -343,6 +352,8 @@ describe("E2E System Integration: M1 to M6 Complete Flow & Pre-UI Readiness", ()
           rollbackFrequencyByStage: { SOURCES: 0, EXPLANATION: 0, PRESCRIPTION: 0, SCENARIO: 0 },
         }),
       })
+      .overrideProvider(FilesService)
+      .useValue({ assertReadyForUse: async () => {}, isAvailable: async () => true })
       .compile();
 
     app = moduleRef.createNestApplication();
@@ -358,7 +369,7 @@ describe("E2E System Integration: M1 to M6 Complete Flow & Pre-UI Readiness", ()
     // A: Strict positive integer age validation (AT-28, D-01)
     const invalidAgeRes = await request(app.getHttpServer())
       .post("/applicants")
-      .set("x-user-stage", "INTERN")
+      .set("x-user-id", provincialDirectorId).set("x-user-stage", "INTERN").set("x-user-role", "PROVINCIAL_DIRECTOR")
       .send({
         fullName: "علی رضوانی",
         nationalId: "1234567890",
@@ -367,13 +378,14 @@ describe("E2E System Integration: M1 to M6 Complete Flow & Pre-UI Readiness", ()
         provinceId: "11111111-1111-1111-1111-111111111111",
         education: "کارشناسی",
         fieldOfStudy: "مهندسی صنایع",
+        initialSupervisorId: mainSupervisorId,
       });
     expect(invalidAgeRes.status).toBe(HttpStatus.BAD_REQUEST);
 
     // B: Valid draft applicant creation
     const draftRes = await request(app.getHttpServer())
       .post("/applicants")
-      .set("x-user-stage", "INTERN")
+      .set("x-user-id", provincialDirectorId).set("x-user-stage", "INTERN").set("x-user-role", "PROVINCIAL_DIRECTOR")
       .send({
         fullName: "علی رضوانی",
         nationalId: "1234567890",
@@ -382,6 +394,7 @@ describe("E2E System Integration: M1 to M6 Complete Flow & Pre-UI Readiness", ()
         provinceId: "11111111-1111-1111-1111-111111111111",
         education: "کارشناسی",
         fieldOfStudy: "مهندسی صنایع",
+        initialSupervisorId: mainSupervisorId,
       });
     expect(draftRes.status).toBe(HttpStatus.CREATED);
     applicantId = draftRes.body.id;
@@ -389,19 +402,25 @@ describe("E2E System Integration: M1 to M6 Complete Flow & Pre-UI Readiness", ()
     // C: Submit applicant
     await request(app.getHttpServer())
       .post(`/applicants/${applicantId}/submit`)
-      .set("x-user-stage", "INTERN")
+      .set("x-user-id", provincialDirectorId).set("x-user-stage", "INTERN").set("x-user-role", "PROVINCIAL_DIRECTOR")
       .send();
 
     // D: Scientific approval creates APPRENTICE user (FR-001, FR-002, FR-003)
     const approveRes = await request(app.getHttpServer())
       .post(`/applicants/${applicantId}/decisions`)
-      .set("x-user-stage", "INTERN")
+      .set("x-user-id", mainSupervisorId).set("x-user-stage", "INTERN").set("x-user-role", "SCIENTIFIC_SUPERVISOR")
       .send({
         decision: "APPROVED",
         reviewerNotes: "نمرات علمی و مصاحبه مورد تأیید است",
       });
     expect(approveRes.status).toBe(HttpStatus.OK);
     expect(approveRes.body.status).toBe("APPROVED");
+
+    const wrongReviewer = await request(app.getHttpServer())
+      .post(`/applicants/${applicantId}/decisions`)
+      .set("x-user-id", collabSupervisorId).set("x-user-stage", "INTERN").set("x-user-role", "SCIENTIFIC_SUPERVISOR")
+      .send({ decision: "APPROVED" });
+    expect(wrongReviewer.status).toBe(HttpStatus.FORBIDDEN);
 
     const createdUser = Array.from(mocks.users.values()).find(
       (u) => u.applicantId === applicantId,
@@ -413,68 +432,55 @@ describe("E2E System Integration: M1 to M6 Complete Flow & Pre-UI Readiness", ()
     // E: Negative check: Apprentice cannot access research system (AT-02)
     const blockedRes = await request(app.getHttpServer())
       .get("/research-cases")
-      .set("x-user-stage", "APPRENTICE");
+      .set("x-user-id", internUserId).set("x-user-stage", "APPRENTICE").set("x-user-role", "APPRENTICE");
     expect(blockedRes.status).toBe(HttpStatus.FORBIDDEN);
 
-    // F: Provincial director promotes apprentice to intern (FR-004, AT-03)
+    const evaluation = await request(app.getHttpServer())
+      .post("/users/study-evaluations/request")
+      .set("x-user-id", internUserId).set("x-user-stage", "APPRENTICE").set("x-user-role", "APPRENTICE")
+      .send({ completedGuidelines: ["راهنمای پژوهش"], notes: "منابع مقدماتی مطالعه شد" });
+    expect(evaluation.status).toBe(HttpStatus.CREATED);
     const promoteRes = await request(app.getHttpServer())
-      .post(`/users/${internUserId}/promote-to-intern`)
-      .set("x-user-stage", "INTERN")
-      .send({ evaluationNotes: "دوره کارآموزی تکمیل شد" });
+      .post(`/users/study-evaluations/${evaluation.body.id}/decide`)
+      .set("x-user-id", mainSupervisorId).set("x-user-stage", "INTERN").set("x-user-role", "SCIENTIFIC_SUPERVISOR")
+      .send({ decision: "APPROVED", feedback: "منابع مطالعه و تأیید شد" });
     expect(promoteRes.status).toBe(HttpStatus.OK);
-    expect(promoteRes.body.stage).toBe("INTERN");
+    expect(mocks.users.get(internUserId)?.stage).toBe("INTERN");
   });
 
   it("Flow 2: Research Case Creation, Dual Supervisor Assignment & Concurrent Review (D-02, D-03, FR-045, FR-057, AT-29)", async () => {
-    // A: Create Research Case (AT-04)
+    // A: Managers create research cases for assigned interns (FR-045, AT-29)
     const createCaseRes = await request(app.getHttpServer())
       .post("/research-cases")
-      .set("x-user-stage", "INTERN")
+      .set("x-user-id", mainSupervisorId).set("x-user-stage", "INTERN").set("x-user-role", "SCIENTIFIC_SUPERVISOR")
       .send({
         title: "بررسی سبک زندگی دیجیتال",
         code: "CASE-M6-SYS",
         subject: "جامعه‌شناسی فضای مجازی",
+        researcherId: internUserId,
       });
     expect(createCaseRes.status).toBe(HttpStatus.CREATED);
     caseId = createCaseRes.body.id;
 
-    // B: Assign Main and Collaborator Supervisors (D-02, AT-29)
-    await request(app.getHttpServer())
-      .post(`/research-cases/${caseId}/assignments/supervisors`)
-      .set("x-user-stage", "INTERN")
-      .send({
-        userId: mainSupervisorId,
-        role: "MAIN_SUPERVISOR",
-      });
-
-    await request(app.getHttpServer())
-      .post(`/research-cases/${caseId}/assignments/supervisors`)
-      .set("x-user-stage", "INTERN")
-      .send({
-        userId: collabSupervisorId,
-        role: "COLLABORATOR_SUPERVISOR",
-      });
-
-    // C: Second Main supervisor attempt blocked with 409 Conflict
-    const secondMainRes = await request(app.getHttpServer())
-      .post(`/research-cases/${caseId}/assignments/supervisors`)
-      .set("x-user-stage", "INTERN")
-      .send({
-        userId: provincialDirectorId,
-        role: "MAIN_SUPERVISOR",
-      });
-    expect(secondMainRes.status).toBe(HttpStatus.CONFLICT);
+    // B: Tracking director assigns another manager at trainee level
+    const collaboratorAssignment = await request(app.getHttpServer())
+      .post(`/users/${internUserId}/scientific-supervisors`)
+      .set("x-user-id", provincialDirectorId).set("x-user-stage", "INTERN").set("x-user-role", "TRACKING_DIRECTOR")
+      .send({ supervisorId: collabSupervisorId });
+    expect(collaboratorAssignment.status).toBe(HttpStatus.CREATED);
   });
 
   it("Flow 3: Resource Unique Interview Invariant (D-07, FR-058, AT-30)", async () => {
     // A: Add resource
     const resRes = await request(app.getHttpServer())
       .post(`/research-cases/${caseId}/resources`)
-      .set("x-user-stage", "INTERN")
+      .set("x-user-id", internUserId).set("x-user-stage", "INTERN")
       .send({
         type: "INDIVIDUAL",
         title: "مصاحبه با کارشناس فضای مجازی",
         description: "تحلیل رفتارهای آنلاین کاربران",
+        personAge: 45,
+        position: "کارشناس پژوهش",
       });
     expect(resRes.status).toBe(HttpStatus.CREATED);
     const resourceId = resRes.body.id;
@@ -482,7 +488,7 @@ describe("E2E System Integration: M1 to M6 Complete Flow & Pre-UI Readiness", ()
     // B: Create 1st interview
     const interviewRes = await request(app.getHttpServer())
       .post(`/resources/${resourceId}/interview`)
-      .set("x-user-stage", "INTERN")
+      .set("x-user-id", internUserId).set("x-user-stage", "INTERN")
       .send({
         intervieweeName: "دکتر حسینی",
         intervieweeAge: 45,
@@ -494,7 +500,7 @@ describe("E2E System Integration: M1 to M6 Complete Flow & Pre-UI Readiness", ()
     // C: Attempting 2nd interview on same resource strictly rejected with 409 (D-07, AT-30)
     const secondInterviewRes = await request(app.getHttpServer())
       .post(`/resources/${resourceId}/interview`)
-      .set("x-user-stage", "INTERN")
+      .set("x-user-id", internUserId).set("x-user-stage", "INTERN")
       .send({
         intervieweeName: "دکتر حسینی - تکمیلی",
         conductedAt: new Date().toISOString(),
@@ -504,33 +510,54 @@ describe("E2E System Integration: M1 to M6 Complete Flow & Pre-UI Readiness", ()
     // D: Create 1 report for interview to complete SOURCES stage prerequisites
     const reportRes = await request(app.getHttpServer())
       .post(`/interviews/${interviewId}/reports`)
-      .set("x-user-stage", "INTERN")
+      .set("x-user-id", internUserId).set("x-user-stage", "INTERN")
       .send({
         title: "گزارش مصاحبه تخصصی",
         content: "تحلیل تفصیلی داده‌های میدانی و سبک زندگی آنلاین کاربران",
+        fileId: "00000000-0000-4000-8000-000000000099",
       });
     expect(reportRes.status).toBe(HttpStatus.CREATED);
   });
 
   it("Flow 4: Scientific Cycle, Rollback & Cascading Invalidation (D-05, FR-061, AT-33)", async () => {
-    // Advance SOURCES to EXPLANATION
-    const advanceRes = await request(app.getHttpServer())
-      .post(`/research-cases/${caseId}/advance-stage`)
-      .set("x-user-stage", "INTERN")
+    const sourceSubmission = await request(app.getHttpServer())
+      .post(`/research-cases/${caseId}/resources/complete`)
+      .set("x-user-id", internUserId).set("x-user-stage", "INTERN")
       .send({ expectedVersion: 1 });
-    expect(advanceRes.status).toBe(HttpStatus.OK);
-    expect(
-      advanceRes.body.stages.find((s: any) => s.stageType === "EXPLANATION")?.status,
-    ).toBe("IN_PROGRESS");
+    expect(sourceSubmission.status).toBe(HttpStatus.OK);
+    expect(sourceSubmission.body.stages.find((stage: any) => stage.stageType === "SOURCES")?.status).toBe("SUBMITTED");
+    const sourceApproval = await request(app.getHttpServer())
+      .post(`/research-cases/${caseId}/stages/SOURCES/review`)
+      .set("x-user-id", mainSupervisorId).set("x-user-stage", "INTERN").set("x-user-role", "SCIENTIFIC_SUPERVISOR")
+      .send({ decision: "APPROVED", expectedVersion: sourceSubmission.body.version });
+    expect(sourceApproval.status).toBe(HttpStatus.OK);
+    const explanationStage = sourceApproval.body.stages.find((stage: any) => stage.stageType === "EXPLANATION");
+    expect(explanationStage.status).toBe("IN_PROGRESS");
+    const explanationSubmission = await request(app.getHttpServer())
+      .post(`/stages/${explanationStage.id}/submissions`)
+      .set("x-user-id", internUserId).set("x-user-stage", "INTERN")
+      .send({ content: "گزارش تبیین مسئله برای آزمون چرخه پژوهش", fileId: "00000000-0000-4000-8000-000000000099", expectedVersion: sourceApproval.body.version });
+    expect(explanationSubmission.status).toBe(HttpStatus.CREATED);
+    const explanationApproval = await request(app.getHttpServer())
+      .post(`/submissions/${explanationSubmission.body.id}/review`)
+      .set("x-user-id", mainSupervisorId).set("x-user-stage", "INTERN").set("x-user-role", "SCIENTIFIC_SUPERVISOR")
+      .send({ decision: "APPROVED", reason: "تبیین تأیید شد", expectedVersion: 1, caseVersion: sourceApproval.body.version + 1, idempotencyKey: "system-review-expl-v1" });
+    expect(explanationApproval.status).toBe(HttpStatus.OK);
+    const staleDecision = await request(app.getHttpServer())
+      .post(`/submissions/${explanationSubmission.body.id}/review`)
+      .set("x-user-id", collabSupervisorId).set("x-user-stage", "INTERN").set("x-user-role", "SCIENTIFIC_SUPERVISOR")
+      .send({ decision: "CHANGES_REQUESTED", reason: "رأی دوم با نسخه منقضی", expectedVersion: 1, caseVersion: sourceApproval.body.version + 1, idempotencyKey: "system-review-expl-v2" });
+    expect(staleDecision.status).toBe(HttpStatus.CONFLICT);
+    expect(staleDecision.body.code).toBe("STALE_REVISION");
 
-    // Rollback stage from EXPLANATION to SOURCES with review-required cascade
+    // Rollback after approved outputs; previous versions stay saved and downstream stages require review.
     const rollbackRes = await request(app.getHttpServer())
       .post(`/research-cases/${caseId}/rollback-stage`)
-      .set("x-user-stage", "INTERN")
+      .set("x-user-id", collabSupervisorId).set("x-user-stage", "INTERN").set("x-user-role", "SCIENTIFIC_SUPERVISOR")
       .send({
         targetStage: "SOURCES",
         reason: "اصلاح داده‌های میدانی و تحلیل مجدد مصاحبه",
-        expectedVersion: 2,
+        expectedVersion: 5,
       });
 
     expect(rollbackRes.status).toBe(HttpStatus.OK);
@@ -578,7 +605,7 @@ describe("E2E System Integration: M1 to M6 Complete Flow & Pre-UI Readiness", ()
     // Critical notification
     const notifRes = await request(app.getHttpServer())
       .post("/notifications")
-      .set("x-user-stage", "INTERN")
+      .set("x-user-id", mainSupervisorId).set("x-user-stage", "INTERN")
       .send({
         userId: internUserId,
         type: "SUPERVISOR_NOTE",
@@ -592,7 +619,7 @@ describe("E2E System Integration: M1 to M6 Complete Flow & Pre-UI Readiness", ()
     // Persistent Archival Snapshot without physical deletion
     const archiveRes = await request(app.getHttpServer())
       .post("/archives/jobs")
-      .set("x-user-stage", "INTERN")
+      .set("x-user-id", internUserId).set("x-user-stage", "INTERN")
       .send({
         targetType: "RESEARCH_CASE",
         targetId: caseId,
@@ -605,7 +632,7 @@ describe("E2E System Integration: M1 to M6 Complete Flow & Pre-UI Readiness", ()
     // Dynamic runtime setting update
     const settingRes = await request(app.getHttpServer())
       .put("/settings/STAGE_DEADLINE_DAYS")
-      .set("x-user-stage", "INTERN")
+      .set("x-user-id", provincialDirectorId).set("x-user-stage", "INTERN")
       .send({
         value: "45",
         description: "مهلت زمانی مراحل به روز",
@@ -616,7 +643,7 @@ describe("E2E System Integration: M1 to M6 Complete Flow & Pre-UI Readiness", ()
     // Provincial Director Dashboard
     const dashboardRes = await request(app.getHttpServer())
       .get("/reporting/provincial-director")
-      .set("x-user-stage", "INTERN");
+      .set("x-user-id", provincialDirectorId).set("x-user-stage", "INTERN");
     expect(dashboardRes.status).toBe(HttpStatus.OK);
     expect(dashboardRes.body.totalInterns).toBe(1);
   });

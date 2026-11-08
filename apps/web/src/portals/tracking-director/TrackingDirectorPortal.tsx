@@ -34,11 +34,14 @@ interface ManagerRecord {
   createdAt?: string;
 }
 
+interface InternRecord { id: string; fullName: string | null; phoneNumber: string; stage: "APPRENTICE" | "INTERN" }
+interface SupervisorAssignment { id: string; supervisorId: string; supervisorName: string; phoneNumber: string; isPrimary: boolean; assignedAt: string }
+
 export const TrackingDirectorPortal: React.FC<TrackingDirectorPortalProps> = ({
   onNotify,
 }) => {
   const { currentUser } = useAuth();
-  const [activeTab, setActiveTab] = useState<"pipeline" | "managers" | "audit">(
+  const [activeTab, setActiveTab] = useState<"pipeline" | "managers" | "assignments" | "audit">(
     "pipeline",
   );
 
@@ -50,6 +53,11 @@ export const TrackingDirectorPortal: React.FC<TrackingDirectorPortalProps> = ({
   const [newMgrRole, setNewMgrRole] = useState("SCIENTIFIC_SUPERVISOR");
   const [newMgrPassword, setNewMgrPassword] = useState("TStaff@123");
   const [isCreatingManager, setIsCreatingManager] = useState(false);
+  const [interns, setInterns] = useState<InternRecord[]>([]);
+  const [selectedInternId, setSelectedInternId] = useState("");
+  const [supervisorAssignments, setSupervisorAssignments] = useState<SupervisorAssignment[]>([]);
+  const [selectedSupervisorId, setSelectedSupervisorId] = useState("");
+  const [isSavingAssignment, setIsSavingAssignment] = useState(false);
 
   // Search Filter
   const [searchQuery, setSearchQuery] = useState("");
@@ -58,59 +66,35 @@ export const TrackingDirectorPortal: React.FC<TrackingDirectorPortalProps> = ({
     try {
       const data = await apiClient.get<ManagerRecord[]>("/users/managers");
       setManagers(data);
-    } catch {
-      setManagers([
-        {
-          id: "10000000-0000-0000-0000-000000000001",
-          fullName: "مهندس محمد علوی",
-          phoneNumber: "09121111111",
-          role: "TRACKING_DIRECTOR",
-          stage: "INTERN",
-          isActive: true,
-          createdAt: "هم‌اکنون",
-        },
-        {
-          id: "10000000-0000-0000-0000-000000000002",
-          fullName: "دکتر علی رضایی",
-          phoneNumber: "09122222222",
-          role: "PROVINCIAL_DIRECTOR",
-          stage: "INTERN",
-          isActive: true,
-          createdAt: "هم‌اکنون",
-        },
-        {
-          id: "10000000-0000-0000-0000-000000000003",
-          fullName: "دکتر مریم حسینی",
-          phoneNumber: "09123333333",
-          role: "SCIENTIFIC_SUPERVISOR",
-          stage: "INTERN",
-          isActive: true,
-          createdAt: "هم‌اکنون",
-        },
-        {
-          id: "10000000-0000-0000-0000-000000000004",
-          fullName: "دکتر مهدی کاظمی",
-          phoneNumber: "09124444444",
-          role: "SCIENTIFIC_SUPERVISOR",
-          stage: "INTERN",
-          isActive: true,
-          createdAt: "هم‌اکنون",
-        },
-        {
-          id: "10000000-0000-0000-0000-000000000007",
-          fullName: "مهندس احمد محمدی",
-          phoneNumber: "09127777777",
-          role: "SUPPORT_DIRECTOR",
-          stage: "INTERN",
-          isActive: true,
-          createdAt: "هم‌اکنون",
-        },
-      ]);
-    }
+    } catch { setManagers([]); }
+  };
+
+  const fetchInterns = async () => {
+    try { setInterns(await apiClient.get<InternRecord[]>("/users/interns")); }
+    catch (error) { setInterns([]); onNotify("error", "فهرست کارورزان بارگذاری نشد", error instanceof Error ? error.message : undefined); }
+  };
+
+  const fetchAssignments = async (userId: string) => {
+    if (!userId) { setSupervisorAssignments([]); return; }
+    try { setSupervisorAssignments(await apiClient.get<SupervisorAssignment[]>(`/users/${userId}/scientific-supervisors`)); }
+    catch (error) { setSupervisorAssignments([]); onNotify("error", "انتساب‌های مدیران دریافت نشد", error instanceof Error ? error.message : undefined); }
+  };
+
+  const handleAssignSupervisor = async () => {
+    if (!selectedInternId || !selectedSupervisorId) return;
+    setIsSavingAssignment(true);
+    try {
+      await apiClient.post(`/users/${selectedInternId}/scientific-supervisors`, { supervisorId: selectedSupervisorId });
+      await fetchAssignments(selectedInternId);
+      setSelectedSupervisorId("");
+      onNotify("success", "مدیر علمی به کارورز منتسب شد", "انتساب برای همه پرونده‌های فعلی و بعدی کارورز اعمال شد.");
+    } catch (error) { onNotify("error", "انتساب مدیر علمی انجام نشد", error instanceof Error ? error.message : undefined); }
+    finally { setIsSavingAssignment(false); }
   };
 
   useEffect(() => {
     fetchManagers();
+    fetchInterns();
   }, []);
 
   const handleCreateManager = async (e: React.FormEvent) => {
@@ -206,6 +190,12 @@ export const TrackingDirectorPortal: React.FC<TrackingDirectorPortalProps> = ({
             >
               <Users className="w-4 h-4" />
               انتصاب و مدیریت مدیران ({managers.length})
+            </button>
+            <button
+              onClick={() => setActiveTab("assignments")}
+              className={`flex items-center gap-2 px-4 py-2 rounded-apple-md text-xs font-semibold transition-all ${activeTab === "assignments" ? "bg-apple-blue text-white shadow-apple-glow" : "text-slate-400 hover:text-slate-200"}`}
+            >
+              <ShieldCheck className="w-4 h-4" />انتساب مدیران به کارورزان
             </button>
             <button
               onClick={() => setActiveTab("audit")}
@@ -377,6 +367,17 @@ export const TrackingDirectorPortal: React.FC<TrackingDirectorPortalProps> = ({
               ))}
             </div>
           </div>
+        )}
+
+        {activeTab === "assignments" && (
+          <Card variant="elevated" className="space-y-5 p-6 border-white/10">
+            <div><h3 className="text-base font-bold text-slate-100">انتساب مدیر علمی در سطح کارورز</h3><p className="mt-1 text-xs text-slate-400">هر مدیر علمی منتسب به همه پرونده‌های کارورز دسترسی و اختیار داوری برابر دارد. نخستین انتساب مدیر اصلی محسوب می‌شود.</p></div>
+            <label className="block max-w-xl text-xs text-slate-300">کارورز<select value={selectedInternId} onChange={(event) => { setSelectedInternId(event.target.value); void fetchAssignments(event.target.value); }} className="mt-1 w-full rounded-apple-md border border-white/10 bg-slate-900 p-2.5 text-sm"> <option value="">انتخاب کارورز</option>{interns.filter((intern) => intern.stage === "INTERN").map((intern) => <option key={intern.id} value={intern.id}>{intern.fullName || intern.phoneNumber} · {intern.phoneNumber}</option>)}</select></label>
+            {selectedInternId && <div className="space-y-4">
+              <div className="flex flex-wrap items-end gap-3"><label className="min-w-64 flex-1 text-xs text-slate-300">مدیر علمی<select value={selectedSupervisorId} onChange={(event) => setSelectedSupervisorId(event.target.value)} className="mt-1 w-full rounded-apple-md border border-white/10 bg-slate-900 p-2.5 text-sm"><option value="">انتخاب مدیر علمی</option>{managers.filter((manager) => manager.role === "SCIENTIFIC_SUPERVISOR" && manager.isActive).map((manager) => <option key={manager.id} value={manager.id}>{manager.fullName} · {manager.phoneNumber}</option>)}</select></label><Button variant="primary" loading={isSavingAssignment} disabled={!selectedSupervisorId} onClick={() => void handleAssignSupervisor()}>افزودن مدیر علمی</Button></div>
+              {supervisorAssignments.length === 0 ? <p className="rounded-apple-sm border border-white/5 p-4 text-xs text-slate-400">هنوز مدیری برای این کارورز ثبت نشده است.</p> : <div className="space-y-2">{supervisorAssignments.map((assignment) => <div key={assignment.id} className="flex items-center justify-between rounded-apple-md border border-white/10 bg-white/[0.02] p-3 text-xs"><div><strong className="text-slate-100">{assignment.supervisorName}</strong><span className="mr-2 text-slate-400">{assignment.phoneNumber}</span></div><Badge variant={assignment.isPrimary ? "info" : "indigo"} size="sm">{assignment.isPrimary ? "مدیر اصلی" : "مدیر همکار"}</Badge></div>)}</div>}
+            </div>}
+          </Card>
         )}
 
         {/* Tab 3: Searchable Audit Trail */}

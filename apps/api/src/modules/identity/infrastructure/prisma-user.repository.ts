@@ -11,6 +11,10 @@ import type {
 export class PrismaUserRepository implements UserRepositoryPort {
   constructor(private readonly prisma: PrismaService) {}
 
+  async createSession(input: { userId: string; tokenHash: string; expiresAt: Date }): Promise<void> {
+    await this.prisma.userSession.create({ data: input });
+  }
+
   async findById(id: string): Promise<User | null> {
     const raw = await this.prisma.user.findUnique({
       where: { id },
@@ -50,6 +54,7 @@ export class PrismaUserRepository implements UserRepositoryPort {
   async findAllManagers(): Promise<User[]> {
     const rawUsers = await this.prisma.user.findMany({
       where: {
+        isActive: true,
         userRoles: {
           some: {
             role: {
@@ -73,6 +78,18 @@ export class PrismaUserRepository implements UserRepositoryPort {
       orderBy: { createdAt: "desc" },
     });
     return rawUsers.map((u) => this.toDomain(u));
+  }
+
+  async findAllInterns(): Promise<User[]> {
+    const rows = await this.prisma.user.findMany({
+      where: {
+        stage: "INTERN",
+        userRoles: { none: { role: { name: { in: ["TRACKING_DIRECTOR", "PROVINCIAL_DIRECTOR", "SCIENTIFIC_SUPERVISOR", "SUPPORT_DIRECTOR", "SYSTEM_ADMIN"] } } } },
+      },
+      include: { profile: true, userRoles: { include: { role: true } } },
+      orderBy: { createdAt: "desc" },
+    });
+    return rows.map((row) => this.toDomain(row));
   }
 
   async save(user: User): Promise<void> {

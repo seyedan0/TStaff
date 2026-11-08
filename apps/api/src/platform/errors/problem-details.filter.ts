@@ -157,6 +157,12 @@ export class ProblemDetailsFilter implements ExceptionFilter {
       case "VALIDATION_ERROR":
         return { status: HttpStatus.BAD_REQUEST, title: "داده ورودی نامعتبر" };
 
+      case "FILE_TOO_LARGE":
+        return { status: HttpStatus.PAYLOAD_TOO_LARGE, title: "حجم فایل بیش از حد مجاز است" };
+
+      case "FILE_SCANNER_UNAVAILABLE":
+        return { status: HttpStatus.SERVICE_UNAVAILABLE, title: "سرویس اسکن فایل در دسترس نیست" };
+
       default:
         return { status: HttpStatus.BAD_REQUEST, title: "خطای منطقی دامنه" };
     }

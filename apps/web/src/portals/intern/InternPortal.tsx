@@ -1,10 +1,11 @@
 import React, { useState } from "react";
-import { FolderKanban, MessageSquare, HelpCircle, Send } from "lucide-react";
+import { HelpCircle, Send } from "lucide-react";
 import { ResearchCasesView } from "../../features/research/ResearchCasesView.js";
 import { DirectChatView } from "../../features/messaging/DirectChatView.js";
 import { Button } from "../../shared/ui/Button.js";
 import { Modal } from "../../shared/ui/Modal.js";
 import { apiClient } from "../../shared/api-client.js";
+import { UserNavigation, type UserNavigationTab } from "../../app/UserNavigation.js";
 
 interface InternPortalProps {
   onNotify: (
@@ -15,7 +16,7 @@ interface InternPortalProps {
 }
 
 export const InternPortal: React.FC<InternPortalProps> = ({ onNotify }) => {
-  const [activeTab, setActiveTab] = useState<"cases" | "chat">("cases");
+  const [activeTab, setActiveTab] = useState<UserNavigationTab>("researcher");
 
   // Support Ticket Modal
   const [showSupportModal, setShowSupportModal] = useState(false);
@@ -54,33 +55,10 @@ export const InternPortal: React.FC<InternPortalProps> = ({ onNotify }) => {
 
   return (
     <div className="space-y-6">
-      {/* Navigation Bar for Intern */}
-      <div className="flex items-center justify-between border-b border-white/10 pb-4">
-        <div className="flex items-center gap-2 p-1 rounded-apple-lg bg-white/[0.03] border border-white/5">
-          <button
-            onClick={() => setActiveTab("cases")}
-            className={`flex items-center gap-2 px-4 py-2 rounded-apple-md text-xs font-semibold transition-all ${
-              activeTab === "cases"
-                ? "bg-apple-blue text-white shadow-apple-glow"
-                : "text-slate-400 hover:text-slate-200"
-            }`}
-          >
-            <FolderKanban className="w-4 h-4" />
-            پرونده‌های پژوهشی من (چرخه ۴ مرحله‌ای)
-          </button>
-          <button
-            onClick={() => setActiveTab("chat")}
-            className={`flex items-center gap-2 px-4 py-2 rounded-apple-md text-xs font-semibold transition-all ${
-              activeTab === "chat"
-                ? "bg-apple-blue text-white shadow-apple-glow"
-                : "text-slate-400 hover:text-slate-200"
-            }`}
-          >
-            <MessageSquare className="w-4 h-4" />
-            گفت‌وگوی مستقیم با مدیر علمی
-          </button>
-        </div>
+      <UserNavigation active={activeTab} isApprentice={false} onChange={setActiveTab} />
 
+      {/* Support ticket action */}
+      <div className="flex items-center justify-between border-b border-white/10 pb-4">
         <Button
           variant="secondary"
           size="sm"
@@ -92,9 +70,9 @@ export const InternPortal: React.FC<InternPortalProps> = ({ onNotify }) => {
         </Button>
       </div>
 
-      {/* Main Tab Views */}
+      {/* Active user portal tab */}
       <div className="animate-fade-in">
-        {activeTab === "cases" && <ResearchCasesView onNotify={onNotify} />}
+        {activeTab === "researcher" && <ResearchCasesView onNotify={onNotify} />}
         {activeTab === "chat" && <DirectChatView onNotify={onNotify} />}
       </div>
 

@@ -14,19 +14,13 @@ export class ApiError extends Error {
 
 class ApiClient {
   private token: string | null = null;
-  private userStage: string = "INTERN";
-  private userId: string | null = null;
 
   constructor() {
     this.token = safeStorage.getItem("tstaff_token");
-    this.userStage = safeStorage.getItem("tstaff_user_stage") || "INTERN";
-    this.userId = safeStorage.getItem("tstaff_user_id");
   }
 
   public setAuth(token: string | null, stage: string = "INTERN", userId: string | null = null) {
     this.token = token;
-    this.userStage = stage;
-    this.userId = userId;
     if (token) safeStorage.setItem("tstaff_token", token);
     else safeStorage.removeItem("tstaff_token");
     safeStorage.setItem("tstaff_user_stage", stage);
@@ -37,13 +31,9 @@ class ApiClient {
   public getHeaders(): HeadersInit {
     const headers: Record<string, string> = {
       "Content-Type": "application/json",
-      "x-user-stage": this.userStage,
     };
     if (this.token) {
       headers["Authorization"] = `Bearer ${this.token}`;
-    }
-    if (this.userId) {
-      headers["x-user-id"] = this.userId;
     }
     return headers;
   }
@@ -93,6 +83,36 @@ class ApiClient {
       method: "POST",
       body: body ? JSON.stringify(body) : undefined,
     });
+  }
+
+  public async upload<T>(endpoint: string, file: File): Promise<T> {
+    const form = new FormData();
+    form.append("file", file);
+    const url = `${API_BASE_URL}${endpoint.startsWith("/") ? endpoint : `/${endpoint}`}`;
+    const headers = new Headers(this.getHeaders());
+    headers.delete("Content-Type");
+    const response = await fetch(url, { method: "POST", headers, body: form });
+    if (!response.ok) {
+      let problem: ProblemDetails;
+      try { problem = await response.json(); }
+      catch { problem = { type: "https://api.tstaff.ir/problems/http-error", title: `خطای سرور (${response.status})`, status: response.status, code: "HTTP_ERROR", detail: response.statusText || "خطا در برقراری ارتباط با سرور", traceId: "client-gen" }; }
+      throw new ApiError(problem);
+    }
+    return response.json();
+  }
+
+  public async download(endpoint: string, filename: string): Promise<void> {
+    const url = `${API_BASE_URL}${endpoint.startsWith("/") ? endpoint : `/${endpoint}`}`;
+    const headers = new Headers(this.getHeaders());
+    headers.delete("Content-Type");
+    const response = await fetch(url, { headers });
+    if (!response.ok) throw new Error("دریافت فایل مجاز نیست یا فایل در دسترس نیست");
+    const objectUrl = URL.createObjectURL(await response.blob());
+    const link = document.createElement("a");
+    link.href = objectUrl;
+    link.download = filename;
+    link.click();
+    URL.revokeObjectURL(objectUrl);
   }
 
   public put<T>(endpoint: string, body?: unknown): Promise<T> {

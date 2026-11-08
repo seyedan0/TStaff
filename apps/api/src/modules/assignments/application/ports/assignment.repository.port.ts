@@ -1,8 +1,24 @@
-import { ResearchAssignment } from "../../domain/assignment.entity.js";
+export interface SupervisorAssignmentRecord {
+  id: string;
+  userId: string;
+  supervisorId: string;
+  supervisorName: string;
+  phoneNumber: string;
+  isPrimary: boolean;
+  assignedAt: Date;
+}
+
+export interface AssignedTraineeRecord {
+  id: string;
+  fullName: string;
+  stage: string;
+  phoneNumber: string;
+}
 
 export interface AssignmentRepositoryPort {
-  findActiveByCaseId(caseId: string): Promise<ResearchAssignment[]>;
-  countActiveByUserId(userId: string): Promise<number>;
-  findById(id: string): Promise<ResearchAssignment | null>;
-  save(assignment: ResearchAssignment): Promise<void>;
+  assignToUser(input: { userId: string; supervisorId: string; assignedById: string }): Promise<void>;
+  listSupervisorsForUser(userId: string): Promise<SupervisorAssignmentRecord[]>;
+  listUsersForSupervisor(supervisorId: string): Promise<AssignedTraineeRecord[]>;
+  isSupervisorAssignedToUser(userId: string, supervisorId: string): Promise<boolean>;
+  isScientificSupervisor(userId: string): Promise<boolean>;
 }

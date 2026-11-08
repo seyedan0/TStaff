@@ -4,6 +4,7 @@ import { ResearchCase } from "../domain/research-case.entity.js";
 import {
   StaleRevisionError,
   UnauthorizedSupervisorError,
+  InvalidStageTransitionError,
 } from "../domain/research-errors.js";
 import { IncompleteSourcesStageError } from "../../resources/domain/resource-errors.js";
 import type { ResearchRepositoryPort } from "./ports/research.repository.port.js";
@@ -23,18 +24,11 @@ class InMemoryResearchRepository implements ResearchRepositoryPort {
     this.cases.push(researchCase);
   }
 
-  async saveWithVersionCheck(
-    researchCase: ResearchCase,
-    expectedVersion: number,
-  ): Promise<void> {
+  async saveWithVersionCheck(researchCase: ResearchCase, expectedVersion: number): Promise<void> {
     const idx = this.cases.findIndex((c) => c.id === researchCase.id);
     if (idx < 0) return;
-
     const existing = this.cases[idx]!;
-    if (existing.version !== expectedVersion) {
-      throw new StaleRevisionError(existing.version, expectedVersion);
-    }
-
+    if (existing.version !== expectedVersion) throw new StaleRevisionError(existing.version, expectedVersion);
     this.cases[idx] = researchCase;
   }
 
@@ -43,32 +37,15 @@ class InMemoryResearchRepository implements ResearchRepositoryPort {
   }
 
   async findStageInstanceById(stageId: string) {
-    for (const c of this.cases) {
-      const s = c.stages.find((st) => st.id === stageId);
-      if (s) {
-        return {
-          id: s.id,
-          researchCaseId: s.researchCaseId,
-          stageType: s.stageType,
-          status: s.status,
-          version: s.version,
-        };
-      }
+    for (const researchCase of this.cases) {
+      const stage = researchCase.stages.find((item) => item.id === stageId);
+      if (stage) return { id: stage.id, researchCaseId: stage.researchCaseId, stageType: stage.stageType, status: stage.status, version: stage.version };
     }
     return null;
   }
-
-  async updateStageStatus(stageId: string, status: any) {
-    for (const c of this.cases) {
-      const s = c.stages.find((st) => st.id === stageId);
-      if (s) {
-        (s as any).props.status = status;
-      }
-    }
-  }
 }
 
-describe("ResearchService Concurrency & Stage Workflow (D-02, D-03, D-05, D-07, AT-29, AT-33)", () => {
+describe("ResearchService reviewer-controlled workflow (D-02, D-03, D-05, D-07, AT-29, AT-30, AT-33)", () => {
   let repo: InMemoryResearchRepository;
   let service: ResearchService;
   let authorizedSupervisors: Set<string>;
@@ -79,144 +56,82 @@ describe("ResearchService Concurrency & Stage Workflow (D-02, D-03, D-05, D-07, 
     authorizedSupervisors = new Set(["user-main", "user-collab"]);
     sourcesComplete = true;
 
-    const mockAssignmentsService = {
-      isAuthorizedSupervisor: async (_caseId: string, userId: string) =>
-        authorizedSupervisors.has(userId),
+    const assignments = {
+      isSupervisorAssignedToUser: async (userId: string, supervisorId: string) => userId === "intern-1" && authorizedSupervisors.has(supervisorId),
     } as any;
-
-    const mockResourcesService = {
-      assertSourcesStageCompleteness: async (_caseId: string) => {
-        if (!sourcesComplete) {
-          throw new IncompleteSourcesStageError("منابع فاقد مصاحبه هستند");
-        }
+    const resources = {
+      assertSourcesStageCompleteness: async () => {
+        if (!sourcesComplete) throw new IncompleteSourcesStageError("منابع فاقد مصاحبه یا گزارش هستند");
         return { isComplete: true, totalResources: 2 };
       },
     } as any;
-
-    service = new ResearchService(
-      repo,
-      mockAssignmentsService,
-      mockResourcesService,
-    );
+    service = new ResearchService(repo, assignments, resources);
   });
 
-  it("creates a new research case", async () => {
-    const rCase = await service.createCase({
-      title: "مدیریت سرمایه انسانی",
-      code: "RC-101",
-      subject: "مدیریت",
-    });
-
-    expect(rCase.id).toBeDefined();
-    expect(rCase.version).toBe(1);
-    expect(rCase.status).toBe("DRAFT");
+  const createCase = () => service.createCase({
+    title: "تحلیل مدیریت سرمایه انسانی",
+    code: `RC-${crypto.randomUUID()}`,
+    subject: "مدیریت",
+    researcherId: "intern-1",
   });
 
-  it("blocks advance from SOURCES stage if resources are incomplete (D-07, AT-30)", async () => {
-    const rCase = await service.createCase({
-      title: "عنوان",
-      code: "RC-102",
-      subject: "موضوع",
-    });
+  it("creates a research case owned by the selected intern", async () => {
+    const researchCase = await createCase();
+    expect(researchCase.researcherId).toBe("intern-1");
+    expect(researchCase.version).toBe(1);
+    expect(researchCase.status).toBe("DRAFT");
+  });
 
+  it("blocks source completion until every source has its interview and scanned report (D-07, AT-30)", async () => {
+    const researchCase = await createCase();
     sourcesComplete = false;
-
-    await expect(service.advanceStage(rCase.id, 1)).rejects.toThrow(
-      IncompleteSourcesStageError,
-    );
+    await expect(service.submitSourcesForReview(researchCase.id, "intern-1", 1)).rejects.toThrow(IncompleteSourcesStageError);
   });
 
-  it("advances stage successfully when sources are complete and version matches", async () => {
-    const rCase = await service.createCase({
-      title: "عنوان",
-      code: "RC-103",
-      subject: "موضوع",
-    });
+  it("opens the next stage only after an assigned supervisor approves a submitted stage", async () => {
+    const researchCase = await createCase();
+    await expect(service.reviewDecision(researchCase.id, "SOURCES", "user-main", { decision: "APPROVED", expectedVersion: 1 }))
+      .rejects.toThrow(InvalidStageTransitionError);
 
-    sourcesComplete = true;
-
-    const advanced = await service.advanceStage(rCase.id, 1);
-    expect(advanced.version).toBe(2);
-    expect(advanced.status).toBe("EXPLANATION_STAGE");
+    const submitted = await service.submitSourcesForReview(researchCase.id, "intern-1", 1);
+    expect(submitted.getStage("SOURCES")?.status).toBe("SUBMITTED");
+    const approved = await service.reviewDecision(researchCase.id, "SOURCES", "user-main", { decision: "APPROVED", expectedVersion: submitted.version });
+    expect(approved.getStage("SOURCES")?.status).toBe("APPROVED");
+    expect(approved.getStage("EXPLANATION")?.status).toBe("IN_PROGRESS");
+    expect(approved.version).toBe(3);
   });
 
-  it("handles concurrent scientific supervisor review decisions with CAS: first commits, second gets 409 STALE_REVISION (D-02, D-03, AT-29)", async () => {
-    const rCase = await service.createCase({
-      title: "عنوان",
-      code: "RC-104",
-      subject: "موضوع",
-    });
-
-    // Both supervisors read version 1
-    const expectedVersion = 1;
-
-    // Supervisor 1 (MAIN) submits decision
-    const decision1Promise = service.reviewDecision(
-      rCase.id,
-      "SOURCES",
-      "user-main",
-      {
-        decision: "APPROVED",
-        notes: "تایید توسط مدیر اصلی",
-        expectedVersion,
-      },
-    );
-
-    const result1 = await decision1Promise;
-    expect(result1.version).toBe(2);
-
-    // Supervisor 2 (COLLABORATOR) attempts to submit with the stale expectedVersion (1)
-    await expect(
-      service.reviewDecision(rCase.id, "SOURCES", "user-collab", {
-        decision: "REVISION_REQUESTED",
-        notes: "نظر مدیر همکار با تاخیر",
-        expectedVersion, // Stale!
-      }),
-    ).rejects.toThrow(StaleRevisionError);
+  it("accepts the first concurrent supervisor decision and rejects the stale second decision (D-02, D-03, AT-29)", async () => {
+    const researchCase = await createCase();
+    const submitted = await service.submitSourcesForReview(researchCase.id, "intern-1", 1);
+    const decisions = await Promise.allSettled([
+      service.reviewDecision(researchCase.id, "SOURCES", "user-main", { decision: "APPROVED", expectedVersion: submitted.version }),
+      service.reviewDecision(researchCase.id, "SOURCES", "user-collab", { decision: "REVISION_REQUESTED", expectedVersion: submitted.version }),
+    ]);
+    expect(decisions.filter((item) => item.status === "fulfilled")).toHaveLength(1);
+    const rejected = decisions.find((item) => item.status === "rejected") as PromiseRejectedResult;
+    expect(rejected.reason).toBeInstanceOf(StaleRevisionError);
   });
 
-  it("rejects review decision by unauthorized user (D-02)", async () => {
-    const rCase = await service.createCase({
-      title: "عنوان",
-      code: "RC-105",
-      subject: "موضوع",
-    });
-
-    await expect(
-      service.reviewDecision(rCase.id, "SOURCES", "unauthorized-user", {
-        decision: "APPROVED",
-        expectedVersion: 1,
-      }),
-    ).rejects.toThrow(UnauthorizedSupervisorError);
+  it("rejects decisions by a manager outside the intern assignment (D-02)", async () => {
+    const researchCase = await createCase();
+    const submitted = await service.submitSourcesForReview(researchCase.id, "intern-1", 1);
+    await expect(service.reviewDecision(researchCase.id, "SOURCES", "unauthorized-user", { decision: "APPROVED", expectedVersion: submitted.version }))
+      .rejects.toThrow(UnauthorizedSupervisorError);
   });
 
-  it("rolls back stage and cascades downstream stages to REVIEW_REQUIRED (D-05, AT-33)", async () => {
-    const rCase = await service.createCase({
-      title: "عنوان",
-      code: "RC-106",
-      subject: "موضوع",
-    });
-
-    // Advance to EXPLANATION (v2)
-    const v2 = await service.advanceStage(rCase.id, 1);
-    // Approve EXPLANATION by supervisor (FR-018)
-    await service.reviewDecision(rCase.id, "EXPLANATION", "user-main", {
-      decision: "APPROVED",
-      expectedVersion: 2,
-    });
-    // Advance to PRESCRIPTION (v4)
-    const v4 = await service.advanceStage(rCase.id, 3);
-    expect(v4.status).toBe("PRESCRIPTION_STAGE");
-
-    // Rollback to SOURCES with expectedVersion 4
-    const rolledBack = await service.rollbackStage(rCase.id, {
+  it("keeps downstream outputs marked for review after a rollback (D-05, FR-061, AT-33)", async () => {
+    const researchCase = await createCase();
+    const sources = await service.submitSourcesForReview(researchCase.id, "intern-1", 1);
+    const afterSources = await service.reviewDecision(researchCase.id, "SOURCES", "user-main", { decision: "APPROVED", expectedVersion: sources.version });
+    const explanation = await service.submitStageForReview(researchCase.id, "EXPLANATION", "intern-1", afterSources.version);
+    const afterExplanation = await service.reviewDecision(researchCase.id, "EXPLANATION", "user-main", { decision: "APPROVED", expectedVersion: explanation.version });
+    const rolledBack = await service.rollbackStage(researchCase.id, {
       targetStage: "SOURCES",
-      reason: "نیاز به تجدید مصاحبه‌ها",
-      expectedVersion: 4,
+      reason: "نیاز به بازبینی داده‌های میدانی",
+      expectedVersion: afterExplanation.version,
     });
 
-    expect(rolledBack.version).toBe(5);
-    expect(rolledBack.status).toBe("SOURCES_STAGE");
     expect(rolledBack.getStage("SOURCES")?.status).toBe("IN_PROGRESS");
     expect(rolledBack.getStage("EXPLANATION")?.status).toBe("REVIEW_REQUIRED");
     expect(rolledBack.getStage("PRESCRIPTION")?.status).toBe("REVIEW_REQUIRED");

@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeAll, afterAll } from "vitest";
 import { Test } from "@nestjs/testing";
-import { INestApplication, HttpStatus } from "@nestjs/common";
+import { INestApplication } from "@nestjs/common";
 import request from "supertest";
 import { AppModule } from "../src/app.module.js";
 import { ProblemDetailsFilter } from "../src/platform/errors/problem-details.filter.js";
@@ -11,7 +11,7 @@ import { REVIEW_REPOSITORY } from "../src/modules/reviews/application/reviews.se
 import { SCENARIO_REPOSITORY } from "../src/modules/scenarios/application/scenarios.service.js";
 import { USER_REPOSITORY } from "../src/modules/identity/application/identity.service.js";
 import { APPLICANT_REPOSITORY } from "../src/modules/applicants/application/applicants.service.js";
-
+import { FilesService } from "../src/modules/files/application/files.service.js";
 import { ResearchAssignment } from "../src/modules/assignments/domain/assignment.entity.js";
 import { Resource } from "../src/modules/resources/domain/resource.entity.js";
 import { Interview } from "../src/modules/resources/domain/interview.entity.js";
@@ -23,632 +23,213 @@ import { Scenario } from "../src/modules/scenarios/domain/scenario.entity.js";
 import { StaleRevisionError } from "../src/modules/research/domain/research-errors.js";
 import { StaleRevisionError as ReviewStaleRevisionError } from "../src/modules/reviews/domain/reviews-errors.js";
 import { StaleScenarioRevisionError } from "../src/modules/scenarios/domain/scenarios-errors.js";
-import type { StageStatus } from "@tstaff/contracts";
+
+const researcherUserId = "11111111-1111-1111-1111-111111111111";
+const mainSupervisorId = "22222222-2222-2222-2222-222222222222";
+const collabSupervisorId = "33333333-3333-3333-3333-333333333333";
+const trackingDirectorId = "44444444-4444-4444-4444-444444444444";
+const reportFileId = "99999999-9999-4999-8999-999999999999";
 
 class MockAssignmentRepository {
-  private assignments: ResearchAssignment[] = [];
-  async findActiveByCaseId(caseId: string) {
-    return this.assignments.filter(
-      (a) => a.researchCaseId === caseId && a.isActive,
-    );
+  private caseAssignments: ResearchAssignment[] = [];
+  private userAssignments: Array<{ userId: string; supervisorId: string; assignedById: string; isPrimary: boolean }> = [];
+  async findActiveByCaseId(caseId: string) { return this.caseAssignments.filter((item) => item.researchCaseId === caseId && item.isActive); }
+  async countActiveByUserId(userId: string) { return this.caseAssignments.filter((item) => item.userId === userId && item.isActive).length; }
+  async findById(id: string) { return this.caseAssignments.find((item) => item.id === id) ?? null; }
+  async save(item: ResearchAssignment) {
+    const index = this.caseAssignments.findIndex((entry) => entry.id === item.id);
+    if (index < 0) this.caseAssignments.push(item); else this.caseAssignments[index] = item;
   }
-  async countActiveByUserId(userId: string) {
-    return this.assignments.filter((a) => a.userId === userId && a.isActive)
-      .length;
+  async isScientificSupervisor(id: string) { return id === mainSupervisorId || id === collabSupervisorId; }
+  async assignToUser(input: { userId: string; supervisorId: string; assignedById: string }) {
+    if (!(await this.isScientificSupervisor(input.supervisorId))) throw new Error("مدیر علمی نامعتبر است");
+    if (this.userAssignments.some((item) => item.userId === input.userId && item.supervisorId === input.supervisorId)) return;
+    this.userAssignments.push({ ...input, isPrimary: !this.userAssignments.some((item) => item.userId === input.userId) });
   }
-  async findById(id: string) {
-    return this.assignments.find((a) => a.id === id) || null;
-  }
-  async save(a: ResearchAssignment) {
-    const idx = this.assignments.findIndex((x) => x.id === a.id);
-    if (idx >= 0) this.assignments[idx] = a;
-    else this.assignments.push(a);
-  }
+  async isSupervisorAssignedToUser(userId: string, supervisorId: string) { return this.userAssignments.some((item) => item.userId === userId && item.supervisorId === supervisorId); }
+  async listSupervisorsForUser(userId: string) { return this.userAssignments.filter((item) => item.userId === userId).map((item) => ({ id: `${item.userId}:${item.supervisorId}`, ...item, supervisorName: "مدیر علمی آزمایشی", phoneNumber: "09120000000", assignedAt: new Date() })); }
+  async listUsersForSupervisor(supervisorId: string) { return this.userAssignments.filter((item) => item.supervisorId === supervisorId).map((item) => ({ id: item.userId, fullName: "کارورز آزمایشی", stage: "INTERN", phoneNumber: "09120000001" })); }
 }
 
 class MockResourceRepository {
   private resources: Resource[] = [];
   private interviews: Interview[] = [];
   private reports: InterviewReport[] = [];
-
-  async createResource(r: Resource) {
-    this.resources.push(r);
-  }
-  async findResourceById(id: string) {
-    return this.resources.find((r) => r.id === id) || null;
-  }
-  async findResourcesByCaseId(caseId: string) {
-    return this.resources.filter((r) => r.researchCaseId === caseId);
-  }
-  async saveResource(r: Resource) {
-    const idx = this.resources.findIndex((x) => x.id === r.id);
-    if (idx >= 0) this.resources[idx] = r;
-    else this.resources.push(r);
-  }
-  async createInterview(i: Interview) {
-    this.interviews.push(i);
-  }
-  async findInterviewByResourceId(resourceId: string) {
-    return this.interviews.find((i) => i.resourceId === resourceId) || null;
-  }
-  async findInterviewById(id: string) {
-    return this.interviews.find((i) => i.id === id) || null;
-  }
-  async createReport(rep: InterviewReport) {
-    this.reports.push(rep);
-  }
-  async findReportsByInterviewId(interviewId: string) {
-    return this.reports.filter((r) => r.interviewId === interviewId);
-  }
+  async createResource(item: Resource) { this.resources.push(item); }
+  async findResourceById(id: string) { return this.resources.find((item) => item.id === id) ?? null; }
+  async findResourcesByCaseId(caseId: string) { return this.resources.filter((item) => item.researchCaseId === caseId); }
+  async saveResource(item: Resource) { const i = this.resources.findIndex((entry) => entry.id === item.id); if (i >= 0) this.resources[i] = item; }
+  async createInterview(item: Interview) { this.interviews.push(item); }
+  async saveInterview(item: Interview) { const i = this.interviews.findIndex((entry) => entry.id === item.id); if (i >= 0) this.interviews[i] = item; }
+  async findInterviewByResourceId(resourceId: string) { return this.interviews.find((item) => item.resourceId === resourceId) ?? null; }
+  async findInterviewById(id: string) { return this.interviews.find((item) => item.id === id) ?? null; }
+  async createReport(item: InterviewReport) { this.reports.push(item); }
+  async findReportsByInterviewId(interviewId: string) { return this.reports.filter((item) => item.interviewId === interviewId); }
 }
 
 class MockResearchRepository {
   private cases: ResearchCase[] = [];
-
-  async findById(id: string) {
-    return this.cases.find((c) => c.id === id) || null;
+  async findById(id: string) { return this.cases.find((item) => item.id === id) ?? null; }
+  async findByCode(code: string) { return this.cases.find((item) => item.code === code) ?? null; }
+  async create(item: ResearchCase) { this.cases.push(item); }
+  async saveWithVersionCheck(item: ResearchCase, expectedVersion: number) {
+    const i = this.cases.findIndex((entry) => entry.id === item.id);
+    const current = this.cases[i];
+    if (!current || current.version !== expectedVersion) throw new StaleRevisionError(current?.version ?? 0, expectedVersion);
+    this.cases[i] = item;
   }
-  async findByCode(code: string) {
-    return this.cases.find((c) => c.code === code) || null;
-  }
-  async create(r: ResearchCase) {
-    this.cases.push(r);
-  }
-  async saveWithVersionCheck(r: ResearchCase, expectedVersion: number) {
-    const idx = this.cases.findIndex((c) => c.id === r.id);
-    if (idx < 0) return;
-    const existing = this.cases[idx]!;
-    if (existing.version !== expectedVersion) {
-      throw new StaleRevisionError(existing.version, expectedVersion);
-    }
-    this.cases[idx] = r;
-  }
-  async findAll() {
-    return this.cases;
-  }
-  async findStageInstanceById(stageId: string) {
-    for (const c of this.cases) {
-      const s = c.stages.find((st) => st.id === stageId);
-      if (s) {
-        return {
-          id: s.id,
-          researchCaseId: s.researchCaseId,
-          stageType: s.stageType,
-          status: s.status,
-          version: s.version,
-        };
-      }
+  async findAll() { return this.cases; }
+  async findStageInstanceById(id: string) {
+    for (const researchCase of this.cases) {
+      const stage = researchCase.stages.find((item) => item.id === id);
+      if (stage) return { id: stage.id, researchCaseId: stage.researchCaseId, stageType: stage.stageType, status: stage.status, version: stage.version };
     }
     return null;
-  }
-  async updateStageStatus(stageId: string, status: StageStatus) {
-    for (const c of this.cases) {
-      const s = c.stages.find((st) => st.id === stageId);
-      if (s) {
-        (s as any).props.status = status;
-      }
-    }
   }
 }
 
 class MockReviewRepository {
   private submissions: StageSubmission[] = [];
   private decisions: ReviewDecision[] = [];
-
-  async saveSubmission(sub: StageSubmission) {
-    const idx = this.submissions.findIndex((s) => s.id === sub.id);
-    if (idx >= 0) this.submissions[idx] = sub;
-    else this.submissions.push(sub);
-  }
-  async findSubmissionById(id: string) {
-    return this.submissions.find((s) => s.id === id) ?? null;
-  }
-  async findSubmissionsByStageInstanceId(sId: string) {
-    return this.submissions.filter((s) => s.stageInstanceId === sId);
-  }
-  async saveDecision(d: ReviewDecision) {
-    this.decisions.push(d);
-  }
-  async findDecisionByIdempotencyKey(key: string) {
-    return this.decisions.find((d) => d.idempotencyKey === key) ?? null;
-  }
-  async findDecisionsBySubmissionId(subId: string) {
-    return this.decisions.filter((d) => d.stageSubmissionId === subId);
-  }
-  async updateSubmissionWithVersionCheck(
-    sub: StageSubmission,
-    expectedVersion: number,
-  ) {
-    const idx = this.submissions.findIndex((s) => s.id === sub.id);
-    if (idx === -1 || this.submissions[idx]!.version !== expectedVersion) {
-      throw new ReviewStaleRevisionError(
-        this.submissions[idx]?.version ?? 0,
-        expectedVersion,
-      );
-    }
-    this.submissions[idx] = sub;
+  async saveSubmission(item: StageSubmission) { const i = this.submissions.findIndex((entry) => entry.id === item.id); if (i >= 0) this.submissions[i] = item; else this.submissions.push(item); }
+  async findSubmissionById(id: string) { return this.submissions.find((item) => item.id === id) ?? null; }
+  async findSubmissionsByStageInstanceId(id: string) { return this.submissions.filter((item) => item.stageInstanceId === id); }
+  async saveDecision(item: ReviewDecision) { this.decisions.push(item); }
+  async findDecisionByIdempotencyKey(key: string) { return this.decisions.find((item) => item.idempotencyKey === key) ?? null; }
+  async findDecisionsBySubmissionId(id: string) { return this.decisions.filter((item) => item.stageSubmissionId === id); }
+  async updateSubmissionWithVersionCheck(item: StageSubmission, expectedVersion: number) {
+    const i = this.submissions.findIndex((entry) => entry.id === item.id);
+    if (i < 0 || this.submissions[i]!.version !== expectedVersion) throw new ReviewStaleRevisionError(this.submissions[i]?.version ?? 0, expectedVersion);
+    this.submissions[i] = item;
   }
 }
 
 class MockScenarioRepository {
   private scenarios: Scenario[] = [];
   private decisions: any[] = [];
-
-  async create(s: Scenario) {
-    this.scenarios.push(s);
+  async create(item: Scenario) { this.scenarios.push(item); }
+  async findById(id: string) { return this.scenarios.find((item) => item.id === id) ?? null; }
+  async findByCaseId(caseId: string) { return this.scenarios.filter((item) => item.researchCaseId === caseId); }
+  async saveWithVersionCheck(item: Scenario, expectedVersion: number) {
+    const i = this.scenarios.findIndex((entry) => entry.id === item.id);
+    if (i < 0 || this.scenarios[i]!.version !== expectedVersion) throw new StaleScenarioRevisionError(this.scenarios[i]?.version ?? 0, expectedVersion);
+    this.scenarios[i] = item;
   }
-  async findById(id: string) {
-    return this.scenarios.find((s) => s.id === id) ?? null;
-  }
-  async findByCaseId(cId: string) {
-    return this.scenarios.filter((s) => s.researchCaseId === cId);
-  }
-  async saveWithVersionCheck(s: Scenario, expectedVersion: number) {
-    const idx = this.scenarios.findIndex((item) => item.id === s.id);
-    if (idx === -1 || this.scenarios[idx]!.version !== expectedVersion) {
-      throw new StaleScenarioRevisionError(
-        this.scenarios[idx]?.version ?? 0,
-        expectedVersion,
-      );
-    }
-    this.scenarios[idx] = s;
-  }
-  async findInternalBank() {
-    return this.scenarios.filter((s) => s.status === "APPROVED_INTERNAL");
-  }
-  async saveDecision(decision: any) {
-    this.decisions.push(decision);
-  }
-  async findDecisionByIdempotencyKey(key: string) {
-    return this.decisions.find((d) => d.idempotencyKey === key) ?? null;
-  }
+  async findInternalBank() { return this.scenarios.filter((item) => item.status === "APPROVED_INTERNAL"); }
+  async saveDecision(item: any) { this.decisions.push(item); }
+  async findDecisionByIdempotencyKey(key: string) { return this.decisions.find((item) => item.idempotencyKey === key) ?? null; }
 }
 
-describe("E2E: M4 Scientific Review, Stage Submissions & Scenarios Lifecycle", () => {
+describe("Scientific review and scenario workflow (D-02, D-03, D-05, FR-016, FR-019, FR-021, FR-040, AT-02, AT-05, AT-07, AT-08, AT-16, AT-29, AT-33)", () => {
   let app: INestApplication;
 
-  const researcherUserId = "11111111-1111-1111-1111-111111111111";
-  const mainSupervisorId = "22222222-2222-2222-2222-222222222222";
-  const collabSupervisorId = "33333333-3333-3333-3333-333333333333";
-
   beforeAll(async () => {
-    const moduleRef = await Test.createTestingModule({
-      imports: [AppModule],
-    })
-      .overrideProvider(ASSIGNMENT_REPOSITORY)
-      .useClass(MockAssignmentRepository)
-      .overrideProvider(RESOURCE_REPOSITORY)
-      .useClass(MockResourceRepository)
-      .overrideProvider(RESEARCH_REPOSITORY)
-      .useClass(MockResearchRepository)
-      .overrideProvider(REVIEW_REPOSITORY)
-      .useClass(MockReviewRepository)
-      .overrideProvider(SCENARIO_REPOSITORY)
-      .useClass(MockScenarioRepository)
-      .overrideProvider(USER_REPOSITORY)
-      .useValue({
-        findByPhoneNumber: async () => null,
-        findById: async () => null,
-        findByApplicantId: async () => null,
-        save: async () => {},
-      })
-      .overrideProvider(APPLICANT_REPOSITORY)
-      .useValue({
-        findById: async () => null,
-        findByPhoneNumber: async () => null,
-        findByNationalId: async () => null,
-        save: async () => {},
-        findAll: async () => [],
-      })
+    const moduleRef = await Test.createTestingModule({ imports: [AppModule] })
+      .overrideProvider(ASSIGNMENT_REPOSITORY).useClass(MockAssignmentRepository)
+      .overrideProvider(RESOURCE_REPOSITORY).useClass(MockResourceRepository)
+      .overrideProvider(RESEARCH_REPOSITORY).useClass(MockResearchRepository)
+      .overrideProvider(REVIEW_REPOSITORY).useClass(MockReviewRepository)
+      .overrideProvider(SCENARIO_REPOSITORY).useClass(MockScenarioRepository)
+      .overrideProvider(USER_REPOSITORY).useValue({ findByPhoneNumber: async () => null, findById: async () => null, findByApplicantId: async () => null, save: async () => {} })
+      .overrideProvider(APPLICANT_REPOSITORY).useValue({ findById: async () => null, findByPhoneNumber: async () => null, findByNationalId: async () => null, save: async () => {}, findAll: async () => [] })
+      .overrideProvider(FilesService).useValue({ assertReadyForUse: async () => {}, isAvailable: async () => true })
       .compile();
-
     app = moduleRef.createNestApplication();
     app.useGlobalFilters(new ProblemDetailsFilter());
     await app.init();
   });
 
-  afterAll(async () => {
-    await app.close();
+  afterAll(async () => { await app.close(); });
+
+  const asIntern = (call: request.Test) => call.set("x-user-id", researcherUserId).set("x-user-stage", "INTERN").set("x-user-role", "INTERN");
+  const asManager = (call: request.Test, id = mainSupervisorId) => call.set("x-user-id", id).set("x-user-stage", "INTERN").set("x-user-role", "SCIENTIFIC_SUPERVISOR");
+  const scenarioContent = JSON.stringify({ audience: "TEACHER", province: "تهران", category: "آموزش", keywords: ["بهره‌وری"], implementationSteps: ["تشکیل گروه راهبری و تعیین مسئول اجرا"] });
+
+  async function createAssignedCase(code: string) {
+    const agent = request(app.getHttpServer());
+    for (const supervisorId of [mainSupervisorId, collabSupervisorId]) {
+      const assigned = await agent.post(`/users/${researcherUserId}/scientific-supervisors`).set("x-user-id", trackingDirectorId).set("x-user-stage", "INTERN").set("x-user-role", "TRACKING_DIRECTOR").send({ supervisorId });
+      expect(assigned.status).toBe(201);
+    }
+    const created = await asManager(agent.post("/research-cases")).send({ title: "پژوهش آزمایشی ساختاریافته", code, subject: "مدیریت آموزشی", researcherId: researcherUserId });
+    expect(created.status).toBe(201);
+    return created.body;
+  }
+
+  async function approveSources(agent: ReturnType<typeof request>, caseId: string) {
+    const person = await asIntern(agent.post(`/research-cases/${caseId}/resources`)).send({ type: "INDIVIDUAL", title: "دکتر رضایی", personAge: 45, position: "پژوهشگر" });
+    expect(person.status).toBe(201);
+    const interview = await asIntern(agent.post(`/resources/${person.body.id}/interview`)).send({ intervieweeName: "دکتر رضایی", intervieweeAge: 45, conductedAt: "2026-11-08T08:00:00.000Z" });
+    expect(interview.status).toBe(201);
+    const report = await asIntern(agent.post(`/interviews/${interview.body.id}/reports`)).send({ title: "گزارش مصاحبه", content: "گزارش مکتوب جهت تکمیل بررسی منابع.", fileId: reportFileId });
+    expect(report.status).toBe(201);
+    const submitted = await asIntern(agent.post(`/research-cases/${caseId}/resources/complete`)).send({ expectedVersion: 1 });
+    expect(submitted.status).toBe(200);
+    const approved = await asManager(agent.post(`/research-cases/${caseId}/stages/SOURCES/review`)).send({ decision: "APPROVED", expectedVersion: submitted.body.version });
+    expect(approved.status).toBe(200);
+    return approved.body;
+  }
+
+  async function approveReport(agent: ReturnType<typeof request>, caseId: string, stageId: string, expectedCaseVersion: number, key: string) {
+    const submission = await asIntern(agent.post(`/stages/${stageId}/submissions`)).send({ content: `گزارش مرحله ${key} برای داوری علمی`, fileId: reportFileId, expectedVersion: expectedCaseVersion });
+    expect(submission.status).toBe(201);
+    const reviewed = await asManager(agent.post(`/submissions/${submission.body.id}/review`), collabSupervisorId).send({ decision: "APPROVED", reason: "محتوا تأیید و مرحله بعدی باز شود", expectedVersion: 1, caseVersion: expectedCaseVersion + 1, idempotencyKey: `${key}-review-key` });
+    expect(reviewed.status).toBe(200);
+    const latestCase = await asIntern(agent.get(`/research-cases/${caseId}`));
+    expect(latestCase.status).toBe(200);
+    return latestCase.body;
+  }
+
+  async function reachScenarioStage(agent: ReturnType<typeof request>, code: string) {
+    const researchCase = await createAssignedCase(code);
+    let current = await approveSources(agent, researchCase.id);
+    const explanation = current.stages.find((stage: any) => stage.stageType === "EXPLANATION");
+    current = await approveReport(agent, researchCase.id, explanation.id, current.version, `${code}-explanation`);
+    const prescription = current.stages.find((stage: any) => stage.stageType === "PRESCRIPTION");
+    current = await approveReport(agent, researchCase.id, prescription.id, current.version, `${code}-prescription`);
+    return { researchCase, current };
+  }
+
+  it("blocks APPRENTICE from M4 routes and prevents interns from creating research cases (AT-02)", async () => {
+    const agent = request(app.getHttpServer());
+    const blocked = await agent.post("/stages/stage-123/submissions").set("x-user-id", researcherUserId).set("x-user-stage", "APPRENTICE").send({ content: "تلاش کارآموز برای ثبت گزارش", expectedVersion: 1 });
+    expect(blocked.status).toBe(403);
+    const creation = await agent.post("/research-cases").set("x-user-id", researcherUserId).set("x-user-stage", "INTERN").set("x-user-role", "INTERN").send({ title: "ساخت غیرمجاز پرونده", code: "RC-M4-FORBIDDEN", subject: "مدیریت", researcherId: researcherUserId });
+    expect(creation.status).toBe(403);
   });
 
-  it("AT-02: Blocks APPRENTICE from M4 routes (stage submissions, reviews, scenarios)", async () => {
-    // 1. Stage submission blocked
-    const subRes = await request(app.getHttpServer())
-      .post("/stages/stage-123/submissions")
-      .set("x-user-stage", "APPRENTICE")
-      .set("x-user-id", researcherUserId)
-      .send({ content: "تلاش کارآموز برای ثبت گزارش تبیین", expectedVersion: 1 });
-    expect(subRes.status).toBe(HttpStatus.FORBIDDEN);
-
-    // 2. Scenario creation blocked
-    const scRes = await request(app.getHttpServer())
-      .post("/research-cases/case-123/scenarios")
-      .set("x-user-stage", "APPRENTICE")
-      .set("x-user-id", researcherUserId)
-      .send({
-        title: "سناریو",
-        summary: "چکیده سناریو",
-        content: "متن کامل سناریو",
-      });
-    expect(scRes.status).toBe(HttpStatus.FORBIDDEN);
-
-    // 3. Scenario bank query blocked for Apprentice
-    const bankRes = await request(app.getHttpServer())
-      .get("/scenarios/bank")
-      .set("x-user-stage", "APPRENTICE")
-      .set("x-user-id", researcherUserId);
-    expect(bankRes.status).toBe(HttpStatus.FORBIDDEN);
+  it("submits explanation and prescription with files, requires review, and publishes a structured scenario to the internal bank", async () => {
+    const agent = request(app.getHttpServer());
+    const { researchCase, current } = await reachScenarioStage(agent, "RC-M4-APPROVAL");
+    const scenario = await asIntern(agent.post(`/research-cases/${researchCase.id}/scenarios`)).send({ title: "سناریوی ارتقای بهره‌وری آموزشی", summary: "اقدام اجرایی برای بهبود هماهنگی آموزشی در مدرسه.", content: scenarioContent });
+    expect(scenario.status).toBe(201);
+    const submitted = await asIntern(agent.post(`/scenarios/${scenario.body.id}/submit`)).send({ expectedVersion: 1 });
+    expect(submitted.status).toBe(200);
+    const caseAfterSubmit = await asIntern(agent.get(`/research-cases/${researchCase.id}`));
+    expect(caseAfterSubmit.body.stages.find((stage: any) => stage.stageType === "SCENARIO").status).toBe("SUBMITTED");
+    const decision = await asManager(agent.post(`/scenarios/${scenario.body.id}/review`)).send({ decision: "APPROVED", reason: "سناریو ساختاریافته و آماده انتشار داخلی است.", expectedVersion: 2, caseVersion: caseAfterSubmit.body.version, idempotencyKey: "scenario-approval-key-1" });
+    expect(decision.status).toBe(200);
+    expect(decision.body.status).toBe("APPROVED_INTERNAL");
+    const bank = await asIntern(agent.get("/scenarios/bank"));
+    expect(bank.status).toBe(200);
+    expect(bank.body.map((item: any) => item.id)).toContain(scenario.body.id);
+    expect(current.status).toBe("SCENARIO_STAGE");
   });
 
-  it("End-to-End M4 Lifecycle: Explanation -> Prescription -> Scenario -> Internal Bank", async () => {
-    // 1. Create research case (starts in SOURCES stage)
-    const createCaseRes = await request(app.getHttpServer())
-      .post("/research-cases")
-      .set("x-user-stage", "INTERN")
-      .set("x-user-id", researcherUserId)
-      .send({
-        title: "بررسی الگوی نخبگانی در توسعه علم",
-        code: "RC-M4-001",
-        subject: "مدیریت فناوری",
-      });
-    expect(createCaseRes.status).toBe(HttpStatus.CREATED);
-    const caseId = createCaseRes.body.id;
-
-    // 2. Assign Main Supervisor and Collaborator Supervisor (D-02)
-    const mainSupRes = await request(app.getHttpServer())
-      .post(`/research-cases/${caseId}/assignments/supervisors`)
-      .set("x-user-stage", "INTERN")
-      .set("x-user-id", researcherUserId)
-      .send({
-        userId: mainSupervisorId,
-        role: "MAIN_SUPERVISOR",
-      });
-    expect(mainSupRes.status).toBe(HttpStatus.OK);
-
-    const collabSupRes = await request(app.getHttpServer())
-      .post(`/research-cases/${caseId}/assignments/supervisors`)
-      .set("x-user-stage", "INTERN")
-      .set("x-user-id", researcherUserId)
-      .send({
-        userId: collabSupervisorId,
-        role: "COLLABORATOR_SUPERVISOR",
-      });
-    expect(collabSupRes.status).toBe(HttpStatus.OK);
-
-    // 3. Fulfill SOURCES stage requirements: 1 resource + 1 interview + 1 report (D-07, AT-30)
-    const resRes = await request(app.getHttpServer())
-      .post(`/research-cases/${caseId}/resources`)
-      .set("x-user-stage", "INTERN")
-      .set("x-user-id", researcherUserId)
-      .send({
-        type: "INDIVIDUAL",
-        title: "دکتر رضایی - پژوهشگر برتر",
-      });
-    const resourceId = resRes.body.id;
-
-    const interviewRes = await request(app.getHttpServer())
-      .post(`/resources/${resourceId}/interview`)
-      .set("x-user-stage", "INTERN")
-      .set("x-user-id", researcherUserId)
-      .send({
-        intervieweeName: "دکتر رضایی",
-        intervieweeAge: 45,
-        conductedAt: new Date().toISOString(),
-      });
-    const interviewId = interviewRes.body.id;
-
-    await request(app.getHttpServer())
-      .post(`/interviews/${interviewId}/reports`)
-      .set("x-user-stage", "INTERN")
-      .set("x-user-id", researcherUserId)
-      .send({
-        title: "گزارش مکتوب مصاحبه اول",
-        content: "متن کامل مصاحبه پیاده‌سازی‌شده و مستندات منبع علمی.",
-      });
-
-    // Advance from SOURCES -> EXPLANATION
-    const advToExplRes = await request(app.getHttpServer())
-      .post(`/research-cases/${caseId}/advance-stage`)
-      .set("x-user-stage", "INTERN")
-      .set("x-user-id", researcherUserId)
-      .send({ expectedVersion: 1 });
-    expect(advToExplRes.status).toBe(HttpStatus.OK);
-    expect(advToExplRes.body.status).toBe("EXPLANATION_STAGE");
-
-    const explanationStage = advToExplRes.body.stages.find(
-      (s: any) => s.stageType === "EXPLANATION",
-    );
-    expect(explanationStage).toBeDefined();
-
-    // 4. Submit EXPLANATION report (FR-016, AT-05)
-    const explSubRes = await request(app.getHttpServer())
-      .post(`/stages/${explanationStage.id}/submissions`)
-      .set("x-user-stage", "INTERN")
-      .set("x-user-id", researcherUserId)
-      .send({
-        content: "گزارش تفصیلی مرحله تبیین علّی مسئله با بررسی شواهد منبع",
-        expectedVersion: 1,
-      });
-    expect(explSubRes.status).toBe(HttpStatus.CREATED);
-    const explSubId = explSubRes.body.id;
-
-    // 5. Collaborator Supervisor approves EXPLANATION report (D-02, D-03, AT-29)
-    const reviewExplRes = await request(app.getHttpServer())
-      .post(`/submissions/${explSubId}/review`)
-      .set("x-user-stage", "INTERN")
-      .set("x-user-id", collabSupervisorId)
-      .send({
-        decision: "APPROVED",
-        reason: "تبیین مسئله با دقت بالا صورت گرفته و علل شفاف هستند.",
-        expectedVersion: 1,
-        idempotencyKey: "rev-expl-key-01",
-      });
-    expect(reviewExplRes.status).toBe(HttpStatus.OK);
-    expect(reviewExplRes.body.submission.status).toBe("APPROVED");
-
-    // Advance from EXPLANATION -> PRESCRIPTION
-    const advToPresRes = await request(app.getHttpServer())
-      .post(`/research-cases/${caseId}/advance-stage`)
-      .set("x-user-stage", "INTERN")
-      .set("x-user-id", researcherUserId)
-      .send({ expectedVersion: 2 });
-    expect(advToPresRes.status).toBe(HttpStatus.OK);
-    expect(advToPresRes.body.status).toBe("PRESCRIPTION_STAGE");
-
-    const prescriptionStage = advToPresRes.body.stages.find(
-      (s: any) => s.stageType === "PRESCRIPTION",
-    );
-
-    // 6. Submit PRESCRIPTION report (FR-019, AT-07)
-    const presSubRes = await request(app.getHttpServer())
-      .post(`/stages/${prescriptionStage.id}/submissions`)
-      .set("x-user-stage", "INTERN")
-      .set("x-user-id", researcherUserId)
-      .send({
-        content: "گزارش تفصیلی تجویز راهبردها و مدل‌های عملیاتی",
-        expectedVersion: 1,
-      });
-    expect(presSubRes.status).toBe(HttpStatus.CREATED);
-    const presSubId = presSubRes.body.id;
-
-    // 7. Main Supervisor approves PRESCRIPTION report (FR-020)
-    const reviewPresRes = await request(app.getHttpServer())
-      .post(`/submissions/${presSubId}/review`)
-      .set("x-user-stage", "INTERN")
-      .set("x-user-id", mainSupervisorId)
-      .send({
-        decision: "APPROVED",
-        reason: "تجویزها علمی، دقیق و قابل پیاده‌سازی در سناریو هستند.",
-        expectedVersion: 1,
-        idempotencyKey: "rev-pres-key-01",
-      });
-    expect(reviewPresRes.status).toBe(HttpStatus.OK);
-
-    // Advance to SCENARIO_STAGE
-    const advToScenRes = await request(app.getHttpServer())
-      .post(`/research-cases/${caseId}/advance-stage`)
-      .set("x-user-stage", "INTERN")
-      .set("x-user-id", researcherUserId)
-      .send({ expectedVersion: 3 });
-    expect(advToScenRes.status).toBe(HttpStatus.OK);
-    expect(advToScenRes.body.status).toBe("SCENARIO_STAGE");
-
-    // 8. Create SCENARIO (FR-021, AT-08)
-    const createScenRes = await request(app.getHttpServer())
-      .post(`/research-cases/${caseId}/scenarios`)
-      .set("x-user-stage", "INTERN")
-      .set("x-user-id", researcherUserId)
-      .send({
-        title: "سناریوی ارتقای بهره‌وری آموزشی نخبگان",
-        summary: "چکیده جامع سناریوی اجرایی بر پایه یافته‌های تجویز.",
-        content: "متن کامل سناریو شامل مدل‌های اقدام و سازوکار ارزیابی اثربخشی راهبردها.",
-      });
-    expect(createScenRes.status).toBe(HttpStatus.CREATED);
-    const scenarioId = createScenRes.body.id;
-    expect(createScenRes.body.status).toBe("DRAFT");
-
-    // Submit scenario for review
-    const submitScenRes = await request(app.getHttpServer())
-      .post(`/scenarios/${scenarioId}/submit`)
-      .set("x-user-stage", "INTERN")
-      .set("x-user-id", researcherUserId)
-      .send({ expectedVersion: 1 });
-    expect(submitScenRes.status).toBe(HttpStatus.OK);
-    expect(submitScenRes.body.status).toBe("UNDER_REVIEW");
-
-    // 9. Supervisor approves scenario into internal bank (FR-040, AT-16)
-    const reviewScenRes = await request(app.getHttpServer())
-      .post(`/scenarios/${scenarioId}/review`)
-      .set("x-user-stage", "INTERN")
-      .set("x-user-id", mainSupervisorId)
-      .send({
-        decision: "APPROVED",
-        reason: "سناریو واجد شرایط ورود به بانک داخلی سناریوها است.",
-        expectedVersion: 2,
-        idempotencyKey: "rev-sc-final-01",
-      });
-    expect(reviewScenRes.status).toBe(HttpStatus.OK);
-    expect(reviewScenRes.body.status).toBe("APPROVED_INTERNAL");
-
-    // 10. Query internal scenario bank (AT-16)
-    const bankRes = await request(app.getHttpServer())
-      .get("/scenarios/bank")
-      .set("x-user-stage", "INTERN")
-      .set("x-user-id", researcherUserId);
-    expect(bankRes.status).toBe(HttpStatus.OK);
-    expect(Array.isArray(bankRes.body)).toBe(true);
-    expect(bankRes.body.some((s: any) => s.id === scenarioId)).toBe(true);
-  });
-
-  it("Rule D-05 / FR-061 / AT-33: Rollback cascades downstream stages to REVIEW_REQUIRED and blocks scenario approval", async () => {
-    // 1. Setup research case
-    const createCaseRes = await request(app.getHttpServer())
-      .post("/research-cases")
-      .set("x-user-stage", "INTERN")
-      .set("x-user-id", researcherUserId)
-      .send({
-        title: "پرونده بررسی بازگشت مرحله و ابطال وابستگی‌ها",
-        code: "RC-M4-ROLLBACK",
-        subject: "مدیریت سازمانی",
-      });
-    const caseId = createCaseRes.body.id;
-
-    // Assign supervisor
-    await request(app.getHttpServer())
-      .post(`/research-cases/${caseId}/assignments/supervisors`)
-      .set("x-user-stage", "INTERN")
-      .set("x-user-id", researcherUserId)
-      .send({
-        userId: mainSupervisorId,
-        role: "MAIN_SUPERVISOR",
-      });
-
-    // Fulfill sources
-    const resRes = await request(app.getHttpServer())
-      .post(`/research-cases/${caseId}/resources`)
-      .set("x-user-stage", "INTERN")
-      .set("x-user-id", researcherUserId)
-      .send({
-        type: "INDIVIDUAL",
-        title: "منبع تستی",
-      });
-    const interviewRes = await request(app.getHttpServer())
-      .post(`/resources/${resRes.body.id}/interview`)
-      .set("x-user-stage", "INTERN")
-      .set("x-user-id", researcherUserId)
-      .send({
-        intervieweeName: "مصاحبه‌شونده",
-        intervieweeAge: 38,
-        conductedAt: new Date().toISOString(),
-      });
-    await request(app.getHttpServer())
-      .post(`/interviews/${interviewRes.body.id}/reports`)
-      .set("x-user-stage", "INTERN")
-      .set("x-user-id", researcherUserId)
-      .send({
-        title: "گزارش منبع",
-        content: "متن کامل گزارش مصاحبه تستی برای پیشروی مراحل.",
-      });
-
-    // Advance SOURCES -> EXPLANATION
-    const adv1 = await request(app.getHttpServer())
-      .post(`/research-cases/${caseId}/advance-stage`)
-      .set("x-user-stage", "INTERN")
-      .set("x-user-id", researcherUserId)
-      .send({ expectedVersion: 1 });
-    expect(adv1.status).toBe(HttpStatus.OK);
-
-    // In EXPLANATION: submit report & supervisor approves (FR-018)
-    const explStage = adv1.body.stages.find(
-      (s: any) => s.stageType === "EXPLANATION",
-    );
-    const explSub = await request(app.getHttpServer())
-      .post(`/stages/${explStage.id}/submissions`)
-      .set("x-user-stage", "INTERN")
-      .set("x-user-id", researcherUserId)
-      .send({
-        content: "گزارش تبیین تستی برای تست بازگشت مرحله",
-        expectedVersion: 1,
-      });
-    await request(app.getHttpServer())
-      .post(`/submissions/${explSub.body.id}/review`)
-      .set("x-user-stage", "INTERN")
-      .set("x-user-id", mainSupervisorId)
-      .send({
-        decision: "APPROVED",
-        reason: "تأیید تبیین",
-        expectedVersion: 1,
-        idempotencyKey: "rev-expl-roll-01",
-      });
-
-    // Advance EXPLANATION -> PRESCRIPTION
-    const adv2 = await request(app.getHttpServer())
-      .post(`/research-cases/${caseId}/advance-stage`)
-      .set("x-user-stage", "INTERN")
-      .set("x-user-id", researcherUserId)
-      .send({ expectedVersion: 2 });
-    expect(adv2.status).toBe(HttpStatus.OK);
-
-    // In PRESCRIPTION: submit report & supervisor approves (FR-021)
-    const presStageItem = adv2.body.stages.find(
-      (s: any) => s.stageType === "PRESCRIPTION",
-    );
-    const presSub = await request(app.getHttpServer())
-      .post(`/stages/${presStageItem.id}/submissions`)
-      .set("x-user-stage", "INTERN")
-      .set("x-user-id", researcherUserId)
-      .send({
-        content: "گزارش تجویز تستی برای تست بازگشت مرحله",
-        expectedVersion: 1,
-      });
-    await request(app.getHttpServer())
-      .post(`/submissions/${presSub.body.id}/review`)
-      .set("x-user-stage", "INTERN")
-      .set("x-user-id", mainSupervisorId)
-      .send({
-        decision: "APPROVED",
-        reason: "تأیید تجویز",
-        expectedVersion: 1,
-        idempotencyKey: "rev-pres-roll-01",
-      });
-
-    // Advance PRESCRIPTION -> SCENARIO
-    const adv3 = await request(app.getHttpServer())
-      .post(`/research-cases/${caseId}/advance-stage`)
-      .set("x-user-stage", "INTERN")
-      .set("x-user-id", researcherUserId)
-      .send({ expectedVersion: 3 });
-    expect(adv3.status).toBe(HttpStatus.OK);
-
-    // Create scenario
-    const scenRes = await request(app.getHttpServer())
-      .post(`/research-cases/${caseId}/scenarios`)
-      .set("x-user-stage", "INTERN")
-      .set("x-user-id", researcherUserId)
-      .send({
-        title: "سناریوی تحت تست بازگشت مرحله",
-        summary: "چکیده سناریوی وابسته",
-        content: "متن کامل سناریوی ارائه‌شده قبل از بازگشت مرحله قبلی.",
-      });
-    const scenarioId = scenRes.body.id;
-
-    // Submit scenario for review
-    await request(app.getHttpServer())
-      .post(`/scenarios/${scenarioId}/submit`)
-      .set("x-user-stage", "INTERN")
-      .set("x-user-id", researcherUserId)
-      .send({ expectedVersion: 1 });
-
-    // Now, rollback case to EXPLANATION (version was 4 after 3 advances)
-    const rollbackRes = await request(app.getHttpServer())
-      .post(`/research-cases/${caseId}/rollback-stage`)
-      .set("x-user-stage", "INTERN")
-      .set("x-user-id", researcherUserId)
-      .send({
-        targetStage: "EXPLANATION",
-        reason: "نیاز به بازنگری اساسی در تبیین علّی پدیده (D-05)",
-        expectedVersion: 4,
-      });
-    expect(rollbackRes.status).toBe(HttpStatus.OK);
-    // Downstream stages PRESCRIPTION and SCENARIO must be cascaded to REVIEW_REQUIRED
-    const presStage = rollbackRes.body.stages.find(
-      (s: any) => s.stageType === "PRESCRIPTION",
-    );
-    expect(presStage.status).toBe("REVIEW_REQUIRED");
-
-    // AT-33: Now supervisor attempts to review and approve the scenario into internal bank.
-    // It MUST be blocked with 409 PREREQUISITE_REVIEW_REQUIRED!
-    const blockedReviewRes = await request(app.getHttpServer())
-      .post(`/scenarios/${scenarioId}/review`)
-      .set("x-user-stage", "INTERN")
-      .set("x-user-id", mainSupervisorId)
-      .send({
-        decision: "APPROVED",
-        reason: "تلاش برای تأیید سناریو هنگام وجود مرحله نیازمند بازبینی",
-        expectedVersion: 2,
-        idempotencyKey: "rev-attempt-blocked-01",
-      });
-    expect(blockedReviewRes.status).toBe(HttpStatus.CONFLICT);
-    expect(blockedReviewRes.body.code).toBe("PREREQUISITE_REVIEW_REQUIRED");
+  it("blocks scenario approval after rollback marks dependent outputs for review (D-05, FR-061, AT-33)", async () => {
+    const agent = request(app.getHttpServer());
+    const { researchCase, current } = await reachScenarioStage(agent, "RC-M4-ROLLBACK");
+    const scenario = await asIntern(agent.post(`/research-cases/${researchCase.id}/scenarios`)).send({ title: "سناریوی وابسته به تجویز", summary: "اقدام اجرایی وابسته به خروجی مراحل پیش‌نیاز.", content: scenarioContent });
+    const submission = await asIntern(agent.post(`/scenarios/${scenario.body.id}/submit`)).send({ expectedVersion: 1 });
+    expect(submission.status).toBe(200);
+    const caseAfterSubmit = await asIntern(agent.get(`/research-cases/${researchCase.id}`));
+    const rollback = await asManager(agent.post(`/research-cases/${researchCase.id}/rollback-stage`), mainSupervisorId).send({ targetStage: "EXPLANATION", reason: "بازبینی دوباره تبیین مسئله", expectedVersion: caseAfterSubmit.body.version });
+    expect(rollback.status).toBe(200);
+    expect(rollback.body.stages.find((stage: any) => stage.stageType === "PRESCRIPTION").status).toBe("REVIEW_REQUIRED");
+    expect(rollback.body.stages.find((stage: any) => stage.stageType === "SCENARIO").status).toBe("REVIEW_REQUIRED");
+    const blocked = await asManager(agent.post(`/scenarios/${scenario.body.id}/review`)).send({ decision: "APPROVED", reason: "تلاش برای تأیید پس از بازگشت مرحله", expectedVersion: 2, caseVersion: rollback.body.version, idempotencyKey: "scenario-rollback-block-1" });
+    expect(blocked.status).toBe(409);
+    expect(blocked.body.code).toBe("PREREQUISITE_REVIEW_REQUIRED");
+    expect(current.status).toBe("SCENARIO_STAGE");
   });
 });

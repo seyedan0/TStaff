@@ -57,13 +57,14 @@ describe("ScenariosService (Unit / Domain Application)", () => {
 
     mockResearchService = {
       assertPrerequisitesApprovedForScenario: vi.fn(async (_cId: string) => {}),
+      assertOwnerCanEditStage: vi.fn(async () => {}),
+      isSupervisorAssignedToCase: vi.fn(async (_cId: string, uId: string) => uId === supervisorId),
+      getCase: vi.fn(async () => ({ version: 1 } as any)),
+      reviewDecision: vi.fn(async () => ({} as any)),
+      submitScenarioForReview: vi.fn(async () => ({} as any)),
     };
 
-    mockAssignmentsService = {
-      isAuthorizedSupervisor: vi.fn(async (_cId: string, uId: string) => {
-        return uId === supervisorId;
-      }),
-    };
+    mockAssignmentsService = {};
 
     scenariosService = new ScenariosService(
       mockScenarioRepo,
@@ -111,7 +112,7 @@ describe("ScenariosService (Unit / Domain Application)", () => {
       content: "متن اولیه سناریو",
     });
 
-    const updated = await scenariosService.updateScenario(scenario.id, {
+    const updated = await scenariosService.updateScenario(scenario.id, authorId, {
       title: "عنوان بازنگری‌شده",
       expectedVersion: 1,
     });
@@ -129,10 +130,41 @@ describe("ScenariosService (Unit / Domain Application)", () => {
 
     const underReview = await scenariosService.submitScenarioForReview(
       scenario.id,
+      authorId,
       1,
     );
     expect(underReview.status).toBe("UNDER_REVIEW");
     expect(underReview.version).toBe(2);
+    expect(mockResearchService.submitScenarioForReview).toHaveBeenCalledWith(caseId, authorId);
+  });
+
+  it("restores the scenario draft if case-level review submission loses its version check (D-02, AT-29)", async () => {
+    const scenario = await scenariosService.createScenario(caseId, authorId, {
+      title: "عنوان سناریو",
+      summary: "چکیده سناریو با جزئیات کافی برای ارسال.",
+      content: "متن کامل سناریو همراه با توالی اقدامات اجرایی.",
+    });
+    vi.mocked(mockResearchService.submitScenarioForReview!).mockRejectedValueOnce(new Error("STALE_REVISION"));
+
+    await expect(scenariosService.submitScenarioForReview(scenario.id, authorId, 1)).rejects.toThrow("STALE_REVISION");
+    const restored = await scenariosService.getScenarioById(scenario.id);
+    expect(restored.status).toBe("DRAFT");
+    expect(restored.version).toBe(3);
+  });
+
+  it("blocks scenario submission while an upstream stage needs review (D-05, FR-061, AT-33)", async () => {
+    const scenario = await scenariosService.createScenario(caseId, authorId, {
+      title: "عنوان سناریو",
+      summary: "چکیده سناریو با جزئیات کافی برای ارسال.",
+      content: "متن کامل سناریو همراه با توالی اقدامات اجرایی.",
+    });
+    vi.mocked(mockResearchService.assertPrerequisitesApprovedForScenario!).mockRejectedValueOnce(
+      new PrerequisiteStageReviewRequiredError("PRESCRIPTION"),
+    );
+
+    await expect(scenariosService.submitScenarioForReview(scenario.id, authorId, 1))
+      .rejects.toThrow(PrerequisiteStageReviewRequiredError);
+    expect(mockResearchService.submitScenarioForReview).not.toHaveBeenCalled();
   });
 
   it("allows supervisor to approve scenario into APPROVED_INTERNAL (internal bank AT-16)", async () => {
@@ -141,7 +173,7 @@ describe("ScenariosService (Unit / Domain Application)", () => {
       summary: "چکیده سناریو",
       content: "متن کامل سناریو",
     });
-    await scenariosService.submitScenarioForReview(scenario.id, 1);
+    await scenariosService.submitScenarioForReview(scenario.id, authorId, 1);
 
     const approved = await scenariosService.reviewScenario(
       scenario.id,
@@ -150,6 +182,7 @@ describe("ScenariosService (Unit / Domain Application)", () => {
         decision: "APPROVED",
         reason: "سناریو واجد شرایط ورود به بانک داخلی سناریوها است.",
         expectedVersion: 2,
+        caseVersion: 1,
         idempotencyKey: "rev-sc-key-01",
       },
     );
@@ -169,7 +202,7 @@ describe("ScenariosService (Unit / Domain Application)", () => {
       summary: "چکیده سناریو",
       content: "متن کامل سناریو",
     });
-    await scenariosService.submitScenarioForReview(scenario.id, 1);
+    await scenariosService.submitScenarioForReview(scenario.id, authorId, 1);
 
     // Simulate stage rollback in upstream (e.g. PRESCRIPTION or EXPLANATION rolled back to REVIEW_REQUIRED)
     vi.mocked(
@@ -183,6 +216,7 @@ describe("ScenariosService (Unit / Domain Application)", () => {
         decision: "APPROVED",
         reason: "تأیید سناریو",
         expectedVersion: 2,
+        caseVersion: 1,
         idempotencyKey: "rev-blocked-key-33",
       }),
     ).rejects.toThrow(PrerequisiteStageReviewRequiredError);
@@ -194,13 +228,14 @@ describe("ScenariosService (Unit / Domain Application)", () => {
       summary: "چکیده سناریو",
       content: "متن کامل سناریو",
     });
-    await scenariosService.submitScenarioForReview(scenario.id, 1);
+    await scenariosService.submitScenarioForReview(scenario.id, authorId, 1);
 
     await expect(
       scenariosService.reviewScenario(scenario.id, unauthorizedUserId, {
         decision: "APPROVED",
         reason: "داوری غیرمجاز",
         expectedVersion: 2,
+        caseVersion: 1,
         idempotencyKey: "unauth-sc-key-1",
       }),
     ).rejects.toThrow(UnauthorizedSupervisorError);

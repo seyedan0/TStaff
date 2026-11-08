@@ -19,6 +19,8 @@ import { Badge } from "../../shared/ui/Badge.js";
 import { Modal } from "../../shared/ui/Modal.js";
 import { apiClient } from "../../shared/api-client.js";
 import { useAuth } from "../../features/auth/AuthContext.js";
+import { UserNavigation, type UserNavigationTab } from "../../app/UserNavigation.js";
+import { DirectChatView } from "../../features/messaging/DirectChatView.js";
 
 interface ApprenticePortalProps {
   onNotify: (
@@ -143,6 +145,7 @@ export const ApprenticePortal: React.FC<ApprenticePortalProps> = ({
   onNotify,
 }) => {
   const { currentUser } = useAuth();
+  const [activeUserTab, setActiveUserTab] = useState<UserNavigationTab>("chat");
   const [completedMaterials, setCompletedMaterials] = useState<Record<string, boolean>>(() => {
     try {
       const saved = localStorage.getItem("tstaff_apprentice_completed_materials");
@@ -276,6 +279,9 @@ export const ApprenticePortal: React.FC<ApprenticePortalProps> = ({
 
   return (
     <div className="space-y-6">
+      <UserNavigation active={activeUserTab === "chat" ? "chat" : null} isApprentice onChange={setActiveUserTab} />
+      {activeUserTab === "chat" && <DirectChatView onNotify={onNotify} />}
+      <div className={activeUserTab === "chat" ? "hidden" : "space-y-6"}>
       {/* Top Welcome & Mission Card */}
       <Card
         variant="elevated"
@@ -698,6 +704,7 @@ export const ApprenticePortal: React.FC<ApprenticePortalProps> = ({
           </form>
         </Modal>
       )}
+      </div>
     </div>
   );
 };

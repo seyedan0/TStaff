@@ -8,20 +8,30 @@ import {
 } from "./application/applicants.service.js";
 import { PrismaApplicantRepository } from "./infrastructure/prisma-applicant.repository.js";
 import { IdentityModule, IdentityService } from "../identity/index.js";
+import { AssignmentsModule } from "../assignments/assignments.module.js";
+import { AssignmentsService } from "../assignments/application/assignments.service.js";
 
 class IdentityApprovedHookAdapter implements ApplicantApprovedHook {
-  constructor(private readonly identityService: IdentityService) {}
+  constructor(
+    private readonly identityService: IdentityService,
+    private readonly assignmentsService: AssignmentsService,
+  ) {}
   async onApplicantApproved(applicant: {
     id: string;
     fullName: string;
     phoneNumber: string;
+    initialSupervisorId?: string | null;
+    assignedById?: string;
   }): Promise<void> {
-    await this.identityService.createUserFromApprovedApplicant(applicant);
+    const user = await this.identityService.createUserFromApprovedApplicant(applicant);
+    if (applicant.initialSupervisorId) await this.assignmentsService.assignSupervisorToUser(
+      user.id, applicant.initialSupervisorId, applicant.assignedById ?? applicant.initialSupervisorId,
+    );
   }
 }
 
 @Module({
-  imports: [IdentityModule],
+  imports: [IdentityModule, AssignmentsModule],
   controllers: [ApplicantsController],
   providers: [
     ApplicantsService,
@@ -31,9 +41,9 @@ class IdentityApprovedHookAdapter implements ApplicantApprovedHook {
     },
     {
       provide: APPLICANT_APPROVED_HOOK,
-      useFactory: (identityService: IdentityService) =>
-        new IdentityApprovedHookAdapter(identityService),
-      inject: [IdentityService],
+      useFactory: (identityService: IdentityService, assignmentsService: AssignmentsService) =>
+        new IdentityApprovedHookAdapter(identityService, assignmentsService),
+      inject: [IdentityService, AssignmentsService],
     },
   ],
   exports: [ApplicantsService],

@@ -37,3 +37,15 @@ export class ApplicantAlreadyExistsError extends DomainError {
     );
   }
 }
+
+export class InvalidInitialSupervisorError extends DomainError {
+  constructor() {
+    super("برای ارجاع علمی اولیه، یک مدیر علمی فعال انتخاب کنید", "BAD_REQUEST");
+  }
+}
+
+export class ApplicantNotAssignedToReviewerError extends DomainError {
+  constructor() {
+    super("این پرونده برای ارزیابی به مدیر علمی دیگری ارجاع شده است", "FORBIDDEN");
+  }
+}

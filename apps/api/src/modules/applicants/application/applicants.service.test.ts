@@ -5,6 +5,7 @@ import {
   InvalidAgeError,
   InvalidApplicantStatusTransitionError,
   ApplicantAlreadyExistsError,
+  ApplicantNotAssignedToReviewerError,
 } from "../domain/applicant-errors.js";
 import type { ApplicantRepositoryPort } from "./ports/applicant.repository.port.js";
 
@@ -50,7 +51,7 @@ describe("ApplicantsService & Domain (FR-001, FR-002, FR-056, AT-01, AT-28)", ()
       async onApplicantApproved(data) {
         approvedHookCalledWith = data;
       },
-    });
+    }, { isScientificSupervisor: async (id: string) => id === "22222222-2222-2222-2222-222222222222" } as any);
   });
 
   it("creates applicant draft with valid integer age (Rule D-01 / AT-28)", async () => {
@@ -62,6 +63,7 @@ describe("ApplicantsService & Domain (FR-001, FR-002, FR-056, AT-01, AT-28)", ()
       provinceId: "11111111-1111-1111-1111-111111111111",
       education: "کارشناسی",
       fieldOfStudy: "مدیریت",
+      initialSupervisorId: "22222222-2222-2222-2222-222222222222",
     });
 
     expect(applicant.id).toBeDefined();
@@ -91,6 +93,23 @@ describe("ApplicantsService & Domain (FR-001, FR-002, FR-056, AT-01, AT-28)", ()
     ).toThrow(InvalidAgeError);
   });
 
+  it("rejects applicant review by a scientific supervisor who is not assigned (AT-01)", async () => {
+    const draft = await service.createDraft({
+      fullName: "سارا احمدی",
+      nationalId: "0987654321",
+      phoneNumber: "09124445566",
+      age: 24,
+      provinceId: "11111111-1111-1111-1111-111111111111",
+      education: "کارشناسی ارشد",
+      fieldOfStudy: "جامعه‌شناسی",
+      initialSupervisorId: "22222222-2222-2222-2222-222222222222",
+    });
+    await service.submitForReview(draft.id);
+
+    await expect(service.reviewDecision(draft.id, { decision: "APPROVED" }, "33333333-3333-3333-3333-333333333333"))
+      .rejects.toThrow(ApplicantNotAssignedToReviewerError);
+  });
+
   it("progresses applicant through review and approval workflow (FR-002)", async () => {
     const draft = await service.createDraft({
       fullName: "سارا احمدی",
@@ -100,6 +119,7 @@ describe("ApplicantsService & Domain (FR-001, FR-002, FR-056, AT-01, AT-28)", ()
       provinceId: "11111111-1111-1111-1111-111111111111",
       education: "کارشناسی ارشد",
       fieldOfStudy: "جامعه‌شناسی",
+      initialSupervisorId: "22222222-2222-2222-2222-222222222222",
     });
 
     // 1. Submit for review
@@ -115,6 +135,8 @@ describe("ApplicantsService & Domain (FR-001, FR-002, FR-056, AT-01, AT-28)", ()
       id: draft.id,
       fullName: "سارا احمدی",
       phoneNumber: "09124445566",
+      initialSupervisorId: "22222222-2222-2222-2222-222222222222",
+      assignedById: "22222222-2222-2222-2222-222222222222",
     });
   });
 
@@ -127,6 +149,7 @@ describe("ApplicantsService & Domain (FR-001, FR-002, FR-056, AT-01, AT-28)", ()
       provinceId: "11111111-1111-1111-1111-111111111111",
       education: "دکتری",
       fieldOfStudy: "اقتصاد",
+      initialSupervisorId: "22222222-2222-2222-2222-222222222222",
     });
 
     await service.submitForReview(draft.id);
@@ -157,6 +180,7 @@ describe("ApplicantsService & Domain (FR-001, FR-002, FR-056, AT-01, AT-28)", ()
       provinceId: "11111111-1111-1111-1111-111111111111",
       education: "دیپلم",
       fieldOfStudy: "عمومی",
+      initialSupervisorId: "22222222-2222-2222-2222-222222222222",
     });
 
     // Cannot reopen draft that is not rejected
@@ -174,6 +198,7 @@ describe("ApplicantsService & Domain (FR-001, FR-002, FR-056, AT-01, AT-28)", ()
       provinceId: "11111111-1111-1111-1111-111111111111",
       education: "کارشناسی",
       fieldOfStudy: "مهندسی",
+      initialSupervisorId: "22222222-2222-2222-2222-222222222222",
     });
 
     // Duplicate phone number
@@ -186,6 +211,7 @@ describe("ApplicantsService & Domain (FR-001, FR-002, FR-056, AT-01, AT-28)", ()
         provinceId: "11111111-1111-1111-1111-111111111111",
         education: "کارشناسی",
         fieldOfStudy: "مهندسی",
+        initialSupervisorId: "22222222-2222-2222-2222-222222222222",
       }),
     ).rejects.toThrow(ApplicantAlreadyExistsError);
 
@@ -199,6 +225,7 @@ describe("ApplicantsService & Domain (FR-001, FR-002, FR-056, AT-01, AT-28)", ()
         provinceId: "11111111-1111-1111-1111-111111111111",
         education: "کارشناسی",
         fieldOfStudy: "مهندسی",
+        initialSupervisorId: "22222222-2222-2222-2222-222222222222",
       }),
     ).rejects.toThrow(ApplicantAlreadyExistsError);
   });

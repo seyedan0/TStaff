@@ -8,6 +8,10 @@ export interface ResourceProps {
   title: string;
   description: string | null;
   contactInfo: string | null;
+  personAge?: number | null;
+  position?: string | null;
+  province?: string | null;
+  county?: string | null;
   status: ResourceStatus;
   interviewId: string | null;
   createdAt: Date;
@@ -24,6 +28,10 @@ export class Resource {
     title: string;
     description?: string | null;
     contactInfo?: string | null;
+    personAge?: number | null;
+    position?: string | null;
+    province?: string | null;
+    county?: string | null;
   }): Resource {
     const now = new Date();
     return new Resource({
@@ -33,6 +41,10 @@ export class Resource {
       title: params.title,
       description: params.description ?? null,
       contactInfo: params.contactInfo ?? null,
+      personAge: params.personAge ?? null,
+      position: params.position ?? null,
+      province: params.province ?? null,
+      county: params.county ?? null,
       status: "IDENTIFIED",
       interviewId: null,
       createdAt: now,
@@ -53,6 +65,28 @@ export class Resource {
       ...this.props,
       interviewId,
       status: "INTERVIEWED",
+      updatedAt: new Date(),
+    });
+  }
+
+  updateInfo(params: {
+    title?: string | undefined;
+    description?: string | undefined;
+    contactInfo?: string | undefined;
+    personAge?: number | undefined;
+    position?: string | undefined;
+    province?: string | undefined;
+    county?: string | undefined;
+  }): Resource {
+    return new Resource({
+      ...this.props,
+      ...(params.title !== undefined ? { title: params.title } : {}),
+      ...(params.description !== undefined ? { description: params.description || null } : {}),
+      ...(params.contactInfo !== undefined ? { contactInfo: params.contactInfo || null } : {}),
+      ...(params.personAge !== undefined ? { personAge: params.personAge } : {}),
+      ...(params.position !== undefined ? { position: params.position || null } : {}),
+      ...(params.province !== undefined ? { province: params.province || null } : {}),
+      ...(params.county !== undefined ? { county: params.county || null } : {}),
       updatedAt: new Date(),
     });
   }
@@ -105,8 +139,13 @@ export class Resource {
       title: this.props.title,
       description: this.props.description,
       contactInfo: this.props.contactInfo,
+      personAge: this.props.personAge ?? null,
+      position: this.props.position ?? null,
+      province: this.props.province ?? null,
+      county: this.props.county ?? null,
       status: this.props.status,
       interviewId: this.props.interviewId,
+      hasInterview: this.props.interviewId !== null,
       createdAt: this.props.createdAt.toISOString(),
       updatedAt: this.props.updatedAt.toISOString(),
     };

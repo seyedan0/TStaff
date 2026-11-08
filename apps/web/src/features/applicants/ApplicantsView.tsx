@@ -5,7 +5,6 @@ import {
   XCircle,
   ArrowUpRight,
   RotateCcw,
-  UserCheck,
 } from "lucide-react";
 import { Card } from "../../shared/ui/Card.js";
 import { Button } from "../../shared/ui/Button.js";
@@ -31,62 +30,8 @@ export const ApplicantsView: React.FC<ApplicantsViewProps> = ({ onNotify }) => {
       const data = await apiClient.get<ApplicantItem[]>("/applicants");
       setApplicants(data);
     } catch {
-      // Fallback demo data showcasing all states
-      setApplicants([
-        {
-          id: "app-101",
-          fullName: "سارا احمدی",
-          nationalId: "0012345678",
-          phoneNumber: "09121112233",
-          age: 26,
-          provinceId: "11111111-1111-1111-1111-111111111111",
-          education: "کارشناسی ارشد",
-          fieldOfStudy: "جامعه‌شناسی ارتباطات",
-          status: "APPROVED",
-          createdAt: new Date().toISOString(),
-          updatedAt: new Date().toISOString(),
-        },
-        {
-          id: "app-102",
-          fullName: "مهدی خسروی",
-          nationalId: "0023456789",
-          phoneNumber: "09122223344",
-          age: 29,
-          provinceId: "11111111-1111-1111-1111-111111111111",
-          education: "کارشناسی",
-          fieldOfStudy: "مهندسی صنایع",
-          status: "IN_REVIEW",
-          createdAt: new Date().toISOString(),
-          updatedAt: new Date().toISOString(),
-        },
-        {
-          id: "app-103",
-          fullName: "امیرحسین رضوی",
-          nationalId: "0034567890",
-          phoneNumber: "09123334455",
-          age: 24,
-          provinceId: "11111111-1111-1111-1111-111111111111",
-          education: "کارشناسی",
-          fieldOfStudy: "روان‌شناسی",
-          status: "PENDING",
-          createdAt: new Date().toISOString(),
-          updatedAt: new Date().toISOString(),
-        },
-        {
-          id: "app-104",
-          fullName: "نرگس صادقی",
-          nationalId: "0045678901",
-          phoneNumber: "09124445566",
-          age: 31,
-          provinceId: "11111111-1111-1111-1111-111111111111",
-          education: "دکتری",
-          fieldOfStudy: "علوم سیاسی",
-          status: "REJECTED",
-          rejectionReason: "عدم تطابق اولویت‌های پژوهشی استانی",
-          createdAt: new Date().toISOString(),
-          updatedAt: new Date().toISOString(),
-        },
-      ]);
+      setApplicants([]);
+      onNotify("error", "دریافت متقاضیان ناموفق بود", "اتصال به سرویس را بررسی و دوباره تلاش کنید.");
     } finally {
       setLoading(false);
     }
@@ -294,22 +239,6 @@ export const ApplicantsView: React.FC<ApplicantsViewProps> = ({ onNotify }) => {
                   </Button>
                 )}
 
-                {app.status === "APPROVED" && (
-                  <Button
-                    variant="secondary"
-                    size="sm"
-                    icon={<UserCheck className="w-3.5 h-3.5 text-apple-green" />}
-                    onClick={() =>
-                      onNotify(
-                        "success",
-                        "ارتقای کارآموز (FR-004)",
-                        "کارآموز دوره آموزشی را تکمیل نموده و می‌تواند به مرحله کارورز ارتقا یابد.",
-                      )
-                    }
-                  >
-                    ارتقا به کارورز (مدیر استانی)
-                  </Button>
-                )}
               </div>
             </Card>
           ))}

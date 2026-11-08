@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import { Modal } from "../../shared/ui/Modal.js";
 import { Input } from "../../shared/ui/Input.js";
 import { Button } from "../../shared/ui/Button.js";
@@ -18,6 +18,7 @@ export const ApplicantRegistrationModal: React.FC<ApplicantRegistrationModalProp
   onSuccess,
   onNotify,
 }) => {
+  const [supervisors, setSupervisors] = useState<Array<{ id: string; fullName?: string | null; phoneNumber: string }>>([]);
   const [formData, setFormData] = useState<Partial<CreateApplicantDto>>({
     fullName: "",
     nationalId: "",
@@ -27,10 +28,18 @@ export const ApplicantRegistrationModal: React.FC<ApplicantRegistrationModalProp
     education: "کارشناسی ارشد",
     fieldOfStudy: "مدیریت فناوری اطلاعات",
     notes: "",
+    initialSupervisorId: "",
   });
 
   const [loading, setLoading] = useState(false);
   const [ageError, setAgeError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!isOpen) return;
+    apiClient.get<Array<{ id: string; fullName?: string | null; phoneNumber: string; role?: string | null }>>("/users/managers")
+      .then((users) => setSupervisors(users.filter((user) => user.role === "SCIENTIFIC_SUPERVISOR")))
+      .catch((error) => { setSupervisors([]); onNotify("error", "فهرست مدیران علمی دریافت نشد", error instanceof Error ? error.message : undefined); });
+  }, [isOpen, onNotify]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -89,6 +98,8 @@ export const ApplicantRegistrationModal: React.FC<ApplicantRegistrationModalProp
           onChange={(e) => setFormData({ ...formData, fullName: e.target.value })}
           required
         />
+
+        <label className="block text-xs text-slate-300">مدیر علمی اولیه برای مصاحبه و ارزیابی<select required value={formData.initialSupervisorId} onChange={(event) => setFormData({ ...formData, initialSupervisorId: event.target.value })} className="mt-1 w-full rounded-apple-md border border-white/10 bg-slate-900 p-2.5 text-sm text-slate-100"><option value="">انتخاب مدیر علمی</option>{supervisors.map((supervisor) => <option key={supervisor.id} value={supervisor.id}>{supervisor.fullName || supervisor.phoneNumber}</option>)}</select></label>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
           <Input

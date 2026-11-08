@@ -9,6 +9,18 @@ import type { ResourceRepositoryPort } from "../application/ports/resource.repos
 export class PrismaResourceRepository implements ResourceRepositoryPort {
   constructor(private readonly prisma: PrismaService) {}
 
+  async saveOrganization(resourceId: string, data: { name: string; educationLevel?: string; organizationType?: string; description?: string }): Promise<void> {
+    await this.prisma.resourceOrganization.upsert({
+      where: { resourceId },
+      create: { resourceId, ...data },
+      update: data,
+    });
+  }
+
+  async findOrganizationByResourceId(resourceId: string) {
+    return this.prisma.resourceOrganization.findUnique({ where: { resourceId } });
+  }
+
   async createResource(resource: Resource): Promise<void> {
     await this.prisma.resource.create({
       data: {
@@ -18,6 +30,10 @@ export class PrismaResourceRepository implements ResourceRepositoryPort {
         title: resource.title,
         description: resource.description,
         contactInfo: resource.contactInfo,
+        personAge: resource.toJSON().personAge,
+        position: resource.toJSON().position,
+        province: resource.toJSON().province,
+        county: resource.toJSON().county,
         status: resource.status as any,
       },
     });
@@ -37,6 +53,10 @@ export class PrismaResourceRepository implements ResourceRepositoryPort {
       title: raw.title,
       description: raw.description,
       contactInfo: raw.contactInfo,
+      personAge: raw.personAge,
+      position: raw.position,
+      province: raw.province,
+      county: raw.county,
       status: raw.status as any,
       interviewId: raw.interview?.id ?? null,
       createdAt: raw.createdAt,
@@ -58,6 +78,10 @@ export class PrismaResourceRepository implements ResourceRepositoryPort {
         title: r.title ?? "",
         description: r.description,
         contactInfo: r.contactInfo,
+        personAge: r.personAge,
+        position: r.position,
+        province: r.province,
+        county: r.county,
         status: r.status as any,
         interviewId: r.interview?.id ?? null,
         createdAt: r.createdAt,
@@ -74,6 +98,10 @@ export class PrismaResourceRepository implements ResourceRepositoryPort {
         title: resource.title,
         description: resource.description,
         contactInfo: resource.contactInfo,
+        personAge: resource.toJSON().personAge,
+        position: resource.toJSON().position,
+        province: resource.toJSON().province,
+        county: resource.toJSON().county,
       },
     });
   }
@@ -86,7 +114,27 @@ export class PrismaResourceRepository implements ResourceRepositoryPort {
         intervieweeName: interview.intervieweeName,
         intervieweeAge: interview.intervieweeAge,
         conductedAt: interview.conductedAt,
+        durationMinutes: interview.toJSON().durationMinutes,
+        mode: interview.toJSON().mode,
+        location: interview.toJSON().location,
+        notes: interview.toJSON().notes,
         status: interview.status as any,
+      },
+    });
+  }
+
+  async saveInterview(interview: Interview): Promise<void> {
+    const data = interview.toJSON();
+    await this.prisma.interview.update({
+      where: { id: interview.id },
+      data: {
+        intervieweeName: data.intervieweeName,
+        intervieweeAge: data.intervieweeAge,
+        conductedAt: new Date(data.conductedAt),
+        durationMinutes: data.durationMinutes,
+        mode: data.mode,
+        location: data.location,
+        notes: data.notes,
       },
     });
   }
@@ -105,6 +153,10 @@ export class PrismaResourceRepository implements ResourceRepositoryPort {
       intervieweeName: raw.intervieweeName,
       intervieweeAge: raw.intervieweeAge,
       conductedAt: raw.conductedAt,
+      durationMinutes: raw.durationMinutes,
+      mode: raw.mode,
+      location: raw.location,
+      notes: raw.notes,
       status: raw.status as any,
       createdAt: raw.createdAt,
       updatedAt: raw.updatedAt,
@@ -123,6 +175,10 @@ export class PrismaResourceRepository implements ResourceRepositoryPort {
       intervieweeName: raw.intervieweeName,
       intervieweeAge: raw.intervieweeAge,
       conductedAt: raw.conductedAt,
+      durationMinutes: raw.durationMinutes,
+      mode: raw.mode,
+      location: raw.location,
+      notes: raw.notes,
       status: raw.status as any,
       createdAt: raw.createdAt,
       updatedAt: raw.updatedAt,
@@ -134,9 +190,11 @@ export class PrismaResourceRepository implements ResourceRepositoryPort {
       data: {
         id: report.id,
         interviewId: report.interviewId,
+        authorId: report.toJSON().authorId,
         version: report.version,
         title: report.title,
         content: report.content,
+        storedObjectId: report.toJSON().storedObjectId,
         status: report.status as any,
       },
     });
@@ -147,15 +205,18 @@ export class PrismaResourceRepository implements ResourceRepositoryPort {
   ): Promise<InterviewReport[]> {
     const raw = await this.prisma.interviewReport.findMany({
       where: { interviewId },
+      orderBy: { version: "asc" },
     });
 
     return raw.map((r) =>
       InterviewReport.reconstruct({
         id: r.id,
         interviewId: r.interviewId,
+        authorId: r.authorId,
         version: r.version,
         title: r.title ?? "",
         content: r.content,
+        storedObjectId: r.storedObjectId,
         status: r.status as any,
         createdAt: r.createdAt,
         updatedAt: r.updatedAt,

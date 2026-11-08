@@ -4,14 +4,15 @@ import {
   Post,
   Body,
   Param,
-  Headers,
   UseGuards,
   HttpCode,
   HttpStatus,
   Inject,
   UnauthorizedException,
+  Req,
+  ForbiddenException,
 } from "@nestjs/common";
-import { ApiTags, ApiOperation, ApiResponse, ApiHeader } from "@nestjs/swagger";
+import { ApiTags, ApiOperation, ApiResponse } from "@nestjs/swagger";
 import {
   CreateStageSubmissionDtoSchema,
   SubmitReviewDecisionDtoSchema,
@@ -20,17 +21,13 @@ import { ReviewsService } from "../application/reviews.service.js";
 import {
   StageGuard,
   RequireStage,
+  RequireRoles,
 } from "../../../platform/security/stage.guard.js";
 
 @ApiTags("Reviews (داوری علمی و گزارش مراحل)")
 @Controller()
 @UseGuards(StageGuard)
 @RequireStage("INTERN")
-@ApiHeader({
-  name: "x-user-stage",
-  description: "سطح کاربری (حداقل INTERN برای دسترسی به سامانه پژوهش)",
-  required: true,
-})
 export class ReviewsController {
   constructor(
     @Inject(ReviewsService)
@@ -44,16 +41,13 @@ export class ReviewsController {
   @ApiResponse({ status: 201, description: "گزارش با موفقیت ثبت شد" })
   async submitStageReport(
     @Param("stageId") stageId: string,
-    @Headers("x-user-id") userId: string,
+    @Req() request: any,
     @Body() body: unknown,
   ) {
-    if (!userId) {
-      throw new UnauthorizedException("شناسه کاربر الزامی است");
-    }
     const validated = CreateStageSubmissionDtoSchema.parse(body);
     const submission = await this.reviewsService.submitStageReport(
       stageId,
-      userId,
+      request.user.id,
       validated,
     );
     return submission.toJSON();
@@ -61,19 +55,24 @@ export class ReviewsController {
 
   @Get("stages/:stageId/submissions")
   @ApiOperation({ summary: "دریافت تاریخچه ارسال‌های یک مرحله" })
-  async getStageSubmissions(@Param("stageId") stageId: string) {
+  async getStageSubmissions(@Param("stageId") stageId: string, @Req() request: any) {
+    const roles: string[] = request.user.roles ?? (request.user.role ? [request.user.role] : []);
+    await this.reviewsService.assertCanAccessStage(stageId, request.user.id, roles);
     const list = await this.reviewsService.getSubmissionsForStage(stageId);
     return list.map((s) => s.toJSON());
   }
 
   @Get("submissions/:id")
   @ApiOperation({ summary: "مشاهده جزئیات یک ارسال مرحله" })
-  async getSubmission(@Param("id") id: string) {
+  async getSubmission(@Param("id") id: string, @Req() request: any) {
+    const roles: string[] = request.user.roles ?? (request.user.role ? [request.user.role] : []);
+    await this.reviewsService.assertCanAccessSubmission(id, request.user.id, roles);
     const sub = await this.reviewsService.getSubmissionById(id);
     return sub.toJSON();
   }
 
   @Post("submissions/:id/review")
+  @RequireRoles("SCIENTIFIC_SUPERVISOR", "SYSTEM_ADMIN")
   @HttpCode(HttpStatus.OK)
   @ApiOperation({
     summary:
@@ -86,22 +85,25 @@ export class ReviewsController {
   })
   async submitReviewDecision(
     @Param("id") submissionId: string,
-    @Headers("x-user-id") reviewerId: string,
+    @Req() request: any,
     @Body() body: unknown,
   ) {
-    if (!reviewerId) {
-      throw new UnauthorizedException("شناسه کاربر داور الزامی است");
-    }
     const validated = SubmitReviewDecisionDtoSchema.parse(body);
     const result = await this.reviewsService.submitReviewDecision(
       submissionId,
-      reviewerId,
+      request.user.id,
       validated,
     );
     return {
       submission: result.submission.toJSON(),
       decision: result.decision.toJSON(),
     };
+  }
+
+  @Get("scientific-supervisors/me/reviews")
+  @RequireRoles("SCIENTIFIC_SUPERVISOR")
+  async getSupervisorWorklist(@Req() request: any) {
+    return this.reviewsService.getPendingReviewWorklist(request.user.id);
   }
 }
 

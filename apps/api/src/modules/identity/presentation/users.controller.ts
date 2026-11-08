@@ -4,16 +4,15 @@ import {
   Post,
   Body,
   Param,
-  Headers,
   HttpCode,
   HttpStatus,
   UseGuards,
   Inject,
-  UnauthorizedException,
+  ForbiddenException,
+  Req,
 } from "@nestjs/common";
-import { ApiTags, ApiOperation, ApiResponse, ApiHeader } from "@nestjs/swagger";
+import { ApiTags, ApiOperation, ApiResponse } from "@nestjs/swagger";
 import {
-  PromoteToInternDtoSchema,
   SuspendUserDtoSchema,
   ReactivateUserDtoSchema,
   CreateManagerDtoSchema,
@@ -26,16 +25,12 @@ import { IdentityService } from "../application/identity.service.js";
 import {
   StageGuard,
   RequireStage,
+  RequireRoles,
 } from "../../../platform/security/stage.guard.js";
 
 @ApiTags("Users (کاربران و ارتقای عضویت)")
 @Controller("users")
 @UseGuards(StageGuard)
-@ApiHeader({
-  name: "x-user-stage",
-  description: "سطح کاربری جهت اعتبارسنجی سطح دسترسی (APPRENTICE یا INTERN)",
-  required: true,
-})
 export class UsersController {
   constructor(
     @Inject(IdentityService)
@@ -44,6 +39,7 @@ export class UsersController {
 
   @Post("managers")
   @RequireStage("INTERN")
+  @RequireRoles("TRACKING_DIRECTOR", "SYSTEM_ADMIN")
   @HttpCode(HttpStatus.CREATED)
   @ApiOperation({
     summary: "ایجاد و انتصاب مدیر جدید توسط مدیر پیگیری",
@@ -60,6 +56,7 @@ export class UsersController {
 
   @Get("managers")
   @RequireStage("INTERN")
+  @RequireRoles("TRACKING_DIRECTOR", "PROVINCIAL_DIRECTOR", "SYSTEM_ADMIN")
   @ApiOperation({
     summary: "دریافت فهرست کلیه مدیران سامانه",
   })
@@ -68,61 +65,63 @@ export class UsersController {
     return managers.map((m) => m.toJSON());
   }
 
+  @Get("interns")
+  @RequireStage("INTERN")
+  @RequireRoles("TRACKING_DIRECTOR", "SYSTEM_ADMIN")
+  async getInterns() {
+    return (await this.identityService.getInterns()).map((user) => user.toJSON());
+  }
+
   // Apprentice Study Evaluation Endpoints
   @Post("study-evaluations/request")
+  @RequireStage("APPRENTICE")
   @HttpCode(HttpStatus.CREATED)
   @ApiOperation({
     summary: "ارسال درخواست ارزیابی مطالعه شیوه‌نامه‌ها توسط کارآموز جهت ارتقا به کارورز",
   })
   async requestStudyEvaluation(
-    @Headers("x-user-id") userId: string,
+    @Req() request: any,
     @Body() body: unknown,
   ) {
-    if (!userId) {
-      throw new UnauthorizedException("شناسه کاربر معتبر الزامی است (x-user-id)");
-    }
     const validated = RequestStudyEvaluationDtoSchema.parse(body);
-    return this.identityService.requestStudyEvaluation(userId, validated.notes);
+    return this.identityService.requestStudyEvaluation(request.user.id, validated.notes);
   }
 
   @Get("study-evaluations/my-status")
+  @RequireStage("APPRENTICE")
   @ApiOperation({
     summary: "مشاهده وضعیت آخرین درخواست ارزیابی شیوه‌نامه کارآموز",
   })
-  async getMyStudyStatus(@Headers("x-user-id") userId: string) {
-    if (!userId) {
-      throw new UnauthorizedException("شناسه کاربر معتبر الزامی است (x-user-id)");
-    }
-    return this.identityService.getStudyEvaluationForUser(userId);
+  async getMyStudyStatus(@Req() request: any) {
+    return this.identityService.getStudyEvaluationForUser(request.user.id);
   }
 
   @Get("study-evaluations/pending")
   @RequireStage("INTERN")
+  @RequireRoles("SCIENTIFIC_SUPERVISOR")
   @ApiOperation({
     summary: "کارتابل مدیر علمی: فهرست کارآموزان در انتظار ارزیابی شیوه‌نامه‌ها",
   })
-  async getPendingStudyEvaluations() {
-    return this.identityService.getPendingStudyEvaluations();
+  async getPendingStudyEvaluations(@Req() request: any) {
+    return this.identityService.getPendingStudyEvaluations(request.user.id);
   }
 
   @Post("study-evaluations/:id/decide")
   @RequireStage("INTERN")
+  @RequireRoles("SCIENTIFIC_SUPERVISOR")
   @HttpCode(HttpStatus.OK)
   @ApiOperation({
     summary: "کارتابل مدیر علمی: ثبت تصمیم ارزیابی کارآموز (تأیید و ارتقا / نیازمند اصلاح)",
   })
   async decideStudyEvaluation(
     @Param("id") id: string,
-    @Headers("x-user-id") supervisorId: string,
+    @Req() request: any,
     @Body() body: unknown,
   ) {
-    if (!supervisorId) {
-      throw new UnauthorizedException("شناسه مدیر علمی معتبر الزامی است (x-user-id)");
-    }
     const validated = EvaluateStudyDtoSchema.parse(body);
     return this.identityService.decideStudyEvaluation(
       id,
-      supervisorId,
+      request.user.id,
       validated.decision,
       validated.feedback,
     );
@@ -135,15 +134,12 @@ export class UsersController {
     summary: "ارسال تیکت پشتیبانی توسط کاربر",
   })
   async createSupportTicket(
-    @Headers("x-user-id") userId: string,
+    @Req() request: any,
     @Body() body: unknown,
   ) {
-    if (!userId) {
-      throw new UnauthorizedException("شناسه کاربر معتبر الزامی است (x-user-id)");
-    }
     const validated = CreateSupportTicketDtoSchema.parse(body);
     return this.identityService.createSupportTicket(
-      userId,
+      request.user.id,
       validated.subject,
       validated.description,
     );
@@ -151,6 +147,7 @@ export class UsersController {
 
   @Get("support-tickets")
   @RequireStage("INTERN")
+  @RequireRoles("SUPPORT_DIRECTOR", "SYSTEM_ADMIN")
   @ApiOperation({
     summary: "مشاهده تیکت‌های پشتیبانی توسط مدیر پشتیبانی",
   })
@@ -160,6 +157,7 @@ export class UsersController {
 
   @Post("support-tickets/:id/resolve")
   @RequireStage("INTERN")
+  @RequireRoles("SUPPORT_DIRECTOR", "SYSTEM_ADMIN")
   @HttpCode(HttpStatus.OK)
   @ApiOperation({
     summary: "پاسخ و تعیین تکلیف تیکت پشتیبانی توسط مدیر پشتیبانی",
@@ -176,35 +174,20 @@ export class UsersController {
     );
   }
 
-  @Post(":id/promote-to-intern")
-  @RequireStage("INTERN")
-  @HttpCode(HttpStatus.OK)
-  @ApiOperation({
-    summary:
-      "ارتقای کاربر از کارآموز به کارورز توسط مدیر استانی (FR-004, AT-03)",
-  })
-  @ApiResponse({
-    status: 200,
-    description: "کاربر با موفقیت به کارورز ارتقا یافت",
-  })
-  async promoteToIntern(@Param("id") id: string, @Body() body: unknown) {
-    const validated = PromoteToInternDtoSchema.parse(body);
-    const user = await this.identityService.promoteToIntern(
-      id,
-      validated.evaluationNotes,
-    );
-    return user.toJSON();
-  }
-
   @Get(":id")
   @ApiOperation({ summary: "مشاهده مشخصات حساب کاربر" })
-  async getUser(@Param("id") id: string) {
+  async getUser(@Param("id") id: string, @Req() request: any) {
+    const roles: string[] = request.user.roles ?? (request.user.role ? [request.user.role] : []);
+    const privileged = roles.some((role) => ["SYSTEM_ADMIN", "TRACKING_DIRECTOR", "PROVINCIAL_DIRECTOR"].includes(role));
+    const assignedSupervisor = roles.includes("SCIENTIFIC_SUPERVISOR") && await this.identityService.isScientificSupervisorAssignedToUser(id, request.user.id);
+    if (request.user.id !== id && !privileged && !assignedSupervisor) throw new ForbiddenException("مشاهده حساب کاربر دیگر مجاز نیست");
     const user = await this.identityService.getById(id);
     return user.toJSON();
   }
 
   @Post(":id/suspend")
   @RequireStage("INTERN")
+  @RequireRoles("TRACKING_DIRECTOR", "SYSTEM_ADMIN")
   @HttpCode(HttpStatus.OK)
   @ApiOperation({
     summary: "تعلیق حساب کاربری به دلیل نقض قوانین (FR-035, AT-12, BR-18)",
@@ -221,6 +204,7 @@ export class UsersController {
 
   @Post(":id/reactivate")
   @RequireStage("INTERN")
+  @RequireRoles("TRACKING_DIRECTOR", "SYSTEM_ADMIN")
   @HttpCode(HttpStatus.OK)
   @ApiOperation({
     summary: "رفع تعلیق و فعال‌سازی مجدد حساب کاربر (FR-035, AT-12)",

@@ -11,6 +11,10 @@ import {
   UnauthorizedSupervisorError,
   ScenariosDomainError,
 } from "../domain/scenarios-errors.js";
+import {
+  PrerequisiteStageReviewRequiredError,
+  ScenarioPrerequisiteNotMetError,
+} from "../../research/domain/research-errors.js";
 import { ResearchService } from "../../research/application/research.service.js";
 import { AssignmentsService } from "../../assignments/application/assignments.service.js";
 import type { ScenarioRepositoryPort } from "./ports/scenario.repository.port.js";
@@ -38,6 +42,7 @@ export class ScenariosService {
     authorId: string,
     dto: CreateScenarioDto,
   ): Promise<Scenario> {
+    await this.researchService.assertOwnerCanEditStage(caseId, "SCENARIO", authorId);
     await this.researchService.assertPrerequisitesApprovedForScenario(caseId);
 
     const scenario = Scenario.create({
@@ -54,9 +59,11 @@ export class ScenariosService {
 
   async updateScenario(
     id: string,
+    actorId: string,
     dto: UpdateScenarioDto,
   ): Promise<Scenario> {
     const scenario = await this.getScenarioById(id);
+    await this.researchService.assertOwnerCanEditStage(scenario.researchCaseId, "SCENARIO", actorId);
     const updated = scenario.update(dto, dto.expectedVersion);
     await this.scenarioRepo.saveWithVersionCheck(updated, dto.expectedVersion);
     return updated;
@@ -64,11 +71,21 @@ export class ScenariosService {
 
   async submitScenarioForReview(
     id: string,
+    actorId: string,
     expectedVersion: number,
   ): Promise<Scenario> {
     const scenario = await this.getScenarioById(id);
+    await this.researchService.assertOwnerCanEditStage(scenario.researchCaseId, "SCENARIO", actorId);
+    await this.researchService.assertPrerequisitesApprovedForScenario(scenario.researchCaseId);
     const underReview = scenario.submitForReview(expectedVersion);
     await this.scenarioRepo.saveWithVersionCheck(underReview, expectedVersion);
+    try {
+      await this.researchService.submitScenarioForReview(scenario.researchCaseId, actorId);
+    } catch (error) {
+      const restoredDraft = underReview.requestChanges(underReview.version);
+      await this.scenarioRepo.saveWithVersionCheck(restoredDraft, underReview.version);
+      throw error;
+    }
     return underReview;
   }
 
@@ -82,7 +99,17 @@ export class ScenariosService {
     reviewerId: string,
     dto: ReviewScenarioDto,
   ): Promise<Scenario> {
-    // 1. Idempotency check: if decision already recorded with idempotencyKey, return it
+    const scenario = await this.getScenarioById(id);
+
+    const isAuthorized = await this.researchService.isSupervisorAssignedToCase(scenario.researchCaseId, reviewerId);
+    if (!isAuthorized) {
+      throw new UnauthorizedSupervisorError(
+        reviewerId,
+        scenario.researchCaseId,
+      );
+    }
+
+    // Authenticate and authorize before looking up idempotency data (AT-31).
     const existingDecision =
       await this.scenarioRepo.findDecisionByIdempotencyKey(dto.idempotencyKey);
     if (existingDecision) {
@@ -93,19 +120,6 @@ export class ScenariosService {
         );
       }
       return this.getScenarioById(id);
-    }
-
-    const scenario = await this.getScenarioById(id);
-
-    const isAuthorized = await this.assignmentsService.isAuthorizedSupervisor(
-      scenario.researchCaseId,
-      reviewerId,
-    );
-    if (!isAuthorized) {
-      throw new UnauthorizedSupervisorError(
-        reviewerId,
-        scenario.researchCaseId,
-      );
     }
 
     // Rule D-05 / FR-061 / AT-33:
@@ -121,9 +135,16 @@ export class ScenariosService {
       updated = scenario.requestChanges(dto.expectedVersion);
     }
 
+    const researchCase = await this.researchService.getCase(scenario.researchCaseId);
+    await this.researchService.reviewDecision(scenario.researchCaseId, "SCENARIO", reviewerId, {
+      decision: dto.decision === "APPROVED" ? "APPROVED" : "REVISION_REQUESTED",
+      expectedVersion: dto.caseVersion,
+      notes: dto.reason,
+    });
+
     await this.scenarioRepo.saveWithVersionCheck(updated, dto.expectedVersion);
 
-    // Record decision audit trail
+    // Record immutable decision history after both versions have been accepted.
     await this.scenarioRepo.saveDecision({
       id: crypto.randomUUID(),
       scenarioId: id,
@@ -144,7 +165,17 @@ export class ScenariosService {
    * Query internal scenario bank (strictly internal for authorized users).
    */
   async getInternalBank(query?: ScenarioBankQuery): Promise<Scenario[]> {
-    return this.scenarioRepo.findInternalBank(query);
+    const scenarios = await this.scenarioRepo.findInternalBank(query);
+    const visible: Scenario[] = [];
+    for (const scenario of scenarios) {
+      try {
+        await this.researchService.assertPrerequisitesApprovedForScenario(scenario.researchCaseId);
+        visible.push(scenario);
+      } catch (error) {
+        if (!(error instanceof PrerequisiteStageReviewRequiredError) && !(error instanceof ScenarioPrerequisiteNotMetError)) throw error;
+      }
+    }
+    return visible;
   }
 
   async getScenarioById(id: string): Promise<Scenario> {
@@ -157,6 +188,20 @@ export class ScenariosService {
 
   async getScenariosByCaseId(caseId: string): Promise<Scenario[]> {
     return this.scenarioRepo.findByCaseId(caseId);
+  }
+
+  async getPendingForSupervisor(supervisorId: string) {
+    const users = await this.assignmentsService.getUsersForSupervisor(supervisorId);
+    const interns = users.filter((user) => user.stage === "INTERN");
+    const internById = new Map(interns.map((user) => [user.id, user.fullName]));
+    const cases = (await this.researchService.listCases()).filter((item) => internById.has(item.researcherId ?? ""));
+    const pending = [];
+    for (const researchCase of cases) {
+      for (const scenario of await this.scenarioRepo.findByCaseId(researchCase.id)) {
+        if (scenario.status === "UNDER_REVIEW") pending.push({ ...scenario.toJSON(), caseId: researchCase.id, caseVersion: researchCase.version, caseCode: researchCase.code, caseTitle: researchCase.title, internName: internById.get(researchCase.researcherId ?? "") ?? "کارورز" });
+      }
+    }
+    return pending;
   }
 }
 

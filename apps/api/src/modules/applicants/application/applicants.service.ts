@@ -7,8 +7,11 @@ import { Applicant } from "../domain/applicant.entity.js";
 import {
   ApplicantNotFoundError,
   ApplicantAlreadyExistsError,
+  ApplicantNotAssignedToReviewerError,
+  InvalidInitialSupervisorError,
 } from "../domain/applicant-errors.js";
 import type { ApplicantRepositoryPort } from "./ports/applicant.repository.port.js";
+import { AssignmentsService } from "../../assignments/application/assignments.service.js";
 
 export const APPLICANT_REPOSITORY = Symbol("APPLICANT_REPOSITORY");
 export const APPLICANT_APPROVED_HOOK = Symbol("APPLICANT_APPROVED_HOOK");
@@ -18,6 +21,8 @@ export interface ApplicantApprovedHook {
     id: string;
     fullName: string;
     phoneNumber: string;
+    initialSupervisorId?: string | null;
+    assignedById?: string;
   }): Promise<void>;
 }
 
@@ -27,10 +32,15 @@ export class ApplicantsService {
     @Inject(APPLICANT_REPOSITORY)
     private readonly applicantRepo: ApplicantRepositoryPort,
     @Inject(APPLICANT_APPROVED_HOOK)
-    private readonly approvedHook?: ApplicantApprovedHook,
+    private readonly approvedHook: ApplicantApprovedHook,
+    @Inject(AssignmentsService)
+    private readonly assignmentsService: AssignmentsService,
   ) {}
 
-  async createDraft(dto: CreateApplicantDto): Promise<Applicant> {
+  async createDraft(dto: CreateApplicantDto, createdById?: string): Promise<Applicant> {
+    if (!dto.initialSupervisorId || !(await this.assignmentsService.isScientificSupervisor(dto.initialSupervisorId))) {
+      throw new InvalidInitialSupervisorError();
+    }
     const existingByPhone = await this.applicantRepo.findByPhoneNumber(
       dto.phoneNumber,
     );
@@ -63,6 +73,8 @@ export class ApplicantsService {
       phoneNumber: dto.phoneNumber,
       age: dto.age,
       provinceId: dto.provinceId ?? null,
+      initialSupervisorId: dto.initialSupervisorId ?? null,
+      createdById: createdById ?? null,
       educationLevel: dto.education ?? null,
       fieldOfStudy: dto.fieldOfStudy ?? null,
       notes: dto.notes ?? null,
@@ -87,30 +99,41 @@ export class ApplicantsService {
   async reviewDecision(
     id: string,
     dto: ReviewApplicantDecisionDto,
+    reviewerId?: string,
   ): Promise<Applicant> {
     const applicant = await this.applicantRepo.findById(id);
     if (!applicant) {
       throw new ApplicantNotFoundError(id);
     }
-
-    let updated: Applicant;
-    if (dto.decision === "APPROVED") {
-      updated = applicant.approve();
-      await this.applicantRepo.save(updated);
-
-      // Trigger user creation in Identity module (FR-001/BR-01: ONLY after scientific approval)
-      if (this.approvedHook) {
-        await this.approvedHook.onApplicantApproved({
-          id: updated.id,
-          fullName: updated.fullName,
-          phoneNumber: updated.phoneNumber,
-        });
-      }
-    } else {
-      updated = applicant.reject(dto.reason || "رد توسط ارزیابی علمی");
-      await this.applicantRepo.save(updated);
+    if (reviewerId && applicant.initialSupervisorId !== reviewerId) {
+      throw new ApplicantNotAssignedToReviewerError();
     }
 
+    if (dto.decision === "APPROVED") {
+      if (applicant.status === "APPROVED") {
+        await this.approvedHook.onApplicantApproved({
+          id: applicant.id,
+          fullName: applicant.fullName,
+          phoneNumber: applicant.phoneNumber,
+          initialSupervisorId: applicant.initialSupervisorId ?? null,
+          assignedById: applicant.createdById ?? applicant.initialSupervisorId ?? "system",
+        });
+        return applicant;
+      }
+      const updated = applicant.approve();
+      await this.applicantRepo.save(updated);
+      await this.approvedHook.onApplicantApproved({
+        id: updated.id,
+        fullName: updated.fullName,
+        phoneNumber: updated.phoneNumber,
+        initialSupervisorId: updated.initialSupervisorId ?? null,
+        assignedById: updated.createdById ?? updated.initialSupervisorId ?? "system",
+      });
+      return updated;
+    }
+
+    const updated = applicant.reject(dto.reason || "رد توسط ارزیابی علمی");
+    await this.applicantRepo.save(updated);
     return updated;
   }
 
@@ -136,7 +159,10 @@ export class ApplicantsService {
   async list(filter?: {
     provinceId?: string | undefined;
     status?: string | undefined;
-  }): Promise<Applicant[]> {
-    return this.applicantRepo.findAll(filter);
+  }, assignedSupervisorId?: string): Promise<Applicant[]> {
+    const applicants = await this.applicantRepo.findAll(filter);
+    return assignedSupervisorId
+      ? applicants.filter((applicant) => applicant.initialSupervisorId === assignedSupervisorId)
+      : applicants;
   }
 }

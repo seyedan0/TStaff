@@ -66,6 +66,7 @@ export interface ResearchCaseItem {
   code: string;
   title: string;
   subject: string;
+  researcherId?: string | null;
   status: string;
   version: number;
   stages: StageInstanceItem[];
@@ -82,6 +83,11 @@ export interface InterviewItem {
   conductedAt: string;
   hasReport?: boolean;
   reportsCount?: number;
+  durationMinutes?: number | null;
+  mode?: string | null;
+  location?: string | null;
+  notes?: string | null;
+  latestReport?: { id: string; title: string; storedObjectId?: string | null; version: number } | null;
 }
 
 export interface ResourceItem {
@@ -90,6 +96,12 @@ export interface ResourceItem {
   type: "INDIVIDUAL" | "ORGANIZATION";
   title: string;
   description?: string;
+  contactInfo?: string | null;
+  personAge?: number | null;
+  position?: string | null;
+  province?: string | null;
+  county?: string | null;
+  organization?: { name: string; educationLevel?: string | null; organizationType?: string | null; description?: string | null } | null;
   hasInterview?: boolean;
   interview?: InterviewItem | null;
   createdAt?: string;

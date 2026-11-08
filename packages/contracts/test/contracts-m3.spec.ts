@@ -75,6 +75,9 @@ describe("Contracts M3: Research, Assignments & Resources", () => {
           title: `عنوان منبع ${type}`,
           description: "توضیحات منبع",
           contactInfo: "09121234567",
+          ...(type === "INDIVIDUAL"
+            ? { personAge: 45, position: "معلم ریاضی" }
+            : {}),
         });
         expect(res.success).toBe(true);
       }
@@ -131,6 +134,7 @@ describe("Contracts M3: Research, Assignments & Resources", () => {
     it("validates interview report content and key points", () => {
       const valid = {
         title: "گزارش مصاحبه تفصیلی",
+        fileId: "123e4567-e89b-12d3-a456-426614174010",
         content: "متن کامل تحلیل و یافته‌های مصاحبه...",
       };
       expect(CreateInterviewReportDtoSchema.safeParse(valid).success).toBe(

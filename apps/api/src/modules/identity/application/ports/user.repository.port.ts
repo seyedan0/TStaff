@@ -31,7 +31,9 @@ export interface UserRepositoryPort {
   findByPhoneNumber(phoneNumber: string): Promise<User | null>;
   findByApplicantId(applicantId: string): Promise<User | null>;
   findAllManagers(): Promise<User[]>;
+  findAllInterns?(): Promise<User[]>;
   save(user: User): Promise<void>;
+  createSession?(input: { userId: string; tokenHash: string; expiresAt: Date }): Promise<void>;
 
   // Apprentice Study Evaluations
   createStudyEvaluation(userId: string, notes?: string): Promise<StudyEvaluationRecord>;

@@ -13,6 +13,7 @@ import {
 import { ResearchService } from "../../research/application/research.service.js";
 import { AssignmentsService } from "../../assignments/application/assignments.service.js";
 import type { ReviewRepositoryPort } from "./ports/review.repository.port.js";
+import { FilesService } from "../../files/application/files.service.js";
 
 export const REVIEW_REPOSITORY = Symbol("REVIEW_REPOSITORY");
 
@@ -25,6 +26,7 @@ export class ReviewsService {
     private readonly researchService: ResearchService,
     @Inject(AssignmentsService)
     private readonly assignmentsService: AssignmentsService,
+    @Inject(FilesService) private readonly files: FilesService,
   ) {}
 
   async submitStageReport(
@@ -33,6 +35,17 @@ export class ReviewsService {
     dto: CreateStageSubmissionDto,
   ): Promise<StageSubmission> {
     const stage = await this.researchService.getStageInstance(stageInstanceId);
+    const ownerCase = await this.researchService.getCase(stage.researchCaseId);
+    if (ownerCase.researcherId !== authorId) {
+      throw new ReviewsDomainError("این پرونده متعلق به کاربر جاری نیست", "FORBIDDEN");
+    }
+    if (!["IN_PROGRESS", "REVISION_REQUESTED", "REVIEW_REQUIRED"].includes(stage.status)) {
+      throw new ReviewsDomainError("این مرحله هنوز برای ثبت یا اصلاح باز نشده است", "STAGE_LOCKED");
+    }
+    if ((stage.stageType === "EXPLANATION" || stage.stageType === "PRESCRIPTION") && !dto.fileId) {
+      throw new ReviewsDomainError("بارگذاری فایل PDF یا DOCX برای این مرحله الزامی است", "FILE_REQUIRED");
+    }
+    if (dto.fileId) await this.files.assertReadyForUse(dto.fileId, authorId);
 
     const existingSubmissions =
       await this.reviewRepo.findSubmissionsByStageInstanceId(stageInstanceId);
@@ -46,19 +59,17 @@ export class ReviewsService {
       stageInstanceId: stage.id,
       authorId,
       content: dto.content,
+      ...(dto.fileId !== undefined ? { storedObjectId: dto.fileId } : {}),
       version: nextVersion,
     });
 
+    await this.researchService.submitStageForReview(
+      ownerCase.id,
+      stage.stageType,
+      authorId,
+      dto.expectedVersion,
+    );
     await this.reviewRepo.saveSubmission(submission);
-
-    // If stage was in PENDING, REVISION_REQUESTED, or REVIEW_REQUIRED, set to IN_PROGRESS (D-05, AT-33)
-    if (
-      stage.status === "PENDING" ||
-      stage.status === "REVISION_REQUESTED" ||
-      stage.status === "REVIEW_REQUIRED"
-    ) {
-      await this.researchService.updateStageStatus(stage.id, "IN_PROGRESS");
-    }
 
     return submission;
   }
@@ -74,27 +85,7 @@ export class ReviewsService {
     reviewerId: string,
     dto: SubmitReviewDecisionDto,
   ): Promise<{ submission: StageSubmission; decision: ReviewDecision }> {
-    // 1. Idempotency check: if decision already recorded with idempotencyKey, return it
-    const existingDecision =
-      await this.reviewRepo.findDecisionByIdempotencyKey(dto.idempotencyKey);
-    if (existingDecision) {
-      if (existingDecision.stageSubmissionId !== submissionId) {
-        throw new ReviewsDomainError(
-          "کلید یکتایی (idempotencyKey) قبلاً برای داوری گزارش دیگری استفاده شده است",
-          "CONFLICT",
-        );
-      }
-      const existingSubmission =
-        await this.reviewRepo.findSubmissionById(submissionId);
-      if (existingSubmission) {
-        return {
-          submission: existingSubmission,
-          decision: existingDecision,
-        };
-      }
-    }
-
-    // 2. Load submission
+    // Authenticate the reviewer before checking idempotency to avoid leaking another review.
     const submission = await this.reviewRepo.findSubmissionById(submissionId);
     if (!submission) {
       throw new SubmissionNotFoundError(submissionId);
@@ -104,7 +95,7 @@ export class ReviewsService {
     const stage = await this.researchService.getStageInstance(
       submission.stageInstanceId,
     );
-    const isAuthorized = await this.assignmentsService.isAuthorizedSupervisor(
+    const isAuthorized = await this.researchService.isSupervisorAssignedToCase(
       stage.researchCaseId,
       reviewerId,
     );
@@ -113,13 +104,31 @@ export class ReviewsService {
       throw new UnauthorizedSupervisorError(reviewerId, stage.researchCaseId);
     }
 
-    // 4. Apply decision using CAS
+    const existingDecision = await this.reviewRepo.findDecisionByIdempotencyKey(dto.idempotencyKey);
+    if (existingDecision) {
+      if (existingDecision.stageSubmissionId !== submissionId) throw new ReviewsDomainError("کلید یکتایی قبلاً برای داوری گزارش دیگری استفاده شده است", "CONFLICT");
+      return { submission, decision: existingDecision };
+    }
+
+    // 4. Apply decision using CAS and move the workflow only on scientific approval.
     let updatedSubmission: StageSubmission;
     if (dto.decision === "APPROVED") {
       updatedSubmission = submission.approve(dto.expectedVersion);
     } else {
       updatedSubmission = submission.requestRevision(dto.expectedVersion);
     }
+
+    // Case-level CAS serializes decisions from all assigned supervisors.
+    await this.researchService.reviewDecision(
+      stage.researchCaseId,
+      stage.stageType,
+      reviewerId,
+      {
+        decision: dto.decision === "APPROVED" ? "APPROVED" : "REVISION_REQUESTED",
+        expectedVersion: dto.caseVersion,
+        notes: dto.reason,
+      },
+    );
 
     // 5. Atomic database CAS update (throws StaleRevisionError if version changed concurrently)
     await this.reviewRepo.updateSubmissionWithVersionCheck(
@@ -140,16 +149,6 @@ export class ReviewsService {
     });
     await this.reviewRepo.saveDecision(decision);
 
-    // 7. Update research stage status accordingly
-    if (dto.decision === "APPROVED") {
-      await this.researchService.updateStageStatus(stage.id, "APPROVED");
-    } else {
-      await this.researchService.updateStageStatus(
-        stage.id,
-        "REVISION_REQUESTED",
-      );
-    }
-
     return { submission: updatedSubmission, decision };
   }
 
@@ -165,6 +164,39 @@ export class ReviewsService {
       throw new SubmissionNotFoundError(id);
     }
     return sub;
+  }
+
+  async assertCanAccessStage(stageInstanceId: string, userId: string, roles: string[] = []): Promise<void> {
+    const stage = await this.researchService.getStageInstance(stageInstanceId);
+    if (!(await this.researchService.canUserAccessCase(stage.researchCaseId, userId, roles))) {
+      throw new UnauthorizedSupervisorError(userId, stage.researchCaseId);
+    }
+  }
+
+  async assertCanAccessSubmission(submissionId: string, userId: string, roles: string[] = []): Promise<void> {
+    const submission = await this.getSubmissionById(submissionId);
+    await this.assertCanAccessStage(submission.stageInstanceId, userId, roles);
+  }
+
+  async getPendingReviewWorklist(supervisorId: string) {
+    const trainees = await this.assignmentsService.getUsersForSupervisor(supervisorId);
+    const traineeIds = new Set(trainees.filter((user) => user.stage === "INTERN").map((user) => user.id));
+    const cases = (await this.researchService.listCases()).filter((item) => traineeIds.has(item.researcherId ?? ""));
+    const results: Array<Record<string, unknown>> = [];
+    for (const researchCase of cases) {
+      for (const stage of researchCase.stages) {
+        if (stage.stageType === "SOURCES" && stage.status === "SUBMITTED") {
+          if (!(await this.researchService.isSourcesStageComplete(researchCase.id))) continue;
+          results.push({ id: `sources:${researchCase.id}`, kind: "SOURCE_STAGE", caseId: researchCase.id, caseCode: researchCase.code, caseTitle: researchCase.title, researcherId: researchCase.researcherId, internName: trainees.find((user) => user.id === researchCase.researcherId)?.fullName ?? "کارورز", stageId: stage.id, stageType: stage.stageType, stageName: "منابع و مصاحبه‌ها", caseVersion: researchCase.version, submittedAt: researchCase.toJSON().updatedAt, summary: "بررسی تکمیل منابع، مصاحبه یکتا و گزارش مکتوب" });
+          continue;
+        }
+        const submissions = await this.reviewRepo.findSubmissionsByStageInstanceId(stage.id);
+        const latest = submissions.filter((submission) => submission.status === "SUBMITTED").at(-1);
+        if (!latest) continue;
+        results.push({ id: latest.id, kind: "SUBMISSION", submissionId: latest.id, caseId: researchCase.id, caseCode: researchCase.code, caseTitle: researchCase.title, researcherId: researchCase.researcherId, internName: trainees.find((user) => user.id === researchCase.researcherId)?.fullName ?? "کارورز", stageId: stage.id, stageType: stage.stageType, stageName: stage.stageType, caseVersion: researchCase.version, version: latest.version, submittedAt: latest.submittedAt.toISOString(), summary: latest.content, storedObjectId: latest.toJSON().storedObjectId });
+      }
+    }
+    return results;
   }
 }
 

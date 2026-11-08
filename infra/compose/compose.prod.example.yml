@@ -19,8 +19,21 @@ services:
     environment:
       NODE_ENV: production
       PORT: 4000
+      CLAMAV_HOST: clamav
+      CLAMAV_PORT: 3310
+      FILE_MAX_BYTES: 26214400
+      PRIVATE_FILES_DIR: /var/lib/tstaff/private-files
     expose:
       - '4000'
+    volumes:
+      - private_files:/var/lib/tstaff/private-files
+
+  clamav:
+    image: clamav/clamav:stable
+    container_name: tstaff-clamav
+    restart: always
+    expose:
+      - '3310'
 
   worker:
     image: tstaff-worker:latest
@@ -32,4 +45,5 @@ services:
 volumes:
   caddy_data:
   caddy_config:
+  private_files:
 

@@ -4,7 +4,6 @@ import { User } from "../domain/user.entity.js";
 import {
   InvalidCredentialsError,
   UserSuspendedError,
-  UserAlreadyPromotedError,
 } from "../domain/user-errors.js";
 import type { UserRepositoryPort } from "./ports/user.repository.port.js";
 import type { PasswordHasherPort } from "./ports/password-hasher.port.js";
@@ -168,7 +167,7 @@ describe("IdentityService (FR-001, FR-003, FR-004, AT-01, AT-03)", () => {
     ).rejects.toThrow(UserSuspendedError);
   });
 
-  it("promotes user from APPRENTICE to INTERN (FR-004 / AT-03)", async () => {
+  it("creates the approved applicant as APPRENTICE until scientific study approval (FR-003, FR-004 / AT-02, AT-03)", async () => {
     const user = await identityService.createUserFromApprovedApplicant({
       id: "app-5",
       fullName: "محمد نادری",
@@ -176,14 +175,7 @@ describe("IdentityService (FR-001, FR-003, FR-004, AT-01, AT-03)", () => {
     });
 
     expect(user.stage).toBe("APPRENTICE");
-
-    const promoted = await identityService.promoteToIntern(user.id);
-    expect(promoted.stage).toBe("INTERN");
-
-    // Attempting to promote again throws UserAlreadyPromotedError
-    await expect(identityService.promoteToIntern(user.id)).rejects.toThrow(
-      UserAlreadyPromotedError,
-    );
+    expect((await userRepo.findById(user.id))?.stage).toBe("APPRENTICE");
   });
 
   it("suspends and reactivates user account (FR-035 / AT-12 / BR-18)", async () => {

@@ -1,446 +1,128 @@
-import React, { useState, useEffect } from "react";
-import {
-  FolderGit2,
-  Plus,
-  Users,
-  ArrowRight,
-  RotateCcw,
-  AlertTriangle,
-  FileSpreadsheet,
-} from "lucide-react";
-import { Card } from "../../shared/ui/Card.js";
-import { Button } from "../../shared/ui/Button.js";
-import { Badge } from "../../shared/ui/Badge.js";
-import { Modal } from "../../shared/ui/Modal.js";
-import { Input } from "../../shared/ui/Input.js";
+import React, { useCallback, useEffect, useState } from "react";
+import { ArrowLeft, FolderGit2, Plus, RotateCcw } from "lucide-react";
+import type { StageStatus, StageType } from "@tstaff/contracts";
 import { apiClient } from "../../shared/api-client.js";
+import { useAuth } from "../../features/auth/AuthContext.js";
+import type { ResearchCaseItem, StageInstanceItem } from "../../shared/types.js";
+import { Badge } from "../../shared/ui/Badge.js";
+import { Button } from "../../shared/ui/Button.js";
+import { Card } from "../../shared/ui/Card.js";
+import { Modal } from "../../shared/ui/Modal.js";
 import { CreateResearchCaseModal } from "./CreateResearchCaseModal.js";
 import { ResourcesManager } from "../resources/ResourcesManager.js";
-import type {
-  ResearchCaseItem,
-  StageInstanceItem,
-  SupervisorItem,
-} from "../../shared/types.js";
-import type {
-  StageType,
-  StageStatus,
-} from "@tstaff/contracts";
+import { StageSubmissionWorkspace } from "./StageSubmissionWorkspace.js";
+import { ScenarioWorkspace } from "./ScenarioWorkspace.js";
+
+type Notice = (type: "success" | "error" | "info" | "warning", title: string, message?: string) => void;
+const stages: Array<{ type: StageType; label: string }> = [
+  { type: "SOURCES", label: "منابع و مصاحبه‌ها" },
+  { type: "EXPLANATION", label: "تبیین مسئله" },
+  { type: "PRESCRIPTION", label: "تجویز راهکار" },
+  { type: "SCENARIO", label: "سناریونویسی" },
+];
+
+const statusLabel: Record<StageStatus, string> = {
+  PENDING: "شروع‌نشده", IN_PROGRESS: "در حال انجام", SUBMITTED: "در انتظار داوری", REVIEW_REQUIRED: "نیازمند بازبینی", APPROVED: "تأییدشده", REVISION_REQUESTED: "نیازمند اصلاح",
+};
 
 export interface ResearchCasesViewProps {
-  onNotify: (type: "success" | "error" | "info" | "warning", title: string, message?: string) => void;
+  onNotify: Notice;
+  researcherId?: string;
+  canManage?: boolean;
 }
 
-export const ResearchCasesView: React.FC<ResearchCasesViewProps> = ({ onNotify }) => {
+export const ResearchCasesView: React.FC<ResearchCasesViewProps> = ({ onNotify, researcherId, canManage = false }) => {
+  const { currentUser } = useAuth();
+  const ownerId = researcherId ?? currentUser?.id;
   const [cases, setCases] = useState<ResearchCaseItem[]>([]);
   const [loading, setLoading] = useState(true);
-  const [isCreateOpen, setIsCreateOpen] = useState(false);
-
-  // Drilldown to resources
-  const [selectedCaseForResources, setSelectedCaseForResources] = useState<ResearchCaseItem | null>(null);
-
-  // Modals for rollback & supervisor assignment
-  const [rollbackCase, setRollbackCase] = useState<ResearchCaseItem | null>(null);
+  const [selectedCase, setSelectedCase] = useState<ResearchCaseItem | null>(null);
+  const [selectedStage, setSelectedStage] = useState<StageInstanceItem | null>(null);
+  const [createOpen, setCreateOpen] = useState(false);
+  const [rollbackOpen, setRollbackOpen] = useState(false);
   const [rollbackTarget, setRollbackTarget] = useState<StageType>("SOURCES");
   const [rollbackReason, setRollbackReason] = useState("");
+  const [busy, setBusy] = useState(false);
 
-  const [assignCase, setAssignCase] = useState<ResearchCaseItem | null>(null);
-  const [assignRole, setAssignRole] = useState<"MAIN_SUPERVISOR" | "COLLABORATOR_SUPERVISOR">("MAIN_SUPERVISOR");
-  const [assignUserId, setAssignUserId] = useState("22222222-2222-2222-2222-222222222222");
-
-  const loadCases = async () => {
+  const loadCases = useCallback(async () => {
+    if (!ownerId) { setCases([]); setLoading(false); return; }
     setLoading(true);
     try {
-      const data = await apiClient.get<ResearchCaseItem[]>("/research-cases");
-      setCases(data);
-    } catch {
-      // Fallback demo cases showcasing 4 stages and cascading rollback states
-      setCases([
-        {
-          id: "case-001",
-          code: "CASE-101",
-          title: "مطالعه تحلیلی زیست‌بوم شرکت‌های دانش‌بنیان",
-          subject: "اقتصاد دانش‌بنیان و حکمرانی فناوری",
-          status: "EXPLANATION_STAGE",
-          version: 2,
-          stages: [
-            { id: "st-1", stageType: "SOURCES", status: "APPROVED", version: 2 },
-            { id: "st-2", stageType: "EXPLANATION", status: "IN_PROGRESS", version: 1 },
-            { id: "st-3", stageType: "PRESCRIPTION", status: "PENDING", version: 1 },
-            { id: "st-4", stageType: "SCENARIO", status: "PENDING", version: 1 },
-          ],
-          supervisors: [
-            { id: "as-1", userId: "22222222-2222-2222-2222-222222222222", role: "MAIN_SUPERVISOR", isActive: true },
-            { id: "as-2", userId: "33333333-3333-3333-3333-333333333333", role: "COLLABORATOR_SUPERVISOR", isActive: true },
-          ],
-          createdAt: new Date().toISOString(),
-          updatedAt: new Date().toISOString(),
-        },
-        {
-          id: "case-002",
-          code: "CASE-102",
-          title: "واکاوی آسیب‌های فرهنگی رسانه‌های نوین",
-          subject: "جامعه‌شناسی فضای مجازی",
-          status: "SOURCES_STAGE",
-          version: 1,
-          stages: [
-            { id: "st-5", stageType: "SOURCES", status: "IN_PROGRESS", version: 1 },
-            { id: "st-6", stageType: "EXPLANATION", status: "PENDING", version: 1 },
-            { id: "st-7", stageType: "PRESCRIPTION", status: "PENDING", version: 1 },
-            { id: "st-8", stageType: "SCENARIO", status: "PENDING", version: 1 },
-          ],
-          supervisors: [
-            { id: "as-3", userId: "22222222-2222-2222-2222-222222222222", role: "MAIN_SUPERVISOR", isActive: true },
-          ],
-          createdAt: new Date().toISOString(),
-          updatedAt: new Date().toISOString(),
-        },
-      ]);
-    } finally {
-      setLoading(false);
-    }
-  };
-
+      const updatedCases = await apiClient.get<ResearchCaseItem[]>(`/research-cases?researcherId=${encodeURIComponent(ownerId)}`);
+      setCases(updatedCases);
+      setSelectedCase((current) => current ? updatedCases.find((item) => item.id === current.id) ?? current : null);
+    } catch (error) {
+      setCases([]);
+      onNotify("error", "پرونده‌ها بارگذاری نشدند", error instanceof Error ? error.message : undefined);
+    } finally { setLoading(false); }
+  }, [onNotify, ownerId]);
+  useEffect(() => { void loadCases(); }, [loadCases]);
   useEffect(() => {
-    loadCases();
-  }, []);
+    if (!selectedCase || !selectedStage) return;
+    const currentCase = cases.find((item) => item.id === selectedCase.id);
+    const updatedStage = currentCase?.stages.find((item) => item.stageType === selectedStage.stageType);
+    if (updatedStage) setSelectedStage(updatedStage);
+  }, [cases, selectedCase?.id]);
 
-  const handleAdvanceStage = async (rCase: ResearchCaseItem) => {
+  const submitRollback = async (event: React.FormEvent) => {
+    event.preventDefault();
+    if (!selectedCase) return;
+    setBusy(true);
     try {
-      await apiClient.post(`/research-cases/${rCase.id}/advance-stage`, {
-        expectedVersion: rCase.version,
-      });
-      onNotify("success", "پیشبرد مرحله انجام شد", "پرونده به مرحله علمی بعدی ارتقا یافت.");
-      loadCases();
-    } catch (err: any) {
-      onNotify("error", "خطا در ارتقای مرحله", err.message);
-    }
+      await apiClient.post(`/research-cases/${selectedCase.id}/rollback-stage`, { targetStage: rollbackTarget, reason: rollbackReason, expectedVersion: selectedCase.version });
+      onNotify("success", "بازگشت مرحله ثبت شد", "نسخه‌های گذشته حفظ شدند و مراحل وابسته برای بازبینی علامت خوردند (D-05 / AT-33).");
+      setRollbackOpen(false); setRollbackReason(""); setSelectedCase(null); setSelectedStage(null); await loadCases();
+    } catch (error) { onNotify("error", "بازگشت مرحله انجام نشد", error instanceof Error ? error.message : undefined); }
+    finally { setBusy(false); }
   };
 
-  const handleRollbackStage = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!rollbackCase) return;
-
-    try {
-      await apiClient.post(`/research-cases/${rollbackCase.id}/rollback-stage`, {
-        targetStage: rollbackTarget,
-        reason: rollbackReason || "اصلاح و بازبینی داده‌های مراحل پیشین",
-        expectedVersion: rollbackCase.version,
-      });
-      onNotify(
-        "warning",
-        "عقب‌گرد مرحله و ابطال وابستگی‌ها (D-05 / AT-33)",
-        `پرونده به مرحله ${rollbackTarget} بازگشت؛ تمام مراحل وابسته خودکار به وضعیت REVIEW_REQUIRED رفتند.`,
-      );
-      setRollbackCase(null);
-      setRollbackReason("");
-      loadCases();
-    } catch (err: any) {
-      onNotify("error", "خطا در عقب‌گرد مرحله", err.message);
-    }
-  };
-
-  const handleAssignSupervisor = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!assignCase) return;
-
-    try {
-      await apiClient.post(`/research-cases/${assignCase.id}/assignments/supervisors`, {
-        userId: assignUserId,
-        role: assignRole,
-      });
-      onNotify(
-        "success",
-        "انتساب مدیر علمی",
-        `مدیر علمی با موفقیت به عنوان ${assignRole === "MAIN_SUPERVISOR" ? "مدیر اصلی" : "مدیر همکار"} انتساب یافت (D-02).`,
-      );
-      setAssignCase(null);
-      loadCases();
-    } catch (err: any) {
-      onNotify("error", "تعارض انتساب (D-02)", err.message);
-    }
-  };
-
-  const getStageStatusBadge = (status: StageStatus) => {
-    switch (status) {
-      case "APPROVED":
-        return <Badge variant="success" size="sm" dot>تأییدشده</Badge>;
-      case "IN_PROGRESS":
-        return <Badge variant="info" size="sm" dot>در حال انجام</Badge>;
-      case "REVIEW_REQUIRED":
-        return <Badge variant="warning" size="sm" dot>نیازمند بازبینی (D-05)</Badge>;
-      default:
-        return <Badge variant="neutral" size="sm">شروع‌نشده</Badge>;
-    }
-  };
-
-  if (selectedCaseForResources) {
-    return (
-      <ResourcesManager
-        caseId={selectedCaseForResources.id}
-        caseTitle={selectedCaseForResources.title}
-        onBack={() => setSelectedCaseForResources(null)}
-        onNotify={onNotify}
-      />
-    );
+  if (selectedCase && selectedStage) {
+    const canEdit = !canManage && ["IN_PROGRESS", "REVIEW_REQUIRED", "REVISION_REQUESTED"].includes(selectedStage.status);
+    const back = () => setSelectedStage(null);
+    return <div className="space-y-5">
+      <div className="flex flex-wrap items-center justify-between gap-3"><div><button onClick={back} className="mb-2 flex items-center gap-1 text-xs text-apple-blue hover:underline"><ArrowLeft className="h-3 w-3" />بازگشت به مراحل پرونده</button><h2 className="text-lg font-bold text-slate-100">{stages.find((stage) => stage.type === selectedStage.stageType)?.label}</h2><p className="mt-1 text-xs text-slate-400">{selectedCase.code} · {selectedCase.title} · {statusLabel[selectedStage.status]}</p></div>{canManage && <Button variant="secondary" size="sm" icon={<RotateCcw className="h-3.5 w-3.5" />} onClick={() => setRollbackOpen(true)}>بازگشت به مرحله قبلی</Button>}</div>
+      {selectedStage.stageType === "SOURCES" && <ResourcesManager caseId={selectedCase.id} caseTitle={selectedCase.title} caseVersion={selectedCase.version} canEdit={canEdit} stageStatus={selectedStage.status} onWorkflowChanged={loadCases} onBack={back} onNotify={onNotify} />}
+      {(selectedStage.stageType === "EXPLANATION" || selectedStage.stageType === "PRESCRIPTION") && <StageSubmissionWorkspace caseTitle={selectedCase.title} caseVersion={selectedCase.version} stageId={selectedStage.id} stageType={selectedStage.stageType} stageStatus={selectedStage.status} canEdit={canEdit} onWorkflowChanged={loadCases} onNotify={onNotify} />}
+      {selectedStage.stageType === "SCENARIO" && <ScenarioWorkspace caseId={selectedCase.id} caseTitle={selectedCase.title} stageStatus={selectedStage.status} canEdit={canEdit} onNotify={onNotify} />}
+      <Modal isOpen={rollbackOpen} onClose={() => setRollbackOpen(false)} title="بازگردانی مرحله و بازبینی خروجی‌های وابسته" subtitle="تاریخچه نسخه‌ها حذف نمی‌شود (D-05 / FR-061 / AT-33).">
+        <form onSubmit={submitRollback} className="space-y-4 text-right">
+          <label className="block text-xs text-slate-300">مرحله مقصد<select value={rollbackTarget} onChange={(event) => setRollbackTarget(event.target.value as StageType)} className="mt-1 w-full rounded-apple-md border border-white/10 bg-slate-900 p-2.5 text-sm">{stages.slice(0, 3).map((stage) => <option key={stage.type} value={stage.type}>{stage.label}</option>)}</select></label>
+          <label className="block text-xs text-slate-300">دلیل بازگشت<textarea required minLength={5} rows={3} value={rollbackReason} onChange={(event) => setRollbackReason(event.target.value)} className="mt-1 w-full rounded-apple-md border border-white/10 bg-slate-900 p-3 text-sm" /></label>
+          <div className="flex justify-end gap-2"><Button type="button" variant="ghost" onClick={() => setRollbackOpen(false)}>انصراف</Button><Button type="submit" variant="primary" loading={busy}>ثبت بازگشت</Button></div>
+        </form>
+      </Modal>
+    </div>;
   }
 
-  const stageLabels: Record<StageType, string> = {
-    SOURCES: "۱. منابع و مصاحبه‌ها",
-    EXPLANATION: "۲. تبیین مسئله",
-    PRESCRIPTION: "۳. تجویز راهکار",
-    SCENARIO: "۴. سناریونویسی",
-  };
+  if (selectedCase) return <div className="space-y-5">
+    <button onClick={() => setSelectedCase(null)} className="flex items-center gap-1 text-xs text-apple-blue hover:underline"><ArrowLeft className="h-3 w-3" />بازگشت به پرونده‌ها</button>
+    <Card variant="glass" className="space-y-4 p-5">
+      <div className="flex flex-wrap items-start justify-between gap-3"><div><Badge variant="info" size="sm">{selectedCase.code}</Badge><h2 className="mt-2 text-lg font-bold text-slate-100">{selectedCase.title}</h2><p className="mt-1 text-xs text-slate-400">موضوع: {selectedCase.subject}</p></div><span className="text-xs text-slate-400">نسخه {selectedCase.version}</span></div>
+      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">{stages.map(({ type, label }) => {
+        const stage = selectedCase.stages.find((item) => item.stageType === type);
+        if (!stage) return null;
+        return <button type="button" key={stage.id} onClick={() => setSelectedStage(stage)} className={`rounded-apple-md border p-4 text-right transition hover:-translate-y-0.5 hover:border-apple-blue/40 ${stage.status === "APPROVED" ? "border-apple-green/30 bg-apple-green/5" : stage.status === "IN_PROGRESS" ? "border-apple-blue/40 bg-apple-blue/10" : stage.status === "SUBMITTED" || stage.status === "REVIEW_REQUIRED" || stage.status === "REVISION_REQUESTED" ? "border-apple-amber/30 bg-apple-amber/5" : "border-white/10 bg-white/[0.02]"}`}>
+          <div className="text-xs font-semibold text-slate-100">{label}</div><div className="mt-2 text-[11px] text-slate-400">{statusLabel[stage.status]}</div><div className="mt-1 text-[10px] text-slate-500">نسخه {stage.version}</div>
+        </button>;
+      })}</div>
+      <p className="border-t border-white/5 pt-3 text-xs text-slate-400">برای بازکردن هر مرحله روی کارت آن بزنید. مرحله جاری قابل ویرایش است؛ تأیید مدیر علمی، مرحله بعد را باز می‌کند. مراحل تأییدشده برای مشاهده تاریخچه در دسترس‌اند.</p>
+      {canManage && <div className="flex justify-end"><Button variant="secondary" size="sm" icon={<RotateCcw className="h-3.5 w-3.5" />} onClick={() => setRollbackOpen(true)}>بازگشت به مرحله قبلی</Button></div>}
+    </Card>
+    <Modal isOpen={rollbackOpen} onClose={() => setRollbackOpen(false)} title="بازگردانی مرحله و بازبینی خروجی‌های وابسته" subtitle="تاریخچه نسخه‌ها حذف نمی‌شود (D-05 / FR-061 / AT-33).">
+      <form onSubmit={submitRollback} className="space-y-4 text-right">
+        <label className="block text-xs text-slate-300">مرحله مقصد<select value={rollbackTarget} onChange={(event) => setRollbackTarget(event.target.value as StageType)} className="mt-1 w-full rounded-apple-md border border-white/10 bg-slate-900 p-2.5 text-sm">{stages.slice(0, 3).map((stage) => <option key={stage.type} value={stage.type}>{stage.label}</option>)}</select></label>
+        <label className="block text-xs text-slate-300">دلیل بازگشت<textarea required minLength={5} rows={3} value={rollbackReason} onChange={(event) => setRollbackReason(event.target.value)} className="mt-1 w-full rounded-apple-md border border-white/10 bg-slate-900 p-3 text-sm" /></label>
+        <div className="flex justify-end gap-2"><Button type="button" variant="ghost" onClick={() => setRollbackOpen(false)}>انصراف</Button><Button type="submit" variant="primary" loading={busy}>ثبت بازگشت</Button></div>
+      </form>
+    </Modal>
+  </div>;
 
-  return (
-    <div className="space-y-6">
-      {/* Header */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-        <div>
-          <h2 className="text-xl font-bold text-slate-100 flex items-center gap-2">
-            <FolderGit2 className="w-6 h-6 text-apple-blue" />
-            پرونده‌های پژوهش و چرخه علمی (AT-04 الی AT-08)
-          </h2>
-          <p className="text-xs text-slate-400 mt-1">
-            مدیریت ۴ مرحله پژوهش، داوری دوگانه علمی (D-02) و بازگشت مرحله با ابطال خودکار وابستگی‌ها (D-05)
-          </p>
-        </div>
-
-        <Button
-          variant="primary"
-          size="md"
-          icon={<Plus className="w-4 h-4" />}
-          onClick={() => setIsCreateOpen(true)}
-        >
-          ایجاد پرونده جدید
-        </Button>
-      </div>
-
-      {/* Cases List */}
-      {loading ? (
-        <div className="p-12 text-center text-slate-400">در حال بارگذاری پرونده‌ها...</div>
-      ) : cases.length === 0 ? (
-        <Card variant="glass" className="text-center p-12">
-          <p className="text-sm text-slate-400">پرونده پژوهشی فعالی یافت نشد.</p>
-        </Card>
-      ) : (
-        <div className="space-y-4">
-          {cases.map((c) => (
-            <Card key={c.id} variant="glass" className="space-y-4">
-              {/* Card Header */}
-              <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 pb-3 border-b border-white/5">
-                <div>
-                  <div className="flex items-center gap-3">
-                    <span className="font-mono text-xs px-2.5 py-1 rounded-apple-sm bg-apple-blue/15 text-apple-blue border border-apple-blue/30 font-bold">
-                      {c.code}
-                    </span>
-                    <h3 className="text-base font-bold text-slate-100">{c.title}</h3>
-                    <span className="text-xs text-slate-400">نسخه: v{c.version}</span>
-                  </div>
-                  <p className="text-xs text-slate-400 mt-1.5">موضوع: {c.subject}</p>
-                </div>
-
-                {/* Supervisors Badges (D-02) */}
-                <div className="flex flex-wrap items-center gap-2">
-                  <span className="text-[11px] text-slate-400 flex items-center gap-1">
-                    <Users className="w-3.5 h-3.5 text-apple-indigo" /> مدیران علمی (D-02):
-                  </span>
-                  {c.supervisors?.filter((s: SupervisorItem) => s.isActive).map((s: SupervisorItem) => (
-                    <Badge
-                      key={s.id}
-                      variant={s.role === "MAIN_SUPERVISOR" ? "info" : "indigo"}
-                      size="sm"
-                    >
-                      {s.role === "MAIN_SUPERVISOR" ? "مدیر اصلی" : "مدیر همکار"}
-                    </Badge>
-                  ))}
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    className="text-xs text-apple-blue hover:text-white"
-                    onClick={() => {
-                      setAssignCase(c);
-                    }}
-                  >
-                    + انتساب
-                  </Button>
-                </div>
-              </div>
-
-              {/* 4-Stage Timeline (Apple Connected Steps) */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3">
-                {c.stages.map((st: StageInstanceItem) => (
-                  <div
-                    key={st.id}
-                    className={`p-3 rounded-apple-md border transition-all ${
-                      st.status === "IN_PROGRESS"
-                        ? "bg-apple-blue/10 border-apple-blue/40 shadow-sm"
-                        : st.status === "REVIEW_REQUIRED"
-                        ? "bg-apple-amber/10 border-apple-amber/40"
-                        : st.status === "APPROVED"
-                        ? "bg-white/[0.03] border-apple-green/30"
-                        : "bg-white/[0.02] border-white/5 opacity-60"
-                    }`}
-                  >
-                    <div className="flex items-center justify-between mb-1.5">
-                      <span className="text-xs font-semibold text-slate-200">
-                        {stageLabels[st.stageType]}
-                      </span>
-                      {getStageStatusBadge(st.status)}
-                    </div>
-                    <div className="text-[10px] text-slate-400">
-                      نسخه محتوا: v{st.version}
-                    </div>
-                  </div>
-                ))}
-              </div>
-
-              {/* Action Bar */}
-              <div className="flex flex-wrap items-center justify-between gap-3 pt-3 border-t border-white/5">
-                <Button
-                  variant="secondary"
-                  size="sm"
-                  icon={<FileSpreadsheet className="w-4 h-4 text-apple-blue" />}
-                  onClick={() => setSelectedCaseForResources(c)}
-                >
-                  مدیریت منابع و مصاحبه‌ها (D-07)
-                </Button>
-
-                <div className="flex items-center gap-2">
-                  <Button
-                    variant="secondary"
-                    size="sm"
-                    icon={<RotateCcw className="w-3.5 h-3.5 text-apple-amber" />}
-                    onClick={() => {
-                      setRollbackCase(c);
-                      setRollbackTarget("SOURCES");
-                    }}
-                  >
-                    بازگشت به مرحله قبل (D-05)
-                  </Button>
-
-                  <Button
-                    variant="primary"
-                    size="sm"
-                    icon={<ArrowRight className="w-3.5 h-3.5" />}
-                    onClick={() => handleAdvanceStage(c)}
-                  >
-                    ارتقا به مرحله بعد
-                  </Button>
-                </div>
-              </div>
-            </Card>
-          ))}
-        </div>
-      )}
-
-      {/* Create Case Modal */}
-      <CreateResearchCaseModal
-        isOpen={isCreateOpen}
-        onClose={() => setIsCreateOpen(false)}
-        onSuccess={loadCases}
-        onNotify={onNotify}
-      />
-
-      {/* Rollback Stage Modal (D-05) */}
-      <Modal
-        isOpen={!!rollbackCase}
-        onClose={() => setRollbackCase(null)}
-        title="عقب‌گرد مرحله پژوهش و ابطال وابستگی‌ها (D-05 / FR-061 / AT-33)"
-        subtitle="با بازگشت به مرحله قبل، تمام خروجی‌های مراحلی که پیش‌نیاز آنها تغییر یافته خودکار به وضعیت REVIEW_REQUIRED می‌روند."
-      >
-        <form onSubmit={handleRollbackStage} className="space-y-4 text-right">
-          <div>
-            <label className="text-xs font-medium text-slate-300 block mb-1.5">
-              مرحله مقصد برای عقب‌گرد:
-            </label>
-            <select
-              value={rollbackTarget}
-              onChange={(e) => setRollbackTarget(e.target.value as StageType)}
-              className="w-full bg-slate-900 text-slate-100 text-sm rounded-apple-md border border-white/10 p-2.5 outline-none focus:border-apple-blue"
-            >
-              <option value="SOURCES">۱. مرحله منابع (SOURCES)</option>
-              <option value="EXPLANATION">۲. مرحله تبیین (EXPLANATION)</option>
-              <option value="PRESCRIPTION">۳. مرحله تجویز (PRESCRIPTION)</option>
-            </select>
-          </div>
-
-          <div className="text-right">
-            <label className="text-xs font-medium text-slate-300 block mb-1">
-              علت علمی بازگشت مرحله (الزامی):
-            </label>
-            <textarea
-              className="w-full bg-slate-900/60 text-slate-100 placeholder-slate-500 text-sm rounded-apple-md border border-white/10 p-3 outline-none focus:border-apple-blue"
-              rows={3}
-              placeholder="شرح دلایل داوری و اشکالات نیازمند اصلاح..."
-              value={rollbackReason}
-              onChange={(e) => setRollbackReason(e.target.value)}
-              required
-            />
-          </div>
-
-          <div className="p-3 rounded-apple-md bg-apple-amber/10 border border-apple-amber/20 text-xs text-apple-amber flex items-start gap-2">
-            <AlertTriangle className="w-4 h-4 shrink-0 mt-0.5" />
-            <span>
-              نکته D-05: نسخه‌های پیشین حفظ می‌شوند و هیچ داده‌ای پاک نمی‌شود، اما تا تأیید مجدد مرحله، خروجی‌های وابسته قابل انتشار نخواهند بود.
-            </span>
-          </div>
-
-          <div className="flex items-center justify-end gap-3 pt-3 border-t border-white/10">
-            <Button type="button" variant="ghost" onClick={() => setRollbackCase(null)}>
-              انصراف
-            </Button>
-            <Button type="submit" variant="danger">
-              تأیید عقب‌گرد مرحله
-            </Button>
-          </div>
-        </form>
-      </Modal>
-
-      {/* Assign Supervisor Modal (D-02) */}
-      <Modal
-        isOpen={!!assignCase}
-        onClose={() => setAssignCase(null)}
-        title="انتساب مدیر علمی به پرونده پژوهشی (D-02 / FR-045)"
-        subtitle="هر پرونده دقیقاً ۱ مدیر علمی اصلی فعال و حداکثر ۱ مدیر علمی همکار فعال دارد."
-      >
-        <form onSubmit={handleAssignSupervisor} className="space-y-4 text-right">
-          <div>
-            <label className="text-xs font-medium text-slate-300 block mb-1.5">
-              نقش نظارتی (D-02):
-            </label>
-            <select
-              value={assignRole}
-              onChange={(e) => setAssignRole(e.target.value as any)}
-              className="w-full bg-slate-900 text-slate-100 text-sm rounded-apple-md border border-white/10 p-2.5 outline-none focus:border-apple-blue"
-            >
-              <option value="MAIN_SUPERVISOR">مدیر علمی اصلی (MAIN)</option>
-              <option value="COLLABORATOR_SUPERVISOR">مدیر علمی همکار (COLLABORATOR)</option>
-            </select>
-          </div>
-
-          <Input
-            label="شناسه کاربری مدیر علمی"
-            dir="ltr"
-            placeholder="uuid"
-            value={assignUserId}
-            onChange={(e) => setAssignUserId(e.target.value)}
-            required
-          />
-
-          <div className="p-3 rounded-apple-md bg-white/[0.03] border border-white/5 text-[11px] text-slate-400">
-            قاعده D-02: هر دو مدیر علمی اختیار داوری برابر دارند؛ ثبت همزمان تصمیم با خطای 409 STALE_REVISION مواجه می‌شود.
-          </div>
-
-          <div className="flex items-center justify-end gap-3 pt-3 border-t border-white/10">
-            <Button type="button" variant="ghost" onClick={() => setAssignCase(null)}>
-              انصراف
-            </Button>
-            <Button type="submit" variant="primary">
-              ثبت انتساب
-            </Button>
-          </div>
-        </form>
-      </Modal>
-    </div>
-  );
+  return <div className="space-y-5">
+    <div className="flex flex-wrap items-center justify-between gap-3"><div><h2 className="flex items-center gap-2 text-xl font-bold text-slate-100"><FolderGit2 className="h-5 w-5 text-apple-blue" />پرونده‌های پژوهش</h2><p className="mt-1 text-xs text-slate-400">چرخه منابع، تبیین، تجویز و سناریو · حرکت بین مراحل با تأیید مدیر علمی</p></div>{canManage && ownerId && <Button variant="primary" icon={<Plus className="h-4 w-4" />} onClick={() => setCreateOpen(true)}>ایجاد پرونده برای کارورز</Button>}</div>
+    {!ownerId && canManage ? <Card variant="glass" className="p-8 text-center text-sm text-slate-400">ابتدا یک کارورز منتسب‌شده را انتخاب کنید.</Card> : loading ? <div className="p-10 text-center text-sm text-slate-400">در حال بارگذاری پرونده‌ها…</div> : cases.length === 0 ? <Card variant="glass" className="p-10 text-center text-sm text-slate-400">برای این کارورز هنوز پرونده‌ای ثبت نشده است.</Card> : <div className="grid gap-3 md:grid-cols-2">{cases.map((item) => <Card key={item.id} variant="glass" className="flex flex-col justify-between gap-4 p-5">
+      <div><div className="flex items-center justify-between gap-2"><Badge variant="info" size="sm">{item.code}</Badge><span className="text-xs text-slate-500">v{item.version}</span></div><h3 className="mt-3 font-bold text-slate-100">{item.title}</h3><p className="mt-1 text-xs text-slate-400">{item.subject}</p><div className="mt-4 flex flex-wrap gap-1.5">{item.stages.map((stage) => <span key={stage.id} title={statusLabel[stage.status]} className={`h-2 w-8 rounded-full ${stage.status === "APPROVED" ? "bg-apple-green" : stage.status === "IN_PROGRESS" ? "bg-apple-blue" : stage.status === "SUBMITTED" || stage.status === "REVIEW_REQUIRED" || stage.status === "REVISION_REQUESTED" ? "bg-apple-amber" : "bg-white/10"}`} />)}</div></div>
+      <Button variant="secondary" size="sm" onClick={() => { setSelectedCase(item); setSelectedStage(null); }}>مشاهده چهار مرحله</Button>
+    </Card>)}</div>}
+    {canManage && ownerId && <CreateResearchCaseModal isOpen={createOpen} onClose={() => setCreateOpen(false)} researcherId={ownerId} onSuccess={() => void loadCases()} onNotify={onNotify} />}
+  </div>;
 };

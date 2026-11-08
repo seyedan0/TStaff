@@ -1,106 +1,82 @@
-import { describe, it, expect } from "vitest";
+import { afterEach, beforeEach, describe, it, expect, vi } from "vitest";
 import { Reflector } from "@nestjs/core";
-import {
-  ForbiddenException,
-  UnauthorizedException,
-  ExecutionContext,
-} from "@nestjs/common";
-import { StageGuard, REQUIRED_STAGE_KEY } from "./stage.guard.js";
+import { ForbiddenException, UnauthorizedException, ExecutionContext } from "@nestjs/common";
+import { StageGuard, REQUIRED_STAGE_KEY, REQUIRED_ROLES_KEY } from "./stage.guard.js";
 
 function createMockContext(headers: Record<string, string>): ExecutionContext {
   return {
-    switchToHttp: () => ({
-      getRequest: () => ({
-        headers,
-      }),
-    }),
+    switchToHttp: () => ({ getRequest: () => ({ headers }) }),
     getHandler: () => ({}),
     getClass: () => ({}),
   } as unknown as ExecutionContext;
 }
 
-describe("StageGuard & Negative Authorization (AT-02)", () => {
+describe("StageGuard & Negative Authorization (AT-02, AT-31)", () => {
   const reflector = new Reflector();
-  const guard = new StageGuard(reflector);
 
-  it("fails closed and throws UnauthorizedException when user stage header is missing", () => {
-    reflector.getAllAndOverride = () => "INTERN";
-    const unauthenticatedContext = createMockContext({});
+  const requireIntern = () => {
+    reflector.getAllAndOverride = ((key: string) => key === REQUIRED_STAGE_KEY ? "INTERN" : key === REQUIRED_ROLES_KEY ? undefined : undefined) as any;
+  };
 
-    expect(() => guard.canActivate(unauthenticatedContext)).toThrow(
-      UnauthorizedException,
-    );
-    expect(() => guard.canActivate(unauthenticatedContext)).toThrow(
-      "شناسایی هویت و سطح کاربری الزامی است",
-    );
+  beforeEach(() => vi.stubEnv("NODE_ENV", "test"));
+  afterEach(() => vi.unstubAllEnvs());
+
+  it("rejects missing identity and stage (AT-31)", async () => {
+    requireIntern();
+    await expect(new StageGuard(reflector).canActivate(createMockContext({}))).rejects.toThrow(UnauthorizedException);
   });
 
-  it("fails closed and throws UnauthorizedException when user stage is invalid string", () => {
-    reflector.getAllAndOverride = () => "APPRENTICE";
-    const invalidContext = createMockContext({
-      "x-user-stage": "INVALID_STAGE",
-    });
-
-    expect(() => guard.canActivate(invalidContext)).toThrow(
-      UnauthorizedException,
-    );
-    expect(() => guard.canActivate(invalidContext)).toThrow(
-      "سطح کاربری ارائه‌شده نامعتبر است",
-    );
+  it("rejects an invalid test stage", async () => {
+    reflector.getAllAndOverride = ((key: string) => key === REQUIRED_STAGE_KEY ? "APPRENTICE" : undefined) as any;
+    await expect(new StageGuard(reflector).canActivate(createMockContext({ "x-user-id": "test-user", "x-user-stage": "INVALID_STAGE" }))).rejects.toThrow(UnauthorizedException);
   });
 
-  it("blocks APPRENTICE from accessing INTERN-only endpoint with 403 Forbidden (AT-02)", () => {
-    // Mock handler requiring INTERN
-    reflector.getAllAndOverride = () => "INTERN";
-
-    const apprenticeContext = createMockContext({
-      "x-user-stage": "APPRENTICE",
-    });
-
-    expect(() => guard.canActivate(apprenticeContext)).toThrow(
-      ForbiddenException,
-    );
-    expect(() => guard.canActivate(apprenticeContext)).toThrow(
-      "دسترسی کارآموز به سامانه پژوهش مسدود است. ارتقا به وضعیت کارورز الزامی است (AT-02)",
-    );
+  it("blocks APPRENTICE from INTERN-only routes (AT-02)", async () => {
+    requireIntern();
+    await expect(new StageGuard(reflector).canActivate(createMockContext({ "x-user-id": "test-user", "x-user-stage": "APPRENTICE" }))).rejects.toThrow(ForbiddenException);
   });
 
-  it("allows INTERN to access INTERN-only endpoint", () => {
-    reflector.getAllAndOverride = () => "INTERN";
-
-    const internContext = createMockContext({ "x-user-stage": "INTERN" });
-    expect(guard.canActivate(internContext)).toBe(true);
+  it("allows an INTERN in the isolated test identity adapter", async () => {
+    requireIntern();
+    await expect(new StageGuard(reflector).canActivate(createMockContext({ "x-user-id": "test-user", "x-user-stage": "INTERN" }))).resolves.toBe(true);
   });
 
-  it("allows any authenticated user to access unconstrained endpoint", () => {
-    reflector.getAllAndOverride = () => undefined;
-
-    const context = createMockContext({ "x-user-stage": "APPRENTICE" });
-    expect(guard.canActivate(context)).toBe(true);
-  });
-
-  it("fails closed on unconstrained endpoint if stage header is completely missing", () => {
-    reflector.getAllAndOverride = () => undefined;
-
-    const unauthContext = createMockContext({});
-    expect(() => guard.canActivate(unauthContext)).toThrow(
-      UnauthorizedException,
-    );
-  });
-
-  it("blocks suspended user with 403 Forbidden USER_SUSPENDED (FR-035, AT-12)", () => {
-    reflector.getAllAndOverride = () => "INTERN";
-
-    const suspendedContext = createMockContext({
+  it("rejects spoofed identity headers when production session auth is active (AT-31)", async () => {
+    vi.stubEnv("NODE_ENV", "production");
+    requireIntern();
+    const prisma = { userSession: { findUnique: vi.fn() } } as any;
+    const guard = new StageGuard(reflector, prisma);
+    await expect(guard.canActivate(createMockContext({
+      "x-user-id": "forged-user",
       "x-user-stage": "INTERN",
-      "x-user-suspended": "true",
-    });
+      "x-user-role": "SCIENTIFIC_SUPERVISOR",
+    }))).rejects.toThrow(UnauthorizedException);
+    expect(prisma.userSession.findUnique).not.toHaveBeenCalled();
+  });
 
-    expect(() => guard.canActivate(suspendedContext)).toThrow(
-      ForbiddenException,
-    );
-    expect(() => guard.canActivate(suspendedContext)).toThrow(
-      "حساب کاربری معلق شده است و دسترسی به سامانه مسدود می‌باشد (FR-035, AT-12)",
-    );
+  it("uses stage and roles loaded from the authenticated session", async () => {
+    vi.stubEnv("NODE_ENV", "production");
+    requireIntern();
+    const prisma = { userSession: { findUnique: vi.fn(async () => ({
+      expiresAt: new Date(Date.now() + 60_000),
+      user: { id: "session-user", stage: "APPRENTICE", isActive: true, userRoles: [{ role: { name: "SCIENTIFIC_SUPERVISOR" } }] },
+    })) } } as any;
+    const guard = new StageGuard(reflector, prisma);
+    await expect(guard.canActivate(createMockContext({ authorization: "Bearer valid-token" }))).rejects.toThrow(ForbiddenException);
+  });
+
+  it("blocks suspended session users (FR-035, AT-12, BR-18)", async () => {
+    vi.stubEnv("NODE_ENV", "production");
+    requireIntern();
+    const prisma = { userSession: { findUnique: vi.fn(async () => ({
+      expiresAt: new Date(Date.now() + 60_000),
+      user: { id: "suspended-user", stage: "INTERN", isActive: false, userRoles: [] },
+    })) } } as any;
+    await expect(new StageGuard(reflector, prisma).canActivate(createMockContext({ authorization: "Bearer valid-token" }))).rejects.toThrow(ForbiddenException);
+  });
+
+  it("permits unrestricted stage-required endpoints when authenticated in test adapter", async () => {
+    reflector.getAllAndOverride = ((key: string) => key === REQUIRED_STAGE_KEY ? undefined : undefined) as any;
+    await expect(new StageGuard(reflector).canActivate(createMockContext({ "x-user-id": "test-user", "x-user-stage": "APPRENTICE" }))).resolves.toBe(true);
   });
 });

@@ -10,6 +10,7 @@ export interface CreateResearchCaseModalProps {
   onClose: () => void;
   onSuccess: () => void;
   onNotify: (type: "success" | "error", title: string, message?: string) => void;
+  researcherId: string;
 }
 
 export const CreateResearchCaseModal: React.FC<CreateResearchCaseModalProps> = ({
@@ -17,6 +18,7 @@ export const CreateResearchCaseModal: React.FC<CreateResearchCaseModalProps> = (
   onClose,
   onSuccess,
   onNotify,
+  researcherId,
 }) => {
   const [formData, setFormData] = useState<CreateResearchCaseDto>({
     title: "",
@@ -38,7 +40,7 @@ export const CreateResearchCaseModal: React.FC<CreateResearchCaseModalProps> = (
 
     setLoading(true);
     try {
-      await apiClient.post("/research-cases", formData);
+      await apiClient.post("/research-cases", { ...formData, researcherId });
       onNotify(
         "success",
         "پرونده پژوهشی ایجاد شد",

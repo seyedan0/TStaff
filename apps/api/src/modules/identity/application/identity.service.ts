@@ -1,5 +1,5 @@
-import { Injectable, Inject } from "@nestjs/common";
-import { randomBytes } from "node:crypto";
+import { Injectable, Inject, Optional, ForbiddenException } from "@nestjs/common";
+import { createHash, randomBytes } from "node:crypto";
 import { LoginDto, CreateManagerDto } from "@tstaff/contracts";
 import { User } from "../domain/user.entity.js";
 import {
@@ -9,6 +9,7 @@ import {
 } from "../domain/user-errors.js";
 import type { UserRepositoryPort } from "./ports/user.repository.port.js";
 import type { PasswordHasherPort } from "./ports/password-hasher.port.js";
+import { AssignmentsService } from "../../assignments/application/assignments.service.js";
 
 export const USER_REPOSITORY = Symbol("USER_REPOSITORY");
 export const PASSWORD_HASHER = Symbol("PASSWORD_HASHER");
@@ -20,6 +21,8 @@ export class IdentityService {
     private readonly userRepo: UserRepositoryPort,
     @Inject(PASSWORD_HASHER)
     private readonly passwordHasher: PasswordHasherPort,
+    @Optional() @Inject(AssignmentsService)
+    private readonly assignmentsService?: AssignmentsService,
   ) {}
 
   /**
@@ -77,26 +80,15 @@ export class IdentityService {
       throw new InvalidCredentialsError();
     }
 
-    // Phase 1 Mock/Session Token
-    const token = `sess_${user.id}_${Date.now()}`;
-    return { user, token };
-  }
-
-  /**
-   * Rule FR-004 / AT-03: Provincial Director promotes Apprentice to Intern
-   */
-  async promoteToIntern(
-    userId: string,
-    evaluationNotes?: string,
-  ): Promise<User> {
-    const user = await this.userRepo.findById(userId);
-    if (!user) {
-      throw new UserNotFoundError(userId);
+    const token = randomBytes(32).toString("base64url");
+    if (this.userRepo.createSession) {
+      await this.userRepo.createSession({
+        userId: user.id,
+        tokenHash: createHash("sha256").update(token).digest("hex"),
+        expiresAt: new Date(Date.now() + 8 * 60 * 60 * 1000),
+      });
     }
-
-    const updated = user.promoteToIntern();
-    await this.userRepo.save(updated);
-    return updated;
+    return { user, token };
   }
 
   async getById(id: string): Promise<User> {
@@ -171,6 +163,14 @@ export class IdentityService {
     return this.userRepo.findAllManagers();
   }
 
+  async getInterns(): Promise<User[]> {
+    return (await this.userRepo.findAllInterns?.()) ?? [];
+  }
+
+  async isScientificSupervisorAssignedToUser(userId: string, supervisorId: string): Promise<boolean> {
+    return this.assignmentsService?.isSupervisorAssignedToUser(userId, supervisorId) ?? false;
+  }
+
   /**
    * Apprentice Study Evaluation methods
    */
@@ -182,8 +182,10 @@ export class IdentityService {
     return this.userRepo.createStudyEvaluation(userId, notes);
   }
 
-  async getPendingStudyEvaluations() {
-    return this.userRepo.getPendingStudyEvaluations();
+  async getPendingStudyEvaluations(supervisorId: string) {
+    if (!this.assignmentsService) return [];
+    const assigned = new Set((await this.assignmentsService.getUsersForSupervisor(supervisorId)).map((user) => user.id));
+    return (await this.userRepo.getPendingStudyEvaluations()).filter((item) => assigned.has(item.userId));
   }
 
   async getStudyEvaluationForUser(userId: string) {
@@ -196,6 +198,10 @@ export class IdentityService {
     decision: "APPROVED" | "REVISION_REQUIRED",
     feedback: string,
   ) {
+    if (!this.assignmentsService || !(await this.assignmentsService.isSupervisorAssignedToUser(
+      (await this.userRepo.getPendingStudyEvaluations()).find((item) => item.id === evaluationId)?.userId ?? "",
+      supervisorId,
+    ))) throw new ForbiddenException("این کارآموز به شما منتسب نشده است");
     const updatedRecord = await this.userRepo.decideStudyEvaluation(
       evaluationId,
       supervisorId,

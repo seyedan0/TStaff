@@ -1,77 +1,75 @@
 import { Injectable } from "@nestjs/common";
 import { PrismaService } from "@tstaff/database";
-import { ResearchAssignment } from "../domain/assignment.entity.js";
-import type { AssignmentRepositoryPort } from "../application/ports/assignment.repository.port.js";
+import { InvalidScientificSupervisorError, InvalidTraineeAssignmentTargetError } from "../domain/assignment-errors.js";
+import type {
+  AssignedTraineeRecord,
+  AssignmentRepositoryPort,
+  SupervisorAssignmentRecord,
+} from "../application/ports/assignment.repository.port.js";
 
 @Injectable()
 export class PrismaAssignmentRepository implements AssignmentRepositoryPort {
   constructor(private readonly prisma: PrismaService) {}
 
-  async findActiveByCaseId(caseId: string): Promise<ResearchAssignment[]> {
-    const raw = await this.prisma.researchAssignment.findMany({
-      where: {
-        researchCaseId: caseId,
-        isActive: true,
-      },
-    });
+  async assignToUser(input: { userId: string; supervisorId: string; assignedById: string }): Promise<void> {
+    if (!(await this.isScientificSupervisor(input.supervisorId))) throw new InvalidScientificSupervisorError();
+    const trainee = await this.prisma.user.findUnique({ where: { id: input.userId }, include: { userRoles: { include: { role: true } } } });
+    const managerRoles = new Set(["TRACKING_DIRECTOR", "PROVINCIAL_DIRECTOR", "SCIENTIFIC_SUPERVISOR", "SUPPORT_DIRECTOR", "SYSTEM_ADMIN"]);
+    if (!trainee || trainee.userRoles.some((entry) => managerRoles.has(entry.role.name))) throw new InvalidTraineeAssignmentTargetError();
 
-    return raw.map((r) => this.toDomain(r));
-  }
-
-  async countActiveByUserId(userId: string): Promise<number> {
-    return this.prisma.researchAssignment.count({
-      where: {
-        userId,
-        isActive: true,
-      },
-    });
-  }
-
-  async findById(id: string): Promise<ResearchAssignment | null> {
-    const raw = await this.prisma.researchAssignment.findUnique({
-      where: { id },
-    });
-    if (!raw) return null;
-    return this.toDomain(raw);
-  }
-
-  async save(assignment: ResearchAssignment): Promise<void> {
-    const data = {
-      researchCaseId: assignment.researchCaseId,
-      userId: assignment.userId,
-      role: assignment.role as any,
-      isActive: assignment.isActive,
-      assignedAt: assignment.assignedAt,
-      unassignedAt: assignment.unassignedAt,
-    };
-
-    await this.prisma.researchAssignment.upsert({
-      where: { id: assignment.id },
-      create: {
-        id: assignment.id,
-        ...data,
-      },
-      update: data,
+    // Serialize assignments per trainee so exactly the first active assignment is MAIN.
+    await this.prisma.$transaction(async (tx) => {
+      await tx.$queryRaw`SELECT pg_advisory_xact_lock(hashtext(${input.userId}))`;
+      const activeCount = await tx.scientificSupervisorAssignment.count({ where: { userId: input.userId, revokedAt: null } });
+      const existing = await tx.scientificSupervisorAssignment.findUnique({
+        where: { userId_supervisorId: { userId: input.userId, supervisorId: input.supervisorId } },
+      });
+      const isPrimary = existing?.revokedAt === null ? existing.isPrimary : activeCount === 0;
+      await tx.scientificSupervisorAssignment.upsert({
+        where: { userId_supervisorId: { userId: input.userId, supervisorId: input.supervisorId } },
+        create: { ...input, isPrimary },
+        update: { revokedAt: null, assignedById: input.assignedById, assignedAt: new Date(), isPrimary },
+      });
     });
   }
 
-  private toDomain(raw: {
-    id: string;
-    researchCaseId: string;
-    userId: string;
-    role: any;
-    isActive: boolean;
-    assignedAt: Date;
-    unassignedAt: Date | null;
-  }): ResearchAssignment {
-    return ResearchAssignment.reconstruct({
-      id: raw.id,
-      researchCaseId: raw.researchCaseId,
-      userId: raw.userId,
-      role: raw.role,
-      isActive: raw.isActive,
-      assignedAt: raw.assignedAt,
-      unassignedAt: raw.unassignedAt,
+  async listSupervisorsForUser(userId: string): Promise<SupervisorAssignmentRecord[]> {
+    const rows = await this.prisma.scientificSupervisorAssignment.findMany({
+      where: { userId, revokedAt: null },
+      include: { supervisor: { include: { profile: true } } },
+      orderBy: { assignedAt: "asc" },
     });
+    return rows.map((row) => ({
+      id: row.id,
+      userId: row.userId,
+      supervisorId: row.supervisorId,
+      supervisorName: row.supervisor.profile ? `${row.supervisor.profile.firstName} ${row.supervisor.profile.lastName}`.trim() : "مدیر علمی",
+      phoneNumber: row.supervisor.phoneNumber,
+      isPrimary: row.isPrimary,
+      assignedAt: row.assignedAt,
+    }));
+  }
+
+  async listUsersForSupervisor(supervisorId: string): Promise<AssignedTraineeRecord[]> {
+    const rows = await this.prisma.scientificSupervisorAssignment.findMany({
+      where: { supervisorId, revokedAt: null },
+      include: { trainee: { include: { profile: true } } },
+      orderBy: { assignedAt: "asc" },
+    });
+    return rows.map(({ trainee }) => ({
+      id: trainee.id,
+      fullName: trainee.profile ? `${trainee.profile.firstName} ${trainee.profile.lastName}`.trim() : "کاربر",
+      stage: trainee.stage,
+      phoneNumber: trainee.phoneNumber,
+    }));
+  }
+
+  async isSupervisorAssignedToUser(userId: string, supervisorId: string): Promise<boolean> {
+    const count = await this.prisma.scientificSupervisorAssignment.count({ where: { userId, supervisorId, revokedAt: null } });
+    return count > 0;
+  }
+
+  async isScientificSupervisor(userId: string): Promise<boolean> {
+    return (await this.prisma.userRole.count({ where: { userId, user: { isActive: true }, role: { name: "SCIENTIFIC_SUPERVISOR" } } })) > 0;
   }
 }

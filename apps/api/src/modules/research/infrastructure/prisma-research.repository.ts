@@ -17,6 +17,7 @@ export class PrismaResearchRepository implements ResearchRepositoryPort {
           title: researchCase.title,
           code: researchCase.code,
           subject: researchCase.subject,
+          researcherId: researchCase.researcherId ?? null,
           status: researchCase.status as any,
           version: researchCase.version,
         },
@@ -70,6 +71,7 @@ export class PrismaResearchRepository implements ResearchRepositoryPort {
         data: {
           title: researchCase.title,
           subject: researchCase.subject,
+          researcherId: researchCase.researcherId ?? null,
           status: researchCase.status as any,
           version: researchCase.version,
         },
@@ -137,18 +139,12 @@ export class PrismaResearchRepository implements ResearchRepositoryPort {
     };
   }
 
-  async updateStageStatus(stageId: string, status: any): Promise<void> {
-    await this.prisma.stageInstance.update({
-      where: { id: stageId },
-      data: { status },
-    });
-  }
-
   private toDomain(raw: {
     id: string;
     title: string;
     code: string;
     subject: string;
+    researcherId: string | null;
     status: any;
     version: number;
     createdAt: Date;
@@ -180,6 +176,7 @@ export class PrismaResearchRepository implements ResearchRepositoryPort {
       title: raw.title,
       code: raw.code,
       subject: raw.subject,
+      researcherId: raw.researcherId,
       status: raw.status,
       version: raw.version,
       stages,

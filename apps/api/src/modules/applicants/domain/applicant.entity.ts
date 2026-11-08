@@ -18,6 +18,8 @@ export interface ApplicantProps {
   phoneNumber: string;
   age: number;
   provinceId?: string | null | undefined;
+  initialSupervisorId?: string | null | undefined;
+  createdById?: string | null | undefined;
   educationLevel?: string | null | undefined;
   fieldOfStudy?: string | null | undefined;
   status: ApplicantStatusType;
@@ -74,6 +76,14 @@ export class Applicant {
 
   public get provinceId(): string | null | undefined {
     return this.props.provinceId;
+  }
+
+  public get initialSupervisorId(): string | null | undefined {
+    return this.props.initialSupervisorId;
+  }
+
+  public get createdById(): string | null | undefined {
+    return this.props.createdById;
   }
 
   public get educationLevel(): string | null | undefined {

@@ -83,6 +83,7 @@ export const CreateApplicantDtoSchema = z.object({
   education: z.string().min(2, "مقطع تحصیلی الزامی است"),
   fieldOfStudy: z.string().min(2, "رشته تحصیلی الزامی است"),
   notes: z.string().optional(),
+  initialSupervisorId: z.string().uuid(),
 });
 export type CreateApplicantDto = z.infer<typeof CreateApplicantDtoSchema>;
 
@@ -217,6 +218,7 @@ export type StageType = z.infer<typeof StageTypeSchema>;
 export const StageStatusSchema = z.enum([
   "PENDING",
   "IN_PROGRESS",
+  "SUBMITTED",
   "REVIEW_REQUIRED",
   "APPROVED",
   "REVISION_REQUESTED",
@@ -259,6 +261,7 @@ export const CreateResearchCaseDtoSchema = z.object({
     .string()
     .min(2, "موضوع پژوهش الزامی است")
     .max(255, "موضوع پژوهش حداکثر ۲۵۵ کاراکتر است"),
+  researcherId: z.string().uuid().optional(),
 });
 export type CreateResearchCaseDto = z.infer<typeof CreateResearchCaseDtoSchema>;
 
@@ -268,6 +271,11 @@ export const AssignSupervisorDtoSchema = z.object({
 });
 export type AssignSupervisorDto = z.infer<typeof AssignSupervisorDtoSchema>;
 
+export const AssignScientificSupervisorToUserDtoSchema = z.object({
+  supervisorId: z.string().uuid(),
+});
+export type AssignScientificSupervisorToUserDto = z.infer<typeof AssignScientificSupervisorToUserDtoSchema>;
+
 export const CreateResourceDtoSchema = z.object({
   type: ResourceTypeSchema,
   title: z
@@ -276,8 +284,41 @@ export const CreateResourceDtoSchema = z.object({
     .max(255, "عنوان منبع حداکثر ۲۵۵ کاراکتر است"),
   description: z.string().max(2000, "توضیحات حداکثر ۲۰۰۰ کاراکتر است").optional(),
   contactInfo: z.string().max(255, "اطلاعات تماس حداکثر ۲۵۵ کاراکتر است").optional(),
+  personAge: IntegerAgeSchema.optional(),
+  position: z.string().min(2).max(255).optional(),
+  province: z.string().max(120).optional(),
+  county: z.string().max(120).optional(),
+  organizationName: z.string().max(255).optional(),
+  organizationEducationLevel: z.string().max(120).optional(),
+  organizationType: z.string().max(120).optional(),
+}).superRefine((resource, context) => {
+  if (resource.type === "INDIVIDUAL" && resource.personAge === undefined) {
+    context.addIssue({ code: z.ZodIssueCode.custom, path: ["personAge"], message: "سن فرد الزامی است" });
+  }
+  if (resource.type === "INDIVIDUAL" && !resource.position) {
+    context.addIssue({ code: z.ZodIssueCode.custom, path: ["position"], message: "سمت یا شغل فرد الزامی است" });
+  }
 });
 export type CreateResourceDto = z.infer<typeof CreateResourceDtoSchema>;
+
+export const UpdateResourceDtoSchema = z.object({
+  title: z.string().min(2).max(255).optional(),
+  description: z.string().max(2000).optional(),
+  contactInfo: z.string().max(255).optional(),
+  personAge: IntegerAgeSchema.optional(),
+  position: z.string().min(2).max(255).optional(),
+  province: z.string().max(120).optional(),
+  county: z.string().max(120).optional(),
+}).refine((value) => Object.keys(value).length > 0, "حداقل یک فیلد برای اصلاح لازم است");
+export type UpdateResourceDto = z.infer<typeof UpdateResourceDtoSchema>;
+
+export const ResourceOrganizationDtoSchema = z.object({
+  name: z.string().min(2).max(255),
+  educationLevel: z.string().max(120).optional(),
+  organizationType: z.string().max(120).optional(),
+  description: z.string().max(2000).optional(),
+});
+export type ResourceOrganizationDto = z.infer<typeof ResourceOrganizationDtoSchema>;
 
 export const CreateInterviewDtoSchema = z.object({
   intervieweeName: z
@@ -289,18 +330,31 @@ export const CreateInterviewDtoSchema = z.object({
     .string()
     .datetime({ message: "تاریخ و زمان مصاحبه نامعتبر است" })
     .or(z.date()),
+  durationMinutes: z.number().int().positive().max(1440).optional(),
+  mode: z.string().max(80).optional(),
+  location: z.string().max(255).optional(),
+  notes: z.string().max(4000).optional(),
 });
 export type CreateInterviewDto = z.infer<typeof CreateInterviewDtoSchema>;
+
+export const UpdateInterviewDtoSchema = z.object({
+  intervieweeName: z.string().min(2).max(255).optional(),
+  intervieweeAge: IntegerAgeSchema.optional(),
+  conductedAt: z.string().datetime().or(z.date()).optional(),
+  durationMinutes: z.number().int().positive().max(1440).optional(),
+  mode: z.string().max(80).optional(),
+  location: z.string().max(255).optional(),
+  notes: z.string().max(4000).optional(),
+}).refine((value) => Object.keys(value).length > 0, "حداقل یک فیلد برای اصلاح لازم است");
+export type UpdateInterviewDto = z.infer<typeof UpdateInterviewDtoSchema>;
 
 export const CreateInterviewReportDtoSchema = z.object({
   title: z
     .string()
     .min(2, "عنوان گزارش مصاحبه الزامی است")
     .max(255, "عنوان گزارش حداکثر ۲۵۵ کاراکتر است"),
-  content: z
-    .string()
-    .min(10, "متن گزارش مصاحبه باید حداقل ۱۰ کاراکتر باشد")
-    .max(20000, "متن گزارش حداکثر ۲۰۰۰۰ کاراکتر است"),
+  fileId: z.string().uuid(),
+  content: z.string().max(20000).optional(),
 });
 export type CreateInterviewReportDto = z.infer<
   typeof CreateInterviewReportDtoSchema
@@ -353,10 +407,8 @@ export const SubmissionStatusSchema = z.enum([
 export type SubmissionStatus = z.infer<typeof SubmissionStatusSchema>;
 
 export const CreateStageSubmissionDtoSchema = z.object({
-  content: z
-    .string()
-    .min(10, "متن گزارش باید حداقل ۱۰ کاراکتر باشد")
-    .max(50000, "متن گزارش حداکثر ۵۰۰۰۰ کاراکتر است"),
+  content: z.string().min(5, "توضیحات ارسال الزامی است").max(50000),
+  fileId: z.string().uuid().optional(),
   expectedVersion: z
     .number()
     .int()
@@ -376,6 +428,10 @@ export const SubmitReviewDecisionDtoSchema = z.object({
     .number()
     .int()
     .positive("نسخه مورد انتظار باید عدد صحیح مثبت باشد"),
+  caseVersion: z
+    .number()
+    .int()
+    .positive("نسخه پرونده باید عدد صحیح مثبت باشد"),
   idempotencyKey: z
     .string()
     .min(10, "کلید یکتایی حداقل ۱۰ کاراکتر است")
@@ -393,6 +449,26 @@ export const ScenarioStatusSchema = z.enum([
 ]);
 export type ScenarioStatus = z.infer<typeof ScenarioStatusSchema>;
 
+export const ScenarioAudienceSchema = z.enum(["TEACHER", "STUDENT", "MENTOR", "OTHER"]);
+export type ScenarioAudience = z.infer<typeof ScenarioAudienceSchema>;
+
+export const ScenarioStructuredContentSchema = z.object({
+  audience: ScenarioAudienceSchema,
+  province: z.string().min(2).max(120),
+  category: z.string().min(2).max(120),
+  keywords: z.array(z.string().min(2).max(80)).min(1).max(30),
+  implementationSteps: z.array(z.string().min(5).max(3000)).min(1).max(30),
+});
+export type ScenarioStructuredContent = z.infer<typeof ScenarioStructuredContentSchema>;
+
+const ScenarioContentJsonSchema = z.string().min(20).max(50000).superRefine((value, context) => {
+  try {
+    ScenarioStructuredContentSchema.parse(JSON.parse(value));
+  } catch {
+    context.addIssue({ code: z.ZodIssueCode.custom, message: "محتوای سناریو باید شامل مخاطب، استان، دسته‌بندی، کلیدواژه و مراحل اجرا باشد" });
+  }
+});
+
 export const CreateScenarioDtoSchema = z.object({
   title: z
     .string()
@@ -402,10 +478,7 @@ export const CreateScenarioDtoSchema = z.object({
     .string()
     .min(10, "چکیده سناریو باید حداقل ۱۰ کاراکتر باشد")
     .max(2000, "چکیده سناریو حداکثر ۲۰۰۰ کاراکتر است"),
-  content: z
-    .string()
-    .min(20, "متن سناریو باید حداقل ۲۰ کاراکتر باشد")
-    .max(50000, "متن سناریو حداکثر ۵۰۰۰۰ کاراکتر است"),
+  content: ScenarioContentJsonSchema,
 });
 export type CreateScenarioDto = z.infer<typeof CreateScenarioDtoSchema>;
 
@@ -420,11 +493,7 @@ export const UpdateScenarioDtoSchema = z.object({
     .min(10, "چکیده سناریو باید حداقل ۱۰ کاراکتر باشد")
     .max(2000, "چکیده سناریو حداکثر ۲۰۰۰ کاراکتر است")
     .optional(),
-  content: z
-    .string()
-    .min(20, "متن سناریو باید حداقل ۲۰ کاراکتر باشد")
-    .max(50000, "متن سناریو حداکثر ۵۰۰۰۰ کاراکتر است")
-    .optional(),
+  content: ScenarioContentJsonSchema.optional(),
   expectedVersion: z
     .number()
     .int()
@@ -450,6 +519,10 @@ export const ReviewScenarioDtoSchema = z.object({
     .number()
     .int()
     .positive("نسخه مورد انتظار باید عدد صحیح مثبت باشد"),
+  caseVersion: z
+    .number()
+    .int()
+    .positive("نسخه پرونده باید عدد صحیح مثبت باشد"),
   idempotencyKey: z
     .string()
     .min(10, "کلید یکتایی حداقل ۱۰ کاراکتر است")

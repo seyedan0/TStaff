@@ -16,6 +16,9 @@ describe("ReviewsService (Unit / Domain Application)", () => {
   let mockReviewRepo: ReviewRepositoryPort;
   let mockResearchService: Partial<ResearchService>;
   let mockAssignmentsService: Partial<AssignmentsService>;
+  let mockFileService: { assertReadyForUse: ReturnType<typeof vi.fn> };
+  let currentCaseVersion: number;
+  let currentStageStatus: "IN_PROGRESS" | "SUBMITTED" | "APPROVED" | "REVISION_REQUESTED";
 
   const stageId = "stage-explanation-1";
   const caseId = "case-uuid-1";
@@ -27,6 +30,8 @@ describe("ReviewsService (Unit / Domain Application)", () => {
   beforeEach(() => {
     const submissions: StageSubmission[] = [];
     const decisions: ReviewDecision[] = [];
+    currentCaseVersion = 1;
+    currentStageStatus = "IN_PROGRESS";
 
     mockReviewRepo = {
       saveSubmission: vi.fn(async (sub: StageSubmission) => {
@@ -67,32 +72,45 @@ describe("ReviewsService (Unit / Domain Application)", () => {
           id: sId,
           researchCaseId: caseId,
           stageType: "EXPLANATION" as const,
-          status: "PENDING" as const,
+          status: currentStageStatus,
           version: 1,
         };
       }),
-      updateStageStatus: vi.fn(async () => {}),
+      getCase: vi.fn(async () => ({ id: caseId, researcherId: authorId, version: currentCaseVersion } as any)),
+      submitStageForReview: vi.fn(async (_case: string, _stage: string, _author: string, expectedVersion: number) => {
+        if (expectedVersion !== currentCaseVersion) throw new StaleRevisionError(currentCaseVersion, expectedVersion);
+        currentCaseVersion += 1;
+        currentStageStatus = "SUBMITTED";
+        return {} as any;
+      }),
+      isSupervisorAssignedToCase: vi.fn(async (_case: string, userId: string) => userId === supervisorId1 || userId === supervisorId2),
+      reviewDecision: vi.fn(async (_case: string, _stage: string, _user: string, dto: { expectedVersion: number; decision: string }) => {
+        if (dto.expectedVersion !== currentCaseVersion || currentStageStatus !== "SUBMITTED") throw new StaleRevisionError(currentCaseVersion, dto.expectedVersion);
+        currentCaseVersion += 1;
+        currentStageStatus = dto.decision === "APPROVED" ? "APPROVED" : "REVISION_REQUESTED";
+        return {} as any;
+      }),
+      isSourcesStageComplete: vi.fn(async () => true),
     };
 
-    mockAssignmentsService = {
-      isAuthorizedSupervisor: vi.fn(async (_cId: string, uId: string) => {
-        return uId === supervisorId1 || uId === supervisorId2;
-      }),
-    };
+    mockAssignmentsService = {};
+    mockFileService = { assertReadyForUse: vi.fn(async () => {}) };
 
     reviewsService = new ReviewsService(
       mockReviewRepo,
       mockResearchService as ResearchService,
       mockAssignmentsService as AssignmentsService,
+      mockFileService as any,
     );
   });
 
-  it("submits stage report and sets stage to IN_PROGRESS", async () => {
+  it("submits stage report and marks the case stage as awaiting review", async () => {
     const submission = await reviewsService.submitStageReport(
       stageId,
       authorId,
       {
         content: "گزارش تفصیلی تبیین مسئله و روابط علّی میان متغیرها.",
+        fileId: "00000000-0000-4000-8000-000000000001",
         expectedVersion: 1,
       },
     );
@@ -102,10 +120,8 @@ describe("ReviewsService (Unit / Domain Application)", () => {
     expect(submission.authorId).toBe(authorId);
     expect(submission.version).toBe(1);
     expect(submission.status).toBe("SUBMITTED");
-    expect(mockResearchService.updateStageStatus).toHaveBeenCalledWith(
-      stageId,
-      "IN_PROGRESS",
-    );
+    expect(mockResearchService.submitStageForReview).toHaveBeenCalledWith(caseId, "EXPLANATION", authorId, 1);
+    expect(mockResearchService.getCase).toHaveBeenCalledWith(caseId);
   });
 
   it("allows authorized supervisor to approve submission and updates stage to APPROVED (D-02, FR-057)", async () => {
@@ -114,6 +130,7 @@ describe("ReviewsService (Unit / Domain Application)", () => {
       authorId,
       {
         content: "گزارش مرحله تبیین برای داوری",
+        fileId: "00000000-0000-4000-8000-000000000001",
         expectedVersion: 1,
       },
     );
@@ -125,6 +142,7 @@ describe("ReviewsService (Unit / Domain Application)", () => {
         decision: "APPROVED",
         reason: "گزارش کاملاً منطبق بر متدولوژی و معتبر است.",
         expectedVersion: 1,
+        caseVersion: 2,
         idempotencyKey: "idem-key-decision-001",
       },
     );
@@ -132,10 +150,7 @@ describe("ReviewsService (Unit / Domain Application)", () => {
     expect(result.submission.status).toBe("APPROVED");
     expect(result.decision.decision).toBe("APPROVED");
     expect(result.decision.reviewerId).toBe(supervisorId1);
-    expect(mockResearchService.updateStageStatus).toHaveBeenCalledWith(
-      stageId,
-      "APPROVED",
-    );
+    expect(mockResearchService.reviewDecision).toHaveBeenCalled();
   });
 
   it("Rule AT-29 & CAS: When two supervisors act concurrently, first commits and second throws StaleRevisionError (409)", async () => {
@@ -144,6 +159,7 @@ describe("ReviewsService (Unit / Domain Application)", () => {
       authorId,
       {
         content: "گزارش تبیین در معرض رقابت داوری",
+        fileId: "00000000-0000-4000-8000-000000000001",
         expectedVersion: 1,
       },
     );
@@ -156,6 +172,7 @@ describe("ReviewsService (Unit / Domain Application)", () => {
         decision: "APPROVED",
         reason: "تأیید توسط مدیر علمی اصلی",
         expectedVersion: 1,
+        caseVersion: 2,
         idempotencyKey: "idem-supervisor-1",
       },
     );
@@ -167,6 +184,7 @@ describe("ReviewsService (Unit / Domain Application)", () => {
         decision: "CHANGES_REQUESTED",
         reason: "درخواست اصلاح توسط مدیر همکار",
         expectedVersion: 1,
+        caseVersion: 2,
         idempotencyKey: "idem-supervisor-2",
       }),
     ).rejects.toThrow(StaleRevisionError);
@@ -178,6 +196,7 @@ describe("ReviewsService (Unit / Domain Application)", () => {
       authorId,
       {
         content: "گزارش تبیین",
+        fileId: "00000000-0000-4000-8000-000000000001",
         expectedVersion: 1,
       },
     );
@@ -189,6 +208,7 @@ describe("ReviewsService (Unit / Domain Application)", () => {
         decision: "APPROVED",
         reason: "تأیید",
         expectedVersion: 1,
+        caseVersion: 2,
         idempotencyKey: "idem-repeatable-key-123",
       },
     );
@@ -200,6 +220,7 @@ describe("ReviewsService (Unit / Domain Application)", () => {
         decision: "APPROVED",
         reason: "تأیید",
         expectedVersion: 1,
+        caseVersion: 2,
         idempotencyKey: "idem-repeatable-key-123",
       },
     );
@@ -213,6 +234,7 @@ describe("ReviewsService (Unit / Domain Application)", () => {
       authorId,
       {
         content: "گزارش مرحله تبیین",
+        fileId: "00000000-0000-4000-8000-000000000001",
         expectedVersion: 1,
       },
     );
@@ -222,6 +244,7 @@ describe("ReviewsService (Unit / Domain Application)", () => {
         decision: "APPROVED",
         reason: "تلاش غیرمجاز",
         expectedVersion: 1,
+        caseVersion: 2,
         idempotencyKey: "unauth-key-1",
       }),
     ).rejects.toThrow(UnauthorizedSupervisorError);
@@ -233,6 +256,7 @@ describe("ReviewsService (Unit / Domain Application)", () => {
       authorId,
       {
         content: "گزارش نیازمند اصلاح",
+        fileId: "00000000-0000-4000-8000-000000000001",
         expectedVersion: 1,
       },
     );
@@ -244,14 +268,12 @@ describe("ReviewsService (Unit / Domain Application)", () => {
         decision: "CHANGES_REQUESTED",
         reason: "ارجاعات کافی نیست و بخش تجربی ضعیف است.",
         expectedVersion: 1,
+        caseVersion: 2,
         idempotencyKey: "revision-req-key-01",
       },
     );
 
     expect(result.submission.status).toBe("REVISION_REQUIRED");
-    expect(mockResearchService.updateStageStatus).toHaveBeenCalledWith(
-      stageId,
-      "REVISION_REQUESTED",
-    );
+    expect(mockResearchService.reviewDecision).toHaveBeenCalled();
   });
 });

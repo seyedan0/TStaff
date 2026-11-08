@@ -10,6 +10,7 @@ export interface StageSubmissionProps {
   authorId: string;
   version: number;
   content: string;
+  storedObjectId?: string | null;
   status: SubmissionStatus;
   submittedAt: Date;
 }
@@ -22,6 +23,7 @@ export class StageSubmission {
     stageInstanceId: string;
     authorId: string;
     content: string;
+    storedObjectId?: string;
     version?: number;
   }): StageSubmission {
     return new StageSubmission({
@@ -30,6 +32,7 @@ export class StageSubmission {
       authorId: params.authorId,
       version: params.version ?? 1,
       content: params.content,
+      storedObjectId: params.storedObjectId ?? null,
       status: "SUBMITTED",
       submittedAt: new Date(),
     });
@@ -89,6 +92,7 @@ export class StageSubmission {
       authorId,
       version: this.props.version + 1,
       content: newContent,
+      storedObjectId: null,
       status: "SUBMITTED",
       submittedAt: new Date(),
     });
@@ -129,6 +133,7 @@ export class StageSubmission {
       authorId: this.props.authorId,
       version: this.props.version,
       content: this.props.content,
+      storedObjectId: this.props.storedObjectId ?? null,
       status: this.props.status,
       submittedAt: this.props.submittedAt.toISOString(),
     };

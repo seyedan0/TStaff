@@ -36,6 +36,11 @@ class InMemoryResourceRepository implements ResourceRepositoryPort {
     this.interviews.push(interview);
   }
 
+  async saveInterview(interview: Interview): Promise<void> {
+    const index = this.interviews.findIndex((item) => item.id === interview.id);
+    if (index >= 0) this.interviews[index] = interview;
+  }
+
   async findInterviewByResourceId(
     resourceId: string,
   ): Promise<Interview | null> {
@@ -60,10 +65,15 @@ class InMemoryResourceRepository implements ResourceRepositoryPort {
 describe("ResourcesService & Strict 1:1 Interview Rule (D-07, AT-30)", () => {
   let repo: InMemoryResourceRepository;
   let service: ResourcesService;
+  let reportsAvailable: boolean;
 
   beforeEach(() => {
     repo = new InMemoryResourceRepository();
-    service = new ResourcesService(repo);
+    reportsAvailable = true;
+    service = new ResourcesService(repo, {
+      assertReadyForUse: async () => {},
+      isAvailable: async () => reportsAvailable,
+    } as any);
   });
 
   it("creates resources and records an interview for a resource", async () => {
@@ -133,8 +143,8 @@ describe("ResourcesService & Strict 1:1 Interview Rule (D-07, AT-30)", () => {
     });
     await service.createReport(int1.id, {
       title: "گزارش منبع ۱",
-      content: "متن تفصیلی گزارش مصاحبه...",
-    });
+      fileId: "00000000-0000-4000-8000-000000000001",
+    }, "researcher-1");
 
     // Still missing res2 -> incomplete
     await expect(
@@ -149,8 +159,14 @@ describe("ResourcesService & Strict 1:1 Interview Rule (D-07, AT-30)", () => {
     });
     await service.createReport(int2.id, {
       title: "گزارش منبع ۲",
-      content: "متن تفصیلی گزارش منبع دوم...",
-    });
+      fileId: "00000000-0000-4000-8000-000000000002",
+    }, "researcher-1");
+
+    reportsAvailable = false;
+    await expect(
+      service.assertSourcesStageCompleteness("case-1"),
+    ).rejects.toThrow("گزارش مکتوبِ اسکن‌شده");
+    reportsAvailable = true;
 
     // Now all resources have 1 interview and 1 report -> passes!
     const completeness = await service.assertSourcesStageCompleteness("case-1");

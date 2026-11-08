@@ -24,7 +24,7 @@ describe("ResearchCase Domain Entity (D-02, D-03, D-05, AT-29, AT-33)", () => {
     expect(sourcesStage?.status).toBe("IN_PROGRESS");
   });
 
-  it("enforces optimistic concurrency (CAS) on stage advancement and increments version (D-02, AT-29)", () => {
+  it("opens the next stage only on a submitted and approved stage, with case-wide CAS (D-02, AT-29)", () => {
     const rCase = ResearchCase.create({
       id: "case-1",
       title: "عنوان",
@@ -32,18 +32,14 @@ describe("ResearchCase Domain Entity (D-02, D-03, D-05, AT-29, AT-33)", () => {
       subject: "موضوع",
     });
 
-    // Advancing with mismatched expectedVersion fails with StaleRevisionError
-    expect(() => rCase.advanceStage(999)).toThrow(StaleRevisionError);
-
-    // Advancing with matching expectedVersion (1) succeeds and increments version to 2
-    const advanced = rCase.advanceStage(1);
-    expect(advanced.version).toBe(2);
-    expect(advanced.status).toBe("EXPLANATION_STAGE");
-    expect(advanced.getStage("SOURCES")?.status).toBe("APPROVED");
-    expect(advanced.getStage("EXPLANATION")?.status).toBe("IN_PROGRESS");
-
-    // Trying to advance again with old version 1 fails
-    expect(() => advanced.advanceStage(1)).toThrow(StaleRevisionError);
+    expect(() => rCase.applyReviewDecision("SOURCES", "APPROVED", 1)).toThrow(InvalidStageTransitionError);
+    const submitted = rCase.submitStageForReview("SOURCES", 1);
+    expect(() => submitted.applyReviewDecision("SOURCES", "APPROVED", 1)).toThrow(StaleRevisionError);
+    const approved = submitted.applyReviewDecision("SOURCES", "APPROVED", 2);
+    expect(approved.version).toBe(3);
+    expect(approved.status).toBe("EXPLANATION_STAGE");
+    expect(approved.getStage("SOURCES")?.status).toBe("APPROVED");
+    expect(approved.getStage("EXPLANATION")?.status).toBe("IN_PROGRESS");
   });
 
   it("performs rollback and cascades downstream stages to REVIEW_REQUIRED while preserving history (D-05, AT-33)", () => {
@@ -54,12 +50,10 @@ describe("ResearchCase Domain Entity (D-02, D-03, D-05, AT-29, AT-33)", () => {
       subject: "موضوع",
     });
 
-    // Advance to EXPLANATION (v2)
-    const v2 = rCase.advanceStage(1);
-    // Approve EXPLANATION by supervisor (v3) (FR-018)
-    const v3Approved = v2.applyReviewDecision("EXPLANATION", "APPROVED", 2);
-    // Advance to PRESCRIPTION (v4)
-    const v4 = v3Approved.advanceStage(3);
+    const sourcesSubmitted = rCase.submitStageForReview("SOURCES", 1);
+    const sourcesApproved = sourcesSubmitted.applyReviewDecision("SOURCES", "APPROVED", 2);
+    const explanationSubmitted = sourcesApproved.submitStageForReview("EXPLANATION", 3);
+    const v4 = explanationSubmitted.applyReviewDecision("EXPLANATION", "APPROVED", 4);
 
     expect(v4.status).toBe("PRESCRIPTION_STAGE");
     expect(v4.getStage("SOURCES")?.status).toBe("APPROVED");
@@ -70,10 +64,10 @@ describe("ResearchCase Domain Entity (D-02, D-03, D-05, AT-29, AT-33)", () => {
     const rolledBack = v4.rollbackStage(
       "SOURCES",
       "نیاز به داده‌های میدانی جدید",
-      4,
+      5,
     );
 
-    expect(rolledBack.version).toBe(5);
+    expect(rolledBack.version).toBe(6);
     expect(rolledBack.status).toBe("SOURCES_STAGE");
     expect(rolledBack.getStage("SOURCES")?.status).toBe("IN_PROGRESS");
 
@@ -83,7 +77,7 @@ describe("ResearchCase Domain Entity (D-02, D-03, D-05, AT-29, AT-33)", () => {
 
     // Forward rollback jump is blocked (cannot rollback to future stage)
     expect(() =>
-      rolledBack.rollbackStage("PRESCRIPTION", "پرش غیرمجاز", 5)
+      rolledBack.rollbackStage("PRESCRIPTION", "پرش غیرمجاز", 6)
     ).toThrow(InvalidStageTransitionError);
   });
 
@@ -95,14 +89,10 @@ describe("ResearchCase Domain Entity (D-02, D-03, D-05, AT-29, AT-33)", () => {
       subject: "موضوع",
     });
 
-    // Mismatched expectedVersion
-    expect(() => rCase.applyReviewDecision("SOURCES", "APPROVED", 99)).toThrow(
-      StaleRevisionError,
-    );
-
-    // Matching expectedVersion (1) succeeds and increments version to 2
-    const reviewed = rCase.applyReviewDecision("SOURCES", "APPROVED", 1);
-    expect(reviewed.version).toBe(2);
+    const submitted = rCase.submitStageForReview("SOURCES", 1);
+    expect(() => submitted.applyReviewDecision("SOURCES", "APPROVED", 99)).toThrow(StaleRevisionError);
+    const reviewed = submitted.applyReviewDecision("SOURCES", "APPROVED", 2);
+    expect(reviewed.version).toBe(3);
     expect(reviewed.getStage("SOURCES")?.status).toBe("APPROVED");
   });
 });

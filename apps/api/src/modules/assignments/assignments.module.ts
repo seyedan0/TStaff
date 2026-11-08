@@ -1,5 +1,5 @@
 import { Module } from "@nestjs/common";
-import { AssignmentsController } from "./presentation/assignments.controller.js";
+import { ScientificAssignmentsController } from "./presentation/scientific-assignments.controller.js";
 import {
   AssignmentsService,
   ASSIGNMENT_REPOSITORY,
@@ -8,7 +8,7 @@ import { PrismaAssignmentRepository } from "./infrastructure/prisma-assignment.r
 
 @Module({
   imports: [],
-  controllers: [AssignmentsController],
+  controllers: [ScientificAssignmentsController],
   providers: [
     AssignmentsService,
     {

@@ -1,42 +1,52 @@
 import { describe, it, expect, beforeEach } from "vitest";
 import { AssignmentsService } from "./assignments.service.js";
-import { ResearchAssignment } from "../domain/assignment.entity.js";
-import {
-  MainSupervisorAlreadyAssignedError,
-  CollaboratorSupervisorAlreadyAssignedError,
-  SupervisorCapacityExceededError,
-} from "../domain/assignment-errors.js";
-import type { AssignmentRepositoryPort } from "./ports/assignment.repository.port.js";
+import type { AssignmentRepositoryPort, SupervisorAssignmentRecord } from "./ports/assignment.repository.port.js";
 
 class InMemoryAssignmentRepository implements AssignmentRepositoryPort {
-  private assignments: ResearchAssignment[] = [];
+  private assignments: SupervisorAssignmentRecord[] = [];
+  private readonly scientificSupervisors = new Set<string>();
 
-  async findActiveByCaseId(caseId: string): Promise<ResearchAssignment[]> {
-    return this.assignments.filter(
-      (a) => a.researchCaseId === caseId && a.isActive,
-    );
+  constructor() {
+    for (let index = 1; index <= 10; index += 1) this.scientificSupervisors.add(`supervisor-${index}`);
   }
 
-  async countActiveByUserId(userId: string): Promise<number> {
-    return this.assignments.filter((a) => a.userId === userId && a.isActive)
-      .length;
+  async assignToUser(input: { userId: string; supervisorId: string; assignedById: string }): Promise<void> {
+    if (!this.scientificSupervisors.has(input.supervisorId)) throw new Error("کاربر انتخاب‌شده مدیر علمی نیست");
+    if (this.assignments.some((item) => item.userId === input.userId && item.supervisorId === input.supervisorId)) return;
+    this.assignments.push({
+      id: `assignment-${this.assignments.length + 1}`,
+      userId: input.userId,
+      supervisorId: input.supervisorId,
+      supervisorName: input.supervisorId,
+      phoneNumber: "09120000000",
+      isPrimary: !this.assignments.some((item) => item.userId === input.userId),
+      assignedAt: new Date(),
+    });
   }
 
-  async findById(id: string): Promise<ResearchAssignment | null> {
-    return this.assignments.find((a) => a.id === id) || null;
+  async listSupervisorsForUser(userId: string): Promise<SupervisorAssignmentRecord[]> {
+    return this.assignments.filter((item) => item.userId === userId);
   }
 
-  async save(assignment: ResearchAssignment): Promise<void> {
-    const idx = this.assignments.findIndex((a) => a.id === assignment.id);
-    if (idx >= 0) {
-      this.assignments[idx] = assignment;
-    } else {
-      this.assignments.push(assignment);
-    }
+  async listUsersForSupervisor(supervisorId: string) {
+    return this.assignments.filter((item) => item.supervisorId === supervisorId).map((item) => ({
+      id: item.userId,
+      fullName: item.userId,
+      stage: "INTERN",
+      phoneNumber: item.phoneNumber,
+    }));
+  }
+
+  async isSupervisorAssignedToUser(userId: string, supervisorId: string): Promise<boolean> {
+    return this.assignments.some((item) => item.userId === userId && item.supervisorId === supervisorId);
+  }
+
+  async isScientificSupervisor(userId: string): Promise<boolean> {
+    return this.scientificSupervisors.has(userId);
   }
 }
 
-describe("AssignmentsService (D-02)", () => {
+describe("AssignmentsService (D-03, AT-01, AT-29, AT-31)", () => {
   let repo: InMemoryAssignmentRepository;
   let service: AssignmentsService;
 
@@ -45,109 +55,25 @@ describe("AssignmentsService (D-02)", () => {
     service = new AssignmentsService(repo);
   });
 
-  it("assigns MAIN_SUPERVISOR and COLLABORATOR_SUPERVISOR successfully", async () => {
-    const main = await service.assignSupervisor("case-1", {
-      userId: "user-main",
-      role: "MAIN_SUPERVISOR",
-    });
-    expect(main.role).toBe("MAIN_SUPERVISOR");
-    expect(main.isActive).toBe(true);
-
-    const collab = await service.assignSupervisor("case-1", {
-      userId: "user-collab",
-      role: "COLLABORATOR_SUPERVISOR",
-    });
-    expect(collab.role).toBe("COLLABORATOR_SUPERVISOR");
-    expect(collab.isActive).toBe(true);
-
-    const supervisors = await service.getSupervisors("case-1");
-    expect(supervisors).toHaveLength(2);
-  });
-
-  it("prevents adding second active MAIN_SUPERVISOR without reassigning", async () => {
-    await service.assignSupervisor("case-1", {
-      userId: "user-main-1",
-      role: "MAIN_SUPERVISOR",
-    });
-
-    await expect(
-      service.assignSupervisor("case-1", {
-        userId: "user-main-2",
-        role: "MAIN_SUPERVISOR",
-      }),
-    ).rejects.toThrow(MainSupervisorAlreadyAssignedError);
-  });
-
-  it("prevents adding second active COLLABORATOR_SUPERVISOR", async () => {
-    await service.assignSupervisor("case-1", {
-      userId: "user-collab-1",
-      role: "COLLABORATOR_SUPERVISOR",
-    });
-
-    await expect(
-      service.assignSupervisor("case-1", {
-        userId: "user-collab-2",
-        role: "COLLABORATOR_SUPERVISOR",
-      }),
-    ).rejects.toThrow(CollaboratorSupervisorAlreadyAssignedError);
-  });
-
-  it("enforces supervisor capacity limit (max 5 active cases)", async () => {
-    for (let i = 1; i <= 5; i++) {
-      await service.assignSupervisor(`case-${i}`, {
-        userId: "busy-supervisor",
-        role: "MAIN_SUPERVISOR",
-      });
+  it("allows any number of supervisors at trainee scope and marks only the first as primary", async () => {
+    for (let index = 1; index <= 10; index += 1) {
+      await service.assignSupervisorToUser("trainee-1", `supervisor-${index}`, "tracking-director");
     }
-
-    await expect(
-      service.assignSupervisor("case-6", {
-        userId: "busy-supervisor",
-        role: "MAIN_SUPERVISOR",
-      }),
-    ).rejects.toThrow(SupervisorCapacityExceededError);
+    const assignments = await service.getSupervisorsForUser("trainee-1");
+    expect(assignments).toHaveLength(10);
+    expect(assignments.filter((item) => item.isPrimary).map((item) => item.supervisorId)).toEqual(["supervisor-1"]);
   });
 
-  it("reassigns a supervisor by archiving the previous one", async () => {
-    const first = await service.assignSupervisor("case-1", {
-      userId: "user-1",
-      role: "MAIN_SUPERVISOR",
-    });
+  it("lists only trainees assigned to the requesting supervisor", async () => {
+    await service.assignSupervisorToUser("trainee-1", "supervisor-1", "tracking-director");
+    await service.assignSupervisorToUser("trainee-2", "supervisor-2", "tracking-director");
 
-    const second = await service.reassignSupervisor("case-1", {
-      userId: "user-2",
-      role: "MAIN_SUPERVISOR",
-    });
-
-    expect(second.userId).toBe("user-2");
-    expect(second.isActive).toBe(true);
-
-    const updatedFirst = await repo.findById(first.id);
-    expect(updatedFirst?.isActive).toBe(false);
-
-    const activeSupervisors = await service.getSupervisors("case-1");
-    expect(activeSupervisors).toHaveLength(1);
-    expect(activeSupervisors[0]!.userId).toBe("user-2");
+    expect(await service.getUsersForSupervisor("supervisor-1")).toMatchObject([{ id: "trainee-1" }]);
+    expect(await service.isSupervisorAssignedToUser("trainee-2", "supervisor-1")).toBe(false);
   });
 
-  it("verifies authorized supervisor authority for both MAIN and COLLABORATOR (D-02, D-03)", async () => {
-    await service.assignSupervisor("case-1", {
-      userId: "user-main",
-      role: "MAIN_SUPERVISOR",
-    });
-    await service.assignSupervisor("case-1", {
-      userId: "user-collab",
-      role: "COLLABORATOR_SUPERVISOR",
-    });
-
-    expect(await service.isAuthorizedSupervisor("case-1", "user-main")).toBe(
-      true,
-    );
-    expect(await service.isAuthorizedSupervisor("case-1", "user-collab")).toBe(
-      true,
-    );
-    expect(await service.isAuthorizedSupervisor("case-1", "other-user")).toBe(
-      false,
-    );
+  it("rejects assigning a user who does not have the scientific supervisor role", async () => {
+    await expect(service.assignSupervisorToUser("trainee-1", "other-user", "tracking-director"))
+      .rejects.toThrow("کاربر انتخاب‌شده مدیر علمی نیست");
   });
 });

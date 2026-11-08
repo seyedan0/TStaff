@@ -17,6 +17,7 @@ import { Button } from "../../shared/ui/Button.js";
 import { Badge } from "../../shared/ui/Badge.js";
 import { Modal } from "../../shared/ui/Modal.js";
 import { apiClient } from "../../shared/api-client.js";
+import { ResearchCasesView } from "../../features/research/ResearchCasesView.js";
 
 interface ScientificSupervisorPortalProps {
   onNotify: (
@@ -42,12 +43,22 @@ interface PendingEvaluationItem {
   };
 }
 
+interface AssignedTrainee { id: string; fullName: string; phoneNumber: string; stage: "APPRENTICE" | "INTERN" }
+
 export const ScientificSupervisorPortal: React.FC<
   ScientificSupervisorPortalProps
 > = ({ onNotify }) => {
-  const [activeTab, setActiveTab] = useState<"reviews" | "evaluations" | "chat">(
-    "reviews",
-  );
+  const [activeTab, setActiveTab] = useState<"trainees" | "reviews" | "evaluations" | "chat">("trainees");
+  const [trainees, setTrainees] = useState<AssignedTrainee[]>([]);
+  const [selectedTrainee, setSelectedTrainee] = useState<AssignedTrainee | null>(null);
+  const [isLoadingTrainees, setIsLoadingTrainees] = useState(false);
+
+  const fetchTrainees = async () => {
+    setIsLoadingTrainees(true);
+    try { setTrainees(await apiClient.get<AssignedTrainee[]>("/scientific-supervisors/me/trainees")); }
+    catch (error) { setTrainees([]); onNotify("error", "فهرست کارورزان بارگذاری نشد", error instanceof Error ? error.message : undefined); }
+    finally { setIsLoadingTrainees(false); }
+  };
 
   // Apprentice Evaluations State
   const [evaluations, setEvaluations] = useState<PendingEvaluationItem[]>([]);
@@ -65,28 +76,14 @@ export const ScientificSupervisorPortal: React.FC<
       );
       setEvaluations(res);
     } catch {
-      // Offline fallback mock data if needed
-      setEvaluations([
-        {
-          id: "eval-demo-1",
-          userId: "10000000-0000-0000-0000-000000000006",
-          status: "PENDING",
-          notes:
-            "کلیه شیوه‌نامه‌ها مطالعه شد. به ویژه قاعده یکتایی مصاحبه در D-07 و نحوه ثبت تبیین مسئله بررسی و تفهیم گردید.",
-          createdAt: new Date().toISOString(),
-          user: {
-            id: "10000000-0000-0000-0000-000000000006",
-            fullName: "رضا میرزایی",
-            phoneNumber: "09126666666",
-          },
-        },
-      ]);
+      setEvaluations([]);
     } finally {
       setIsLoadingEvaluations(false);
     }
   };
 
   useEffect(() => {
+    if (activeTab === "trainees") void fetchTrainees();
     if (activeTab === "evaluations") {
       fetchEvaluations();
     }
@@ -136,6 +133,12 @@ export const ScientificSupervisorPortal: React.FC<
       {/* Supervisor Navigation Tabs */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between border-b border-white/10 pb-4 gap-4">
         <div className="flex items-center gap-2 p-1 rounded-apple-lg bg-white/[0.03] border border-white/5 overflow-x-auto">
+          <button
+            onClick={() => setActiveTab("trainees")}
+            className={`flex items-center gap-2 px-4 py-2 rounded-apple-md text-xs font-semibold whitespace-nowrap transition-all ${activeTab === "trainees" ? "bg-apple-blue text-white shadow-apple-glow" : "text-slate-400 hover:text-slate-200"}`}
+          >
+            <UserCheck className="w-4 h-4" />کارورزان منتسب‌شده
+          </button>
           <button
             onClick={() => setActiveTab("reviews")}
             className={`flex items-center gap-2 px-4 py-2 rounded-apple-md text-xs font-semibold whitespace-nowrap transition-all ${
@@ -187,6 +190,13 @@ export const ScientificSupervisorPortal: React.FC<
 
       {/* Main Tab Content */}
       <div className="animate-fade-in">
+        {activeTab === "trainees" && (
+          <div className="space-y-4">
+            <div className="flex items-center justify-between"><div><h3 className="text-base font-bold text-slate-100">کارورزان زیر نظر شما</h3><p className="text-xs text-slate-400">با انتخاب کارورز، پرونده‌های او را می‌بینید و می‌توانید پژوهش جدید تعریف کنید.</p></div><Button variant="ghost" size="sm" loading={isLoadingTrainees} onClick={fetchTrainees}>به‌روزرسانی</Button></div>
+            {isLoadingTrainees ? <Card variant="glass" className="p-8 text-center text-xs text-slate-400">در حال دریافت فهرست کارورزان…</Card> : trainees.length === 0 ? <Card variant="glass" className="p-8 text-center text-xs text-slate-400">کارورزی برای شما منتسب نشده است.</Card> : <div className="grid gap-3 md:grid-cols-2">{trainees.map((trainee) => <Card key={trainee.id} variant="glass" className={`cursor-pointer p-4 ${selectedTrainee?.id === trainee.id ? "border-apple-blue/50" : ""}`}><div className="flex items-center justify-between"><div><div className="font-semibold text-slate-100">{trainee.fullName}</div><div className="mt-1 text-xs text-slate-400">{trainee.phoneNumber} · {trainee.stage === "INTERN" ? "کارورز" : "کارآموز"}</div></div><Button size="sm" variant={selectedTrainee?.id === trainee.id ? "primary" : "secondary"} onClick={() => setSelectedTrainee(trainee)}>{selectedTrainee?.id === trainee.id ? "انتخاب شده" : "مشاهده پرونده‌ها"}</Button></div></Card>)}</div>}
+            {selectedTrainee && <div className="border-t border-white/10 pt-5"><div className="mb-3 text-sm font-semibold text-slate-200">پرونده‌های {selectedTrainee.fullName}</div><ResearchCasesView onNotify={onNotify} researcherId={selectedTrainee.id} canManage={selectedTrainee.stage === "INTERN"} /></div>}
+          </div>
+        )}
         {/* Tab 1: Research Cases Scientific Reviews */}
         {activeTab === "reviews" && (
           <ScientificReviewsView onNotify={onNotify} />

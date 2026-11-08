@@ -34,7 +34,7 @@ describe("Contracts M4: Scientific Review, Stage Submissions & Scenarios", () =>
 
     it("fails when content is too short or expectedVersion is non-positive", () => {
       const invalid = {
-        content: "کوتاه",
+        content: "کم",
         expectedVersion: 0,
       };
       const result = CreateStageSubmissionDtoSchema.safeParse(invalid);
@@ -51,6 +51,7 @@ describe("Contracts M4: Scientific Review, Stage Submissions & Scenarios", () =>
         decision: "APPROVED",
         reason: "گزارش ارائه‌شده از کفایت علمی و منطق علّی کامل برخوردار است.",
         expectedVersion: 1,
+        caseVersion: 2,
         idempotencyKey: "idem-rev-1234567890",
       };
       const result = SubmitReviewDecisionDtoSchema.safeParse(valid);
@@ -62,6 +63,7 @@ describe("Contracts M4: Scientific Review, Stage Submissions & Scenarios", () =>
         decision: "CHANGES_REQUESTED",
         reason: "بخش تجویز نیازمند شفاف‌سازی متغیرهای مداخله‌گر است.",
         expectedVersion: 2,
+        caseVersion: 3,
         idempotencyKey: "idem-rev-9876543210",
       };
       const result = SubmitReviewDecisionDtoSchema.safeParse(valid);
@@ -73,6 +75,7 @@ describe("Contracts M4: Scientific Review, Stage Submissions & Scenarios", () =>
         decision: "APPROVED",
         reason: "خوب",
         expectedVersion: 1,
+        caseVersion: 2,
         idempotencyKey: "short",
       };
       const result = SubmitReviewDecisionDtoSchema.safeParse(invalid);
@@ -95,7 +98,13 @@ describe("Contracts M4: Scientific Review, Stage Submissions & Scenarios", () =>
       const valid = {
         title: "سناریوی ارتقای بهره‌وری آموزشی",
         summary: "چکیده تفصیلی سناریوی اقدام راهبردی جهت حل مسئله شناسایی‌شده در جامعه مخاطب.",
-        content: "متن کامل سناریو شامل مدل‌های اقدام، توالی رویدادها، متغیرهای کنترلی و سازوکار ارزیابی اثربخشی.",
+        content: JSON.stringify({
+          audience: "TEACHER",
+          province: "تهران",
+          category: "بهره‌وری آموزشی",
+          keywords: ["آموزش", "بهره‌وری"],
+          implementationSteps: ["نیازسنجی مدرسه و تدوین برنامه اجرایی"]
+        }),
       };
       const result = CreateScenarioDtoSchema.safeParse(valid);
       expect(result.success).toBe(true);
@@ -145,6 +154,7 @@ describe("Contracts M4: Scientific Review, Stage Submissions & Scenarios", () =>
         decision: "APPROVED",
         reason: "سناریو قابلیت ثبت در بانک داخلی سناریوها را دارد.",
         expectedVersion: 1,
+        caseVersion: 2,
         idempotencyKey: "scenario-rev-key-101",
       };
       const result = ReviewScenarioDtoSchema.safeParse(valid);

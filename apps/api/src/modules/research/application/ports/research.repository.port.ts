@@ -19,5 +19,4 @@ export interface ResearchRepositoryPort {
   ): Promise<void>;
   findAll(): Promise<ResearchCase[]>;
   findStageInstanceById(stageId: string): Promise<StageInstanceDto | null>;
-  updateStageStatus(stageId: string, status: StageStatus): Promise<void>;
 }
