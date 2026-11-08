@@ -102,6 +102,20 @@ export const LoginForm: React.FC = () => {
     setError(null);
   };
 
+  const handleQuickLogin = async (preset: TestUserPreset) => {
+    setPhone(preset.phone);
+    setPassword(preset.pass);
+    setError(null);
+    setLoading(true);
+    try {
+      await login(preset.phone, preset.pass);
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : "شماره همراه یا گذرواژه واردشده نادرست است");
+    } finally {
+      setLoading(false);
+    }
+  };
+
   return (
     <div className="min-h-screen flex flex-col items-center justify-center p-4 py-8 bg-[#0b0f17]">
       <div className="w-full max-w-md space-y-6">
@@ -184,27 +198,38 @@ export const LoginForm: React.FC = () => {
 
           <div className="space-y-2">
             {TEST_PRESETS.map((p) => (
-              <button
+              <div
                 key={p.phone}
-                type="button"
-                onClick={() => handleSelectPreset(p)}
                 className={`w-full text-right p-2.5 rounded-apple-md border text-xs transition-all flex items-center justify-between ${
                   phone === p.phone
                     ? "bg-apple-blue/15 border-apple-blue/40 text-apple-blue"
                     : "bg-white/[0.02] border-white/5 text-slate-300 hover:bg-white/[0.05]"
                 }`}
               >
-                <div>
-                  <div className="font-medium text-slate-200">{p.title}</div>
+                <div
+                  className="cursor-pointer flex-1"
+                  onClick={() => handleSelectPreset(p)}
+                >
+                  <div className="flex items-center gap-2">
+                    <span className="font-medium text-slate-200">{p.title}</span>
+                    <Badge variant={p.badgeVariant} size="sm">
+                      {p.stage === "APPRENTICE" ? "کارآموز" : "کارورز"}
+                    </Badge>
+                  </div>
                   <div className="text-[10px] text-slate-400 mt-0.5">{p.roleName}</div>
                 </div>
                 <div className="flex items-center gap-2">
                   <span className="font-mono text-[10px] text-slate-400">{p.phone}</span>
-                  <Badge variant={p.badgeVariant} size="sm">
-                    انتخاب
-                  </Badge>
+                  <button
+                    type="button"
+                    onClick={() => handleQuickLogin(p)}
+                    className="px-2 py-1 rounded-apple-sm bg-apple-blue/20 hover:bg-apple-blue text-apple-blue hover:text-white transition-all text-[11px] font-semibold active:scale-95"
+                    title="ورود مستقیم به پنل با این نقش"
+                  >
+                    ورود مستقیم
+                  </button>
                 </div>
-              </button>
+              </div>
             ))}
           </div>
         </Card>
