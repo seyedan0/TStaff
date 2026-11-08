@@ -1,8 +1,10 @@
 import React from "react";
-import { ShieldCheck, LogOut, User, Bell } from "lucide-react";
+import { ShieldCheck, LogOut, User, Bell, RotateCcw } from "lucide-react";
 import { useAuth } from "../features/auth/AuthContext.js";
 import { Badge } from "../shared/ui/Badge.js";
 import type { SystemRole } from "@tstaff/contracts";
+import { isDemoMode } from "../features/demo/demo-mode.js";
+import { resetDemoData } from "../features/demo/demo-store.js";
 
 export interface AppHeaderProps {
   onNotify: (type: "info", title: string, message?: string) => void;
@@ -20,6 +22,7 @@ const ROLE_DISPLAY_NAMES: Record<SystemRole, { label: string; variant: "info" | 
 
 export const AppHeader: React.FC<AppHeaderProps> = ({ onNotify }) => {
   const { currentUser, logout } = useAuth();
+  const demoMode = isDemoMode();
 
   if (!currentUser) return null;
 
@@ -29,7 +32,11 @@ export const AppHeader: React.FC<AppHeaderProps> = ({ onNotify }) => {
   };
 
   return (
-    <header className="sticky top-0 z-40 apple-glass border-b border-white/10 px-4 py-3">
+    <header className="sticky top-0 z-40 apple-glass border-b border-white/10">
+      {demoMode && <div className="border-b border-apple-blue/15 bg-apple-blue/[0.05] px-4 py-1.5 text-center text-[10px] text-slate-400">
+        نسخه‌ی نمایشی · اطلاعات ساختگی است و تغییرات فقط در همین مرورگر ذخیره می‌شود.
+      </div>}
+      <div className="px-4 py-3">
       <div className="max-w-7xl mx-auto flex items-center justify-between gap-4">
         {/* Brand */}
         <div className="flex items-center gap-3">
@@ -42,6 +49,7 @@ export const AppHeader: React.FC<AppHeaderProps> = ({ onNotify }) => {
               <span className="text-[10px] px-2 py-0.5 rounded-full bg-apple-blue/15 text-apple-blue border border-apple-blue/30 font-mono">
                 v1.0 MVP
               </span>
+              {demoMode && <span className="text-[9px] px-1.5 py-0.5 rounded-full bg-apple-amber/10 text-apple-amber border border-apple-amber/20">DEMO</span>}
             </h1>
             <p className="text-[11px] text-slate-400 hidden sm:block">
               شبکه هوشمند راهبری پرونده‌های پژوهشی و پذیرش علمی
@@ -80,6 +88,20 @@ export const AppHeader: React.FC<AppHeaderProps> = ({ onNotify }) => {
             <Bell className="w-4 h-4" />
           </button>
 
+          {demoMode && <button
+            type="button"
+            onClick={() => {
+              resetDemoData();
+              logout();
+              onNotify("info", "داده‌های نمونه بازنشانی شد", "حساب‌ها، مطالعه‌ها و درخواست ارزیابی به وضعیت اولیه برگشتند.");
+            }}
+            className="p-2 rounded-apple-md text-slate-400 hover:text-apple-blue hover:bg-white/10 active:scale-95 transition-all"
+            aria-label="بازنشانی داده‌های نمایشی"
+            title="بازنشانی داده‌های نمونه در این مرورگر"
+          >
+            <RotateCcw className="w-4 h-4" />
+          </button>}
+
           {/* Logout Button */}
           <button
             onClick={logout}
@@ -90,6 +112,7 @@ export const AppHeader: React.FC<AppHeaderProps> = ({ onNotify }) => {
             <LogOut className="w-4 h-4" />
           </button>
         </div>
+      </div>
       </div>
     </header>
   );

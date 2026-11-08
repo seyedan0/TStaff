@@ -13,12 +13,14 @@ import { apiClient } from "../../shared/api-client.js";
 import { ApplicantRegistrationModal } from "./ApplicantRegistrationModal.js";
 import type { ApplicantItem } from "../../shared/types.js";
 import type { ApplicantStatus } from "@tstaff/contracts";
+import { isDemoMode } from "../demo/demo-mode.js";
 
 export interface ApplicantsViewProps {
   onNotify: (type: "success" | "error" | "info", title: string, message?: string) => void;
 }
 
 export const ApplicantsView: React.FC<ApplicantsViewProps> = ({ onNotify }) => {
+  const demoMode = isDemoMode();
   const [applicants, setApplicants] = useState<ApplicantItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [isRegisterOpen, setIsRegisterOpen] = useState(false);
@@ -120,14 +122,14 @@ export const ApplicantsView: React.FC<ApplicantsViewProps> = ({ onNotify }) => {
           </p>
         </div>
 
-        <Button
+        {!demoMode && <Button
           variant="primary"
           size="md"
           icon={<UserPlus className="w-4 h-4" />}
           onClick={() => setIsRegisterOpen(true)}
         >
           ثبت متقاضی جدید
-        </Button>
+        </Button>}
       </div>
 
       {/* Status Filter Tabs (Apple Pill Segmented Control) */}
@@ -246,12 +248,12 @@ export const ApplicantsView: React.FC<ApplicantsViewProps> = ({ onNotify }) => {
       )}
 
       {/* Registration Modal */}
-      <ApplicantRegistrationModal
+      {!demoMode && <ApplicantRegistrationModal
         isOpen={isRegisterOpen}
         onClose={() => setIsRegisterOpen(false)}
         onSuccess={loadApplicants}
         onNotify={onNotify}
-      />
+      />}
     </div>
   );
 };

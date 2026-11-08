@@ -9,6 +9,7 @@ interface AuthContextType {
   isLoading: boolean;
   requiresRoleSelection: boolean;
   login: (phoneNumber: string, pass: string) => Promise<void>;
+  loginDemo: (personaId: string) => Promise<void>;
   logout: () => void;
   setStage: (stage: UserStage) => void;
   setUser: (user: CurrentUser | null) => void;
@@ -39,6 +40,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setRequiresRoleSelection(roles.length > 1);
   };
 
+  const loginDemo = async (personaId: string) => {
+    const { user } = await apiClient.post<{ user: CurrentUser }>("/demo/login", { personaId });
+    setCurrentUser(user);
+    setRequiresRoleSelection(false);
+  };
+
   const logout = () => {
     void apiClient.post("/auth/logout").catch(() => undefined).finally(() => { setCurrentUser(null); setRequiresRoleSelection(false); });
   };
@@ -53,7 +60,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   return (
-    <AuthContext.Provider value={{ currentUser, isAuthenticated: !!currentUser, isLoading, requiresRoleSelection, login, logout, setStage, setUser: setCurrentUser, chooseRole }}>
+    <AuthContext.Provider value={{ currentUser, isAuthenticated: !!currentUser, isLoading, requiresRoleSelection, login, loginDemo, logout, setStage, setUser: setCurrentUser, chooseRole }}>
       {children}
     </AuthContext.Provider>
   );

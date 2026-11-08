@@ -5,6 +5,7 @@ import { apiClient } from "../../shared/api-client.js";
 import { Badge } from "../../shared/ui/Badge.js";
 import { Button } from "../../shared/ui/Button.js";
 import { Card } from "../../shared/ui/Card.js";
+import { isDemoMode } from "../demo/demo-mode.js";
 
 interface LibraryManagementViewProps {
   onNotify: (
@@ -23,6 +24,7 @@ interface DocumentMetadata {
 const emptyMetadata: DocumentMetadata = { title: "", description: "", category: "" };
 
 export const LibraryManagementView: React.FC<LibraryManagementViewProps> = ({ onNotify }) => {
+  const demoMode = isDemoMode();
   const [documents, setDocuments] = useState<LibraryDocumentDto[]>([]);
   const [metadata, setMetadata] = useState<DocumentMetadata>(emptyMetadata);
   const [file, setFile] = useState<File | null>(null);
@@ -131,7 +133,11 @@ export const LibraryManagementView: React.FC<LibraryManagementViewProps> = ({ on
         </Button>
       </div>
 
-      <Card variant="glass" className="border-white/10 p-5">
+      {demoMode && <Card variant="glass" className="border-apple-blue/20 bg-apple-blue/[0.04] p-4 text-xs leading-relaxed text-slate-300">
+        اسناد زیر محتوای ساختگی دمو هستند. این نسخه‌ی استاتیک فایل تازه بارگذاری یا بایگانی را به سرور ثبت نمی‌کند.
+      </Card>}
+
+      {!demoMode && <Card variant="glass" className="border-white/10 p-5">
         <h3 className="mb-4 font-semibold text-slate-100">بارگذاری سند جدید</h3>
         <form onSubmit={(event) => void handleCreate(event)} className="grid gap-3 md:grid-cols-2">
           <MetadataFields metadata={metadata} onChange={setMetadata} />
@@ -142,7 +148,7 @@ export const LibraryManagementView: React.FC<LibraryManagementViewProps> = ({ on
             </Button>
           </div>
         </form>
-      </Card>
+      </Card>}
 
       {isLoading ? (
         <Card variant="glass" className="p-8 text-center text-sm text-slate-400">در حال دریافت اسناد…</Card>
@@ -160,7 +166,7 @@ export const LibraryManagementView: React.FC<LibraryManagementViewProps> = ({ on
                   </div>
                   <p className="mt-1 text-xs text-slate-400">{document.versions.length} نسخه</p>
                 </div>
-                {!document.archivedAt && (
+                {!demoMode && !document.archivedAt && (
                   <div className="flex gap-2">
                     {document.currentVersion && (
                       <Button variant="secondary" size="sm" icon={<Download className="h-3.5 w-3.5" />} onClick={() => void apiClient.download(`/documents/${document.id}/download`, document.currentVersion!.fileName)}>

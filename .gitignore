@@ -8,6 +8,7 @@ build/
 .turbo/
 out/
 *.tsbuildinfo
+.vercel/
 
 # Environment and secrets
 .env

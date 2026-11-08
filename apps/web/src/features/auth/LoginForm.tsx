@@ -5,14 +5,18 @@ import { Input } from "../../shared/ui/Input.js";
 import { Button } from "../../shared/ui/Button.js";
 import { useAuth } from "./AuthContext.js";
 import { getLocalQuickLoginConfig, type LocalQuickLoginUser } from "./local-quick-login.js";
+import { isDemoMode } from "../demo/demo-mode.js";
+import { getDemoPersonas } from "../demo/demo-store.js";
 
 export const LoginForm: React.FC = () => {
-  const { login } = useAuth();
+  const { login, loginDemo } = useAuth();
   const [phone, setPhone] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const localHostname = typeof window === "undefined" ? "" : window.location.hostname;
+  const demoMode = isDemoMode();
+  const demoPersonas = demoMode ? getDemoPersonas() : [];
   const isLoopbackHost = ["localhost", "127.0.0.1", "::1"].includes(localHostname.toLowerCase());
   const quickLoginConfig = import.meta.env.DEV && isLoopbackHost
     ? getLocalQuickLoginConfig({
@@ -60,6 +64,19 @@ export const LoginForm: React.FC = () => {
     }
   };
 
+  const handleDemoLogin = async (personaId: string) => {
+    if (loading) return;
+    setError(null);
+    setLoading(true);
+    try {
+      await loginDemo(personaId);
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : "ورود به حساب نمایشی انجام نشد");
+    } finally {
+      setLoading(false);
+    }
+  };
+
   return (
     <div className="min-h-screen flex flex-col items-center justify-center p-4 py-8 bg-[#0b0f17]">
       <div className="w-full max-w-md space-y-6">
@@ -73,14 +90,35 @@ export const LoginForm: React.FC = () => {
               <ShieldCheck className="w-8 h-8" />
             </div>
             <h2 className="text-xl font-bold text-slate-100 tracking-tight">
-              ورود به سامانه مدیریت پژوهش TStaff
+              {demoMode ? "بازبینی نسخه‌ی نمایشی TStaff" : "ورود به سامانه مدیریت پژوهش TStaff"}
             </h2>
             <p className="text-xs text-slate-400 mt-1.5 leading-relaxed">
-              جهت ورود به پنل، اطلاعات حساب کاربری خود را وارد فرمایید
+              {demoMode ? "برای مشاهده‌ی پنل‌ها، یکی از حساب‌های ساختگی را انتخاب کنید." : "جهت ورود به پنل، اطلاعات حساب کاربری خود را وارد فرمایید"}
             </p>
           </div>
 
-          <form onSubmit={handleSubmit} className="space-y-4 text-right">
+          {demoMode ? (
+            <section className="space-y-3" aria-label="حساب‌های نمایشی">
+              <div className="rounded-apple-md border border-apple-blue/20 bg-apple-blue/[0.06] px-3 py-2.5 text-[11px] leading-relaxed text-slate-300">
+                داده‌ها ساختگی‌اند. هر حساب فقط وضعیت نمایشی را باز می‌کند؛ تغییرات این مرورگر با seed محلی مشترک ذخیره می‌شوند.
+              </div>
+              <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+                {demoPersonas.map((persona) => (
+                  <button
+                    key={persona.id}
+                    type="button"
+                    disabled={loading}
+                    onClick={() => void handleDemoLogin(persona.id)}
+                    className="rounded-apple-md border border-white/10 bg-slate-900/70 px-3 py-3 text-right transition-colors hover:border-apple-blue/50 hover:bg-apple-blue/10 disabled:cursor-wait disabled:opacity-50"
+                  >
+                    <span className="block text-xs font-semibold text-slate-100">{persona.label}</span>
+                    <span className="mt-1 block text-[10px] font-medium text-apple-blue">{persona.status}</span>
+                    <span className="mt-1 block text-[10px] leading-relaxed text-slate-400">{persona.summary}</span>
+                  </button>
+                ))}
+              </div>
+            </section>
+          ) : <form onSubmit={handleSubmit} className="space-y-4 text-right">
             <Input
               label="شماره تلفن همراه"
               type="tel"
@@ -119,9 +157,9 @@ export const LoginForm: React.FC = () => {
             >
               ورود به حساب کاربری
             </Button>
-          </form>
+          </form>}
 
-          {quickLoginConfig && (
+          {!demoMode && quickLoginConfig && (
             <section className="mt-5 border-t border-white/10 pt-4" aria-label="ورود سریع محلی">
               <h3 className="mb-3 text-sm font-semibold text-slate-200">ورود سریع برای تست محلی</h3>
               <div className="grid max-h-72 grid-cols-1 gap-2 overflow-y-auto sm:grid-cols-2">
@@ -143,7 +181,7 @@ export const LoginForm: React.FC = () => {
 
           <div className="mt-4 pt-4 border-t border-white/5 text-center">
             <p className="text-[11px] text-slate-500">
-              احراز هویت فاز ۱ مبتنی بر گذرواژه امن (بدون ارسال پیامک OTP)
+              {demoMode ? "نسخه‌ی نمایشی به API و حساب واقعی متصل نیست." : "احراز هویت فاز ۱ مبتنی بر گذرواژه امن (بدون ارسال پیامک OTP)"}
             </p>
           </div>
         </Card>

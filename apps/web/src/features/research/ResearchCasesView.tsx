@@ -12,6 +12,7 @@ import { CreateResearchCaseModal } from "./CreateResearchCaseModal.js";
 import { ResourcesManager } from "../resources/ResourcesManager.js";
 import { StageSubmissionWorkspace } from "./StageSubmissionWorkspace.js";
 import { ScenarioWorkspace } from "./ScenarioWorkspace.js";
+import { isDemoMode } from "../demo/demo-mode.js";
 
 type Notice = (type: "success" | "error" | "info" | "warning", title: string, message?: string) => void;
 const stages: Array<{ type: StageType; label: string }> = [
@@ -33,6 +34,7 @@ export interface ResearchCasesViewProps {
 
 export const ResearchCasesView: React.FC<ResearchCasesViewProps> = ({ onNotify, researcherId, canManage = false }) => {
   const { currentUser } = useAuth();
+  const demoMode = isDemoMode();
   const ownerId = researcherId ?? currentUser?.id;
   const [cases, setCases] = useState<ResearchCaseItem[]>([]);
   const [loading, setLoading] = useState(true);
@@ -77,10 +79,10 @@ export const ResearchCasesView: React.FC<ResearchCasesViewProps> = ({ onNotify, 
   };
 
   if (selectedCase && selectedStage) {
-    const canEdit = !canManage && ["IN_PROGRESS", "REVIEW_REQUIRED", "REVISION_REQUESTED"].includes(selectedStage.status);
+    const canEdit = !demoMode && !canManage && ["IN_PROGRESS", "REVIEW_REQUIRED", "REVISION_REQUESTED"].includes(selectedStage.status);
     const back = () => setSelectedStage(null);
     return <div className="space-y-5">
-      <div className="flex flex-wrap items-center justify-between gap-3"><div><button onClick={back} className="mb-2 flex items-center gap-1 text-xs text-apple-blue hover:underline"><ArrowLeft className="h-3 w-3" />بازگشت به مراحل پرونده</button><h2 className="text-lg font-bold text-slate-100">{stages.find((stage) => stage.type === selectedStage.stageType)?.label}</h2><p className="mt-1 text-xs text-slate-400">{selectedCase.code} · {selectedCase.title} · {statusLabel[selectedStage.status]}</p></div>{canManage && <Button variant="secondary" size="sm" icon={<RotateCcw className="h-3.5 w-3.5" />} onClick={() => setRollbackOpen(true)}>بازگشت به مرحله قبلی</Button>}</div>
+      <div className="flex flex-wrap items-center justify-between gap-3"><div><button onClick={back} className="mb-2 flex items-center gap-1 text-xs text-apple-blue hover:underline"><ArrowLeft className="h-3 w-3" />بازگشت به مراحل پرونده</button><h2 className="text-lg font-bold text-slate-100">{stages.find((stage) => stage.type === selectedStage.stageType)?.label}</h2><p className="mt-1 text-xs text-slate-400">{selectedCase.code} · {selectedCase.title} · {statusLabel[selectedStage.status]}</p></div>{canManage && !demoMode && <Button variant="secondary" size="sm" icon={<RotateCcw className="h-3.5 w-3.5" />} onClick={() => setRollbackOpen(true)}>بازگشت به مرحله قبلی</Button>}</div>
       {selectedStage.stageType === "SOURCES" && <ResourcesManager caseId={selectedCase.id} caseTitle={selectedCase.title} caseVersion={selectedCase.version} canEdit={canEdit} stageStatus={selectedStage.status} onWorkflowChanged={loadCases} onBack={back} onNotify={onNotify} />}
       {(selectedStage.stageType === "EXPLANATION" || selectedStage.stageType === "PRESCRIPTION") && <StageSubmissionWorkspace caseTitle={selectedCase.title} caseVersion={selectedCase.version} stageId={selectedStage.id} stageType={selectedStage.stageType} stageStatus={selectedStage.status} canEdit={canEdit} onWorkflowChanged={loadCases} onNotify={onNotify} />}
       {selectedStage.stageType === "SCENARIO" && <ScenarioWorkspace caseId={selectedCase.id} caseTitle={selectedCase.title} stageStatus={selectedStage.status} canEdit={canEdit} onNotify={onNotify} />}
@@ -105,8 +107,8 @@ export const ResearchCasesView: React.FC<ResearchCasesViewProps> = ({ onNotify, 
           <div className="text-xs font-semibold text-slate-100">{label}</div><div className="mt-2 text-[11px] text-slate-400">{statusLabel[stage.status]}</div><div className="mt-1 text-[10px] text-slate-500">نسخه {stage.version}</div>
         </button>;
       })}</div>
-      <p className="border-t border-white/5 pt-3 text-xs text-slate-400">برای بازکردن هر مرحله روی کارت آن بزنید. مرحله جاری قابل ویرایش است؛ تأیید مدیر علمی، مرحله بعد را باز می‌کند. مراحل تأییدشده برای مشاهده تاریخچه در دسترس‌اند.</p>
-      {canManage && <div className="flex justify-end"><Button variant="secondary" size="sm" icon={<RotateCcw className="h-3.5 w-3.5" />} onClick={() => setRollbackOpen(true)}>بازگشت به مرحله قبلی</Button></div>}
+      <p className="border-t border-white/5 pt-3 text-xs text-slate-400">{demoMode ? "این پرونده‌ی نمونه در نسخه‌ی نمایشی فقط برای مشاهده در دسترس است." : "برای بازکردن هر مرحله روی کارت آن بزنید. مرحله جاری قابل ویرایش است؛ تأیید مدیر علمی، مرحله بعد را باز می‌کند. مراحل تأییدشده برای مشاهده تاریخچه در دسترس‌اند."}</p>
+      {canManage && !demoMode && <div className="flex justify-end"><Button variant="secondary" size="sm" icon={<RotateCcw className="h-3.5 w-3.5" />} onClick={() => setRollbackOpen(true)}>بازگشت به مرحله قبلی</Button></div>}
     </Card>
     <Modal isOpen={rollbackOpen} onClose={() => setRollbackOpen(false)} title="بازگردانی مرحله و بازبینی خروجی‌های وابسته" subtitle="تاریخچه نسخه‌ها حذف نمی‌شود (D-05 / FR-061 / AT-33).">
       <form onSubmit={submitRollback} className="space-y-4 text-right">
@@ -118,11 +120,11 @@ export const ResearchCasesView: React.FC<ResearchCasesViewProps> = ({ onNotify, 
   </div>;
 
   return <div className="space-y-5">
-    <div className="flex flex-wrap items-center justify-between gap-3"><div><h2 className="flex items-center gap-2 text-xl font-bold text-slate-100"><FolderGit2 className="h-5 w-5 text-apple-blue" />پرونده‌های پژوهش</h2><p className="mt-1 text-xs text-slate-400">چرخه منابع، تبیین، تجویز و سناریو · حرکت بین مراحل با تأیید مدیر علمی</p></div>{canManage && ownerId && <Button variant="primary" icon={<Plus className="h-4 w-4" />} onClick={() => setCreateOpen(true)}>ایجاد پرونده برای کارورز</Button>}</div>
+    <div className="flex flex-wrap items-center justify-between gap-3"><div><h2 className="flex items-center gap-2 text-xl font-bold text-slate-100"><FolderGit2 className="h-5 w-5 text-apple-blue" />پرونده‌های پژوهش</h2><p className="mt-1 text-xs text-slate-400">چرخه منابع، تبیین، تجویز و سناریو · حرکت بین مراحل با تأیید مدیر علمی</p></div>{canManage && ownerId && !demoMode && <Button variant="primary" icon={<Plus className="h-4 w-4" />} onClick={() => setCreateOpen(true)}>ایجاد پرونده برای کارورز</Button>}</div>
     {!ownerId && canManage ? <Card variant="glass" className="p-8 text-center text-sm text-slate-400">ابتدا یک کارورز منتسب‌شده را انتخاب کنید.</Card> : loading ? <div className="p-10 text-center text-sm text-slate-400">در حال بارگذاری پرونده‌ها…</div> : cases.length === 0 ? <Card variant="glass" className="p-10 text-center text-sm text-slate-400">برای این کارورز هنوز پرونده‌ای ثبت نشده است.</Card> : <div className="grid gap-3 md:grid-cols-2">{cases.map((item) => <Card key={item.id} variant="glass" className="flex flex-col justify-between gap-4 p-5">
       <div><div className="flex items-center justify-between gap-2"><Badge variant="info" size="sm">{item.code}</Badge><span className="text-xs text-slate-500">v{item.version}</span></div><h3 className="mt-3 font-bold text-slate-100">{item.title}</h3><p className="mt-1 text-xs text-slate-400">{item.subject}</p><div className="mt-4 flex flex-wrap gap-1.5">{item.stages.map((stage) => <span key={stage.id} title={statusLabel[stage.status]} className={`h-2 w-8 rounded-full ${stage.status === "APPROVED" ? "bg-apple-green" : stage.status === "IN_PROGRESS" ? "bg-apple-blue" : stage.status === "SUBMITTED" || stage.status === "REVIEW_REQUIRED" || stage.status === "REVISION_REQUESTED" ? "bg-apple-amber" : "bg-white/10"}`} />)}</div></div>
       <Button variant="secondary" size="sm" onClick={() => { setSelectedCase(item); setSelectedStage(null); }}>مشاهده چهار مرحله</Button>
     </Card>)}</div>}
-    {canManage && ownerId && <CreateResearchCaseModal isOpen={createOpen} onClose={() => setCreateOpen(false)} researcherId={ownerId} onSuccess={() => void loadCases()} onNotify={onNotify} />}
+    {canManage && ownerId && !demoMode && <CreateResearchCaseModal isOpen={createOpen} onClose={() => setCreateOpen(false)} researcherId={ownerId} onSuccess={() => void loadCases()} onNotify={onNotify} />}
   </div>;
 };

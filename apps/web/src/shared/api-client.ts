@@ -1,6 +1,8 @@
 import type { ProblemDetails } from "@tstaff/contracts";
+import { isDemoMode } from "../features/demo/demo-mode.js";
+import { downloadDemo, requestDemo } from "../features/demo/demo-api.js";
 
-const API_BASE_URL = import.meta.env.VITE_API_URL || "http://localhost:4000/api/v1";
+const API_BASE_URL = import.meta.env.VITE_API_URL || (import.meta.env.DEV ? "http://localhost:4000/api/v1" : "/api/v1");
 
 export class ApiError extends Error {
   public problem: ProblemDetails;
@@ -26,6 +28,8 @@ class ApiClient {
   }
 
   public async request<T>(endpoint: string, options: RequestInit = {}): Promise<T> {
+    if (isDemoMode()) return requestDemo<T>(endpoint, options);
+
     const url = `${API_BASE_URL}${endpoint.startsWith("/") ? endpoint : `/${endpoint}`}`;
     const mergedHeaders = {
       ...this.getHeaders(),
@@ -74,6 +78,10 @@ class ApiClient {
   }
 
   public async upload<T>(endpoint: string, file: File, fields: Record<string, string> = {}): Promise<T> {
+    if (isDemoMode()) {
+      throw new Error("بارگذاری فایل در نسخه‌ی نمایشیِ استاتیک فعال نیست.");
+    }
+
     const form = new FormData();
     form.append("file", file);
     for (const [name, value] of Object.entries(fields)) form.append(name, value);
@@ -91,6 +99,8 @@ class ApiClient {
   }
 
   public async download(endpoint: string, filename: string): Promise<void> {
+    if (isDemoMode()) return downloadDemo(endpoint, filename);
+
     const url = `${API_BASE_URL}${endpoint.startsWith("/") ? endpoint : `/${endpoint}`}`;
     const headers = new Headers(this.getHeaders());
     headers.delete("Content-Type");
