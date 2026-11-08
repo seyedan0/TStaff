@@ -44,10 +44,15 @@ jobs:
       - name: Architecture Boundary Check
         run: pnpm test:boundaries
 
-      - name: Generate Prisma Client
-        run: pnpm --filter @tstaff/database prisma:generate
+      - name: Generate Prisma Client & Build Database Package
+        run: |
+          pnpm --filter @tstaff/database prisma:generate
+          pnpm --filter @tstaff/database build
         env:
           DATABASE_URL: postgresql://dummy:dummy@localhost:5432/dummy
+
+      - name: Security & Secret Leakage Audit
+        run: pnpm run security:audit
 
       - name: Run Test Suites
         run: pnpm test

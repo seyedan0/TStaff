@@ -4,7 +4,16 @@
   "private": true,
   "description": "Database schemas, migrations and Prisma client for TStaff",
   "main": "./dist/index.js",
+  "module": "./src/index.ts",
   "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./src/index.ts",
+      "development": "./src/index.ts",
+      "default": "./dist/index.js"
+    }
+  },
   "scripts": {
     "prisma:generate": "prisma generate",
     "prisma:migrate": "prisma migrate dev",
