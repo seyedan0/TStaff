@@ -243,6 +243,16 @@ describe("ProblemDetailsFilter (RFC 7807)", () => {
         expectedStatus: 409,
         expectedCode: "APPLICANT_ALREADY_EXISTS",
       },
+      {
+        error: createDomainError("مطالعه نسخه‌های الزامی کامل نیست", "STUDY_PROGRESS_INCOMPLETE"),
+        expectedStatus: 409,
+        expectedCode: "STUDY_PROGRESS_INCOMPLETE",
+      },
+      {
+        error: createDomainError("هنوز سند الزامی منتشر نشده است", "REQUIRED_DOCUMENTS_NOT_CONFIGURED"),
+        expectedStatus: 409,
+        expectedCode: "REQUIRED_DOCUMENTS_NOT_CONFIGURED",
+      },
     ];
 
     for (const { error, expectedStatus, expectedCode } of testCases) {

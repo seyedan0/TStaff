@@ -94,6 +94,8 @@ model User {
   supervisedResearchers ScientificSupervisorAssignment[] @relation("ScientificSupervisorTrainee")
   supervisedUsers       ScientificSupervisorAssignment[] @relation("ScientificSupervisorManager")
   researchCases         ResearchCase[]
+  uploadedLibraryDocumentVersions LibraryDocumentVersion[] @relation("LibraryDocumentUploader")
+  documentReadProgress DocumentReadProgress[] @relation("DocumentReadUser")
 
   @@map("users")
 }
@@ -134,6 +136,7 @@ model ApprenticeEvaluation {
   status       String   @default("PENDING") // PENDING, APPROVED, REVISION_REQUIRED
   notes        String?  @db.Text
   feedback     String?  @db.Text
+  completedDocuments Json? @map("completed_documents")
   createdAt    DateTime @default(now()) @map("created_at")
   updatedAt    DateTime @updatedAt @map("updated_at")
 
@@ -516,8 +519,64 @@ model StoredObject {
   createdAt      DateTime @default(now()) @map("created_at")
   stageSubmissions StageSubmission[] @relation("StageSubmissionObject")
   interviewReports InterviewReport[] @relation("InterviewReportObject")
+  libraryDocumentVersions LibraryDocumentVersion[] @relation("LibraryDocumentObject")
 
   @@map("stored_objects")
+}
+
+model LibraryDocument {
+  id         String   @id @default(uuid())
+  archivedAt DateTime? @map("archived_at")
+  createdAt  DateTime @default(now()) @map("created_at")
+  updatedAt  DateTime @updatedAt @map("updated_at")
+
+  versions LibraryDocumentVersion[]
+
+  @@map("library_documents")
+}
+
+model LibraryDocumentVersion {
+  id             String                        @id @default(uuid())
+  documentId     String                        @map("document_id")
+  version        Int
+  title          String
+  description    String                        @db.Text
+  category       String
+  isRequired     Boolean                       @default(true) @map("is_required")
+  status         LibraryDocumentVersionStatus  @default(DRAFT)
+  storedObjectId String                        @unique @map("stored_object_id")
+  uploadedById   String                        @map("uploaded_by_id")
+  publishedAt    DateTime?                     @map("published_at")
+  createdAt      DateTime                      @default(now()) @map("created_at")
+
+  document    LibraryDocument        @relation(fields: [documentId], references: [id], onDelete: Restrict)
+  storedObject StoredObject           @relation("LibraryDocumentObject", fields: [storedObjectId], references: [id], onDelete: Restrict)
+  uploader    User                   @relation("LibraryDocumentUploader", fields: [uploadedById], references: [id], onDelete: Restrict)
+  readProgress DocumentReadProgress[]
+
+  @@unique([documentId, version])
+  @@index([documentId, status])
+  @@map("library_document_versions")
+}
+
+model DocumentReadProgress {
+  id        String   @id @default(uuid())
+  userId    String   @map("user_id")
+  versionId String   @map("version_id")
+  readAt    DateTime @default(now()) @map("read_at")
+
+  user    User                 @relation("DocumentReadUser", fields: [userId], references: [id], onDelete: Cascade)
+  version LibraryDocumentVersion @relation(fields: [versionId], references: [id], onDelete: Restrict)
+
+  @@unique([userId, versionId])
+  @@index([userId])
+  @@map("document_read_progress")
+}
+
+enum LibraryDocumentVersionStatus {
+  DRAFT
+  PUBLISHED
+  ARCHIVED
 }
 
 enum FileScanStatus {

@@ -1,4 +1,5 @@
 import { User } from "../../domain/user.entity.js";
+import type { StudyDocumentSnapshot } from "@tstaff/contracts";
 
 export interface StudyEvaluationRecord {
   id: string;
@@ -9,6 +10,7 @@ export interface StudyEvaluationRecord {
   status: string;
   notes?: string | null | undefined;
   feedback?: string | null | undefined;
+  completedDocuments: StudyDocumentSnapshot[];
   createdAt: Date;
   updatedAt: Date;
 }
@@ -37,7 +39,11 @@ export interface UserRepositoryPort {
   revokeSession?(tokenHash: string): Promise<void>;
 
   // Apprentice Study Evaluations
-  createStudyEvaluation(userId: string, notes?: string): Promise<StudyEvaluationRecord>;
+  createStudyEvaluation(
+    userId: string,
+    notes: string | undefined,
+    completedDocuments: StudyDocumentSnapshot[],
+  ): Promise<StudyEvaluationRecord>;
   getPendingStudyEvaluations(): Promise<StudyEvaluationRecord[]>;
   getStudyEvaluationByUserId(userId: string): Promise<StudyEvaluationRecord | null>;
   decideStudyEvaluation(

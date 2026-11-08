@@ -121,6 +121,23 @@ export class FilesService {
     return { stream: this.storage.open(stored.objectKey), name: stored.originalName, mimeType: stored.mimeType };
   }
 
+  /**
+   * Returns a scanned file after the owning feature has authorized its parent record.
+   * DocumentsService calls this only after checking that the file belongs to the
+   * current published library version; the generic file route keeps its case ACL.
+   */
+  async getReadyFileForLibrary(id: string) {
+    const stored = await this.getStoredObject(id);
+    if (stored.scanStatus !== "AVAILABLE" || !stored.isVirusScanned) {
+      throw new FileAccessDeniedError("فایل هنوز تأیید امنیتی نشده است");
+    }
+    return {
+      stream: this.storage.open(stored.objectKey),
+      name: stored.originalName,
+      mimeType: stored.mimeType,
+    };
+  }
+
   private async getStoredObject(id: string): Promise<StoredObjectRecord> {
     const stored = await this.objects.findById(id);
     if (!stored) throw new StoredObjectNotFoundError(id);

@@ -1,5 +1,7 @@
 import { Injectable } from "@nestjs/common";
 import { PrismaService } from "@tstaff/database";
+import type { Prisma } from "@tstaff/database";
+import { StudyDocumentSnapshotSchema, type StudyDocumentSnapshot } from "@tstaff/contracts";
 import { User, UserStageType } from "../domain/user.entity.js";
 import type {
   UserRepositoryPort,
@@ -7,6 +9,29 @@ import type {
   SupportTicketRecord,
 } from "../application/ports/user.repository.port.js";
 import { extractSystemRoles } from "../domain/system-roles.js";
+
+type StudyEvaluationWithUser = Prisma.ApprenticeEvaluationGetPayload<{
+  include: { user: { include: { profile: true } } };
+}>;
+
+function mapStudyEvaluation(raw: StudyEvaluationWithUser): StudyEvaluationRecord {
+  const parsedDocuments = StudyDocumentSnapshotSchema.array().safeParse(raw.completedDocuments);
+  return {
+    id: raw.id,
+    userId: raw.userId,
+    userFullName: raw.user.profile
+      ? `${raw.user.profile.firstName} ${raw.user.profile.lastName}`.trim()
+      : undefined,
+    userPhone: raw.user.phoneNumber,
+    supervisorId: raw.supervisorId,
+    status: raw.status,
+    notes: raw.notes,
+    feedback: raw.feedback,
+    completedDocuments: parsedDocuments.success ? parsedDocuments.data : [],
+    createdAt: raw.createdAt,
+    updatedAt: raw.updatedAt,
+  };
+}
 
 @Injectable()
 export class PrismaUserRepository implements UserRepositoryPort {
@@ -162,12 +187,17 @@ export class PrismaUserRepository implements UserRepositoryPort {
     }
   }
 
-  async createStudyEvaluation(userId: string, notes?: string): Promise<StudyEvaluationRecord> {
+  async createStudyEvaluation(
+    userId: string,
+    notes: string | undefined,
+    completedDocuments: StudyDocumentSnapshot[],
+  ): Promise<StudyEvaluationRecord> {
     const raw = await this.prisma.apprenticeEvaluation.create({
       data: {
         userId,
         status: "PENDING",
         notes: notes ?? null,
+        completedDocuments: completedDocuments as Prisma.InputJsonValue,
       },
       include: {
         user: {
@@ -176,22 +206,7 @@ export class PrismaUserRepository implements UserRepositoryPort {
       },
     });
 
-    const userFullName = raw.user.profile
-      ? `${raw.user.profile.firstName} ${raw.user.profile.lastName}`.trim()
-      : undefined;
-
-    return {
-      id: raw.id,
-      userId: raw.userId,
-      userFullName,
-      userPhone: raw.user.phoneNumber,
-      supervisorId: raw.supervisorId,
-      status: raw.status,
-      notes: raw.notes,
-      feedback: raw.feedback,
-      createdAt: raw.createdAt,
-      updatedAt: raw.updatedAt,
-    };
+    return mapStudyEvaluation(raw);
   }
 
   async getPendingStudyEvaluations(): Promise<StudyEvaluationRecord[]> {
@@ -205,20 +220,7 @@ export class PrismaUserRepository implements UserRepositoryPort {
       orderBy: { createdAt: "desc" },
     });
 
-    return list.map((raw) => ({
-      id: raw.id,
-      userId: raw.userId,
-      userFullName: raw.user.profile
-        ? `${raw.user.profile.firstName} ${raw.user.profile.lastName}`.trim()
-        : undefined,
-      userPhone: raw.user.phoneNumber,
-      supervisorId: raw.supervisorId,
-      status: raw.status,
-      notes: raw.notes,
-      feedback: raw.feedback,
-      createdAt: raw.createdAt,
-      updatedAt: raw.updatedAt,
-    }));
+    return list.map(mapStudyEvaluation);
   }
 
   async getStudyEvaluationByUserId(userId: string): Promise<StudyEvaluationRecord | null> {
@@ -233,20 +235,7 @@ export class PrismaUserRepository implements UserRepositoryPort {
     });
     if (!raw) return null;
 
-    return {
-      id: raw.id,
-      userId: raw.userId,
-      userFullName: raw.user.profile
-        ? `${raw.user.profile.firstName} ${raw.user.profile.lastName}`.trim()
-        : undefined,
-      userPhone: raw.user.phoneNumber,
-      supervisorId: raw.supervisorId,
-      status: raw.status,
-      notes: raw.notes,
-      feedback: raw.feedback,
-      createdAt: raw.createdAt,
-      updatedAt: raw.updatedAt,
-    };
+    return mapStudyEvaluation(raw);
   }
 
   async decideStudyEvaluation(
@@ -269,20 +258,7 @@ export class PrismaUserRepository implements UserRepositoryPort {
       },
     });
 
-    return {
-      id: raw.id,
-      userId: raw.userId,
-      userFullName: raw.user.profile
-        ? `${raw.user.profile.firstName} ${raw.user.profile.lastName}`.trim()
-        : undefined,
-      userPhone: raw.user.phoneNumber,
-      supervisorId: raw.supervisorId,
-      status: raw.status,
-      notes: raw.notes,
-      feedback: raw.feedback,
-      createdAt: raw.createdAt,
-      updatedAt: raw.updatedAt,
-    };
+    return mapStudyEvaluation(raw);
   }
 
   async createSupportTicket(

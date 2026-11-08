@@ -1,12 +1,14 @@
-import { describe, it, expect, beforeEach } from "vitest";
+import { describe, it, expect, beforeEach, vi } from "vitest";
 import { IdentityService } from "./identity.service.js";
 import { User } from "../domain/user.entity.js";
 import {
   InvalidCredentialsError,
   UserSuspendedError,
+  UserAlreadyPromotedError,
 } from "../domain/user-errors.js";
 import type { UserRepositoryPort } from "./ports/user.repository.port.js";
 import type { PasswordHasherPort } from "./ports/password-hasher.port.js";
+import type { DocumentsService } from "../../documents/application/documents.service.js";
 
 class InMemoryUserRepository implements UserRepositoryPort {
   private users = new Map<string, User>();
@@ -47,8 +49,8 @@ class InMemoryUserRepository implements UserRepositoryPort {
     this.users.set(user.id, user);
   }
 
-  async createStudyEvaluation(userId: string, notes?: string): Promise<any> {
-    return { id: "eval-1", userId, status: "PENDING", notes, createdAt: new Date(), updatedAt: new Date() };
+  async createStudyEvaluation(userId: string, notes?: string, completedDocuments: any[] = []): Promise<any> {
+    return { id: "eval-1", userId, status: "PENDING", notes, completedDocuments, createdAt: new Date(), updatedAt: new Date() };
   }
 
   async getPendingStudyEvaluations(): Promise<any[]> {
@@ -90,11 +92,90 @@ describe("IdentityService (FR-001, FR-003, FR-004, AT-01, AT-03)", () => {
   let userRepo: InMemoryUserRepository;
   let hasher: FakePasswordHasher;
   let identityService: IdentityService;
+  let documentsService: Pick<DocumentsService, "getStudySnapshot">;
 
   beforeEach(() => {
     userRepo = new InMemoryUserRepository();
     hasher = new FakePasswordHasher();
-    identityService = new IdentityService(userRepo, hasher);
+    documentsService = {
+      getStudySnapshot: async () => ({
+        requiredCount: 1,
+        readRequiredCount: 1,
+        completedDocuments: [{
+          documentId: "123e4567-e89b-12d3-a456-426614174001",
+          versionId: "123e4567-e89b-12d3-a456-426614174002",
+          title: "شیوه‌نامه منابع",
+          category: "آموزش",
+          version: 1,
+          isRequired: true,
+          readAt: new Date().toISOString(),
+        }],
+      }),
+    };
+    identityService = new IdentityService(userRepo, hasher, undefined, documentsService as DocumentsService);
+  });
+
+  it("stores the server-verified document version snapshot with an apprentice evaluation (FR-004 / AT-37)", async () => {
+    const user = await identityService.createUserFromApprovedApplicant({
+      id: "app-study-1",
+      fullName: "کارآموز آزمون",
+      phoneNumber: "09123334456",
+    });
+
+    const evaluation = await identityService.requestStudyEvaluation(user.id, "درخواست ارزیابی");
+
+    expect(evaluation.completedDocuments).toEqual(expect.arrayContaining([
+      expect.objectContaining({ versionId: "123e4567-e89b-12d3-a456-426614174002", version: 1 }),
+    ]));
+  });
+
+  it("does not accept evaluation requests after the apprentice has been promoted (FR-004 / AT-37)", async () => {
+    const user = await identityService.createUserFromApprovedApplicant({
+      id: "app-study-2",
+      fullName: "کارورز آزمون",
+      phoneNumber: "09123334457",
+    });
+    await userRepo.save(user.promoteToIntern());
+
+    await expect(identityService.requestStudyEvaluation(user.id))
+      .rejects.toThrow(UserAlreadyPromotedError);
+  });
+
+  it("shows study evaluations only to assigned supervisors and blocks unrelated decisions (FR-004 / AT-37)", async () => {
+    const user = await identityService.createUserFromApprovedApplicant({
+      id: "app-study-3",
+      fullName: "کارآموز منتسب",
+      phoneNumber: "09123334458",
+    });
+    const assignments = {
+      getUsersForSupervisor: vi.fn(async (supervisorId: string) =>
+        supervisorId === "assigned-supervisor" ? [{ id: user.id }] : []),
+      isSupervisorAssignedToUser: vi.fn(async (userId: string, supervisorId: string) =>
+        userId === user.id && supervisorId === "assigned-supervisor"),
+    };
+    const evaluation = {
+      id: "eval-assigned",
+      userId: user.id,
+      status: "PENDING",
+      notes: "",
+      completedDocuments: [],
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    };
+    vi.spyOn(userRepo, "getPendingStudyEvaluations").mockResolvedValue([evaluation]);
+    const assignedService = new IdentityService(
+      userRepo,
+      hasher,
+      assignments as never,
+      documentsService as DocumentsService,
+    );
+
+    await expect(assignedService.getPendingStudyEvaluations("assigned-supervisor"))
+      .resolves.toEqual([evaluation]);
+    await expect(assignedService.getPendingStudyEvaluations("unrelated-supervisor"))
+      .resolves.toEqual([]);
+    await expect(assignedService.decideStudyEvaluation("eval-assigned", "unrelated-supervisor", "APPROVED", ""))
+      .rejects.toThrow("این کارآموز به شما منتسب نشده است");
   });
 
   it("creates user with initial stage APPRENTICE only after scientific approval (FR-003)", async () => {

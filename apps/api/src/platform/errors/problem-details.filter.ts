@@ -144,6 +144,11 @@ export class ProblemDetailsFilter implements ExceptionFilter {
       case "COLLABORATOR_SUPERVISOR_ALREADY_ASSIGNED":
       case "SUPERVISOR_CAPACITY_EXCEEDED":
       case "INTERVIEW_ALREADY_EXISTS_FOR_RESOURCE":
+      case "DOCUMENT_VERSION_NOT_CURRENT":
+      case "DOCUMENT_VERSION_NOT_PUBLISHABLE":
+      case "DOCUMENT_ALREADY_ARCHIVED":
+      case "REQUIRED_DOCUMENTS_NOT_CONFIGURED":
+      case "STUDY_PROGRESS_INCOMPLETE":
       case "STALE_REVISION":
       case "PREREQUISITE_REVIEW_REQUIRED":
       case "SCENARIO_PREREQUISITE_NOT_MET":
@@ -152,6 +157,7 @@ export class ProblemDetailsFilter implements ExceptionFilter {
 
       case "INVALID_AGE":
       case "INCOMPLETE_SOURCES_STAGE":
+      case "DOCUMENT_FILE_NOT_READY":
       case "INVALID_CONVERSATION_PARTICIPANTS":
       case "BAD_REQUEST":
       case "VALIDATION_ERROR":

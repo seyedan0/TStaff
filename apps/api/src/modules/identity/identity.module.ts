@@ -9,9 +9,10 @@ import {
 import { PrismaUserRepository } from "./infrastructure/prisma-user.repository.js";
 import { CryptoPasswordHasher } from "./infrastructure/crypto-password-hasher.js";
 import { AssignmentsModule } from "../assignments/assignments.module.js";
+import { DocumentsModule } from "../documents/documents.module.js";
 
 @Module({
-  imports: [AssignmentsModule],
+  imports: [AssignmentsModule, DocumentsModule],
   controllers: [AuthController, UsersController],
   providers: [
     IdentityService,

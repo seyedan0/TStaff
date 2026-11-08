@@ -73,9 +73,10 @@ class ApiClient {
     });
   }
 
-  public async upload<T>(endpoint: string, file: File): Promise<T> {
+  public async upload<T>(endpoint: string, file: File, fields: Record<string, string> = {}): Promise<T> {
     const form = new FormData();
     form.append("file", file);
+    for (const [name, value] of Object.entries(fields)) form.append(name, value);
     const url = `${API_BASE_URL}${endpoint.startsWith("/") ? endpoint : `/${endpoint}`}`;
     const headers = new Headers(this.getHeaders());
     headers.delete("Content-Type");

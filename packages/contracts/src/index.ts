@@ -151,10 +151,86 @@ export const CreateManagerDtoSchema = z.object({
 export type CreateManagerDto = z.infer<typeof CreateManagerDtoSchema>;
 
 export const RequestStudyEvaluationDtoSchema = z.object({
-  completedGuidelines: z.array(z.string()).min(1, "حداقل یک عنوان شیوه‌نامه باید علامت خورده باشد"),
-  notes: z.string().optional(),
-});
+  notes: z.string().max(2000).optional(),
+}).strict();
 export type RequestStudyEvaluationDto = z.infer<typeof RequestStudyEvaluationDtoSchema>;
+
+export const LibraryDocumentVersionStatusSchema = z.enum(["DRAFT", "PUBLISHED", "ARCHIVED"]);
+export type LibraryDocumentVersionStatus = z.infer<typeof LibraryDocumentVersionStatusSchema>;
+
+export const CreateLibraryDocumentDtoSchema = z.object({
+  title: z.string().trim().min(1).max(200),
+  description: z.string().trim().max(2000),
+  category: z.string().trim().min(1).max(100),
+}).strict();
+export type CreateLibraryDocumentDto = z.infer<typeof CreateLibraryDocumentDtoSchema>;
+
+export const CreateLibraryDocumentVersionDtoSchema = CreateLibraryDocumentDtoSchema;
+export type CreateLibraryDocumentVersionDto = CreateLibraryDocumentDto;
+
+export const PublishLibraryDocumentVersionDtoSchema = z.object({
+  isRequired: z.boolean(),
+}).strict();
+export type PublishLibraryDocumentVersionDto = z.infer<typeof PublishLibraryDocumentVersionDtoSchema>;
+
+export const LibraryDocumentVersionDtoSchema = z.object({
+  id: z.string().uuid(),
+  version: z.number().int().positive(),
+  title: z.string(),
+  description: z.string(),
+  category: z.string(),
+  isRequired: z.boolean(),
+  status: LibraryDocumentVersionStatusSchema,
+  publishedAt: z.string().datetime().nullable(),
+  isRead: z.boolean().optional(),
+  fileName: z.string(),
+  scanStatus: z.enum(["QUARANTINED", "AVAILABLE", "REJECTED"]),
+});
+export type LibraryDocumentVersionDto = z.infer<typeof LibraryDocumentVersionDtoSchema>;
+
+export const ManagedLibraryDocumentVersionDtoSchema = LibraryDocumentVersionDtoSchema.extend({
+  uploadedById: z.string().uuid(),
+  storedObjectId: z.string().uuid(),
+});
+export type ManagedLibraryDocumentVersionDto = z.infer<typeof ManagedLibraryDocumentVersionDtoSchema>;
+
+export const PublishedLibraryDocumentDtoSchema = z.object({
+  id: z.string().uuid(),
+  currentVersion: LibraryDocumentVersionDtoSchema,
+});
+export type PublishedLibraryDocumentDto = z.infer<typeof PublishedLibraryDocumentDtoSchema>;
+
+export const LibraryDocumentDtoSchema = z.object({
+  id: z.string().uuid(),
+  archivedAt: z.string().datetime().nullable(),
+  createdAt: z.string().datetime(),
+  currentVersion: ManagedLibraryDocumentVersionDtoSchema.nullable(),
+  versions: z.array(ManagedLibraryDocumentVersionDtoSchema),
+});
+export type LibraryDocumentDto = z.infer<typeof LibraryDocumentDtoSchema>;
+
+export const StudyDocumentSnapshotSchema = z.object({
+  documentId: z.string().uuid(),
+  versionId: z.string().uuid(),
+  title: z.string(),
+  category: z.string(),
+  version: z.number().int().positive(),
+  isRequired: z.boolean(),
+  readAt: z.string().datetime(),
+});
+export type StudyDocumentSnapshot = z.infer<typeof StudyDocumentSnapshotSchema>;
+
+export const StudyEvaluationStatusSchema = z.object({
+  id: z.string().uuid(),
+  userId: z.string().uuid(),
+  status: z.enum(["PENDING", "APPROVED", "REVISION_REQUIRED"]),
+  notes: z.string().nullable().optional(),
+  feedback: z.string().nullable().optional(),
+  completedDocuments: z.array(StudyDocumentSnapshotSchema),
+  createdAt: z.string().datetime(),
+  updatedAt: z.string().datetime(),
+});
+export type StudyEvaluationStatus = z.infer<typeof StudyEvaluationStatusSchema>;
 
 export const EvaluateStudyDtoSchema = z.object({
   decision: z.enum(["APPROVED", "REVISION_REQUIRED"]),

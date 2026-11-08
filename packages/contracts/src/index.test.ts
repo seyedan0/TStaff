@@ -8,9 +8,37 @@ import {
   ReviewApplicantDecisionDtoSchema,
   LoginDtoSchema,
   PromoteToInternDtoSchema,
+  RequestStudyEvaluationDtoSchema,
+  CreateLibraryDocumentDtoSchema,
+  PublishLibraryDocumentVersionDtoSchema,
 } from "./index.js";
 
 describe("Contracts & Validation Schemas (M1 & M2 Baseline)", () => {
+  describe("Library documents and study evaluation (FR-006, FR-007, AT-35–AT-37)", () => {
+    it("accepts an evaluation request with notes only", () => {
+      expect(RequestStudyEvaluationDtoSchema.parse({ notes: "مطالعه انجام شد" }))
+        .toEqual({ notes: "مطالعه انجام شد" });
+    });
+
+    it("does not accept client-asserted completed document names", () => {
+      expect(() => RequestStudyEvaluationDtoSchema.parse({
+        completedGuidelines: ["عنوان ساختگی"],
+      })).toThrow();
+    });
+
+    it("validates library version metadata separately from the required-at-publish choice", () => {
+      const value = {
+        title: "شیوه‌نامه منابع",
+        description: "راهنمای مرحله منابع",
+        category: "آموزش",
+      };
+      expect(CreateLibraryDocumentDtoSchema.parse(value)).toEqual(value);
+      expect(() => CreateLibraryDocumentDtoSchema.parse({ ...value, required: "true" })).toThrow();
+      expect(PublishLibraryDocumentVersionDtoSchema.parse({ isRequired: true })).toEqual({ isRequired: true });
+      expect(() => PublishLibraryDocumentVersionDtoSchema.parse({ isRequired: "true" })).toThrow();
+    });
+  });
+
   describe("IntegerAgeSchema (D-01 / FR-056)", () => {
     it("accepts valid positive integer ages", () => {
       expect(IntegerAgeSchema.parse(25)).toBe(25);

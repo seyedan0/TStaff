@@ -9,6 +9,7 @@ import {
   UserCheck,
   RefreshCw,
   Sparkles,
+  BookOpen,
 } from "lucide-react";
 import { ScientificReviewsView } from "../../features/reviews/ScientificReviewsView.js";
 import { DirectChatView } from "../../features/messaging/DirectChatView.js";
@@ -18,6 +19,8 @@ import { Badge } from "../../shared/ui/Badge.js";
 import { Modal } from "../../shared/ui/Modal.js";
 import { apiClient } from "../../shared/api-client.js";
 import { ResearchCasesView } from "../../features/research/ResearchCasesView.js";
+import { LibraryManagementView } from "../../features/documents/LibraryManagementView.js";
+import type { StudyDocumentSnapshot } from "@tstaff/contracts";
 
 interface ScientificSupervisorPortalProps {
   onNotify: (
@@ -33,6 +36,7 @@ interface PendingEvaluationItem {
   status: "PENDING" | "APPROVED" | "REVISION_REQUIRED";
   notes?: string;
   feedback?: string;
+  completedDocuments: StudyDocumentSnapshot[];
   createdAt: string;
   userFullName?: string;
   userPhone?: string;
@@ -48,7 +52,7 @@ interface AssignedTrainee { id: string; fullName: string; phoneNumber: string; s
 export const ScientificSupervisorPortal: React.FC<
   ScientificSupervisorPortalProps
 > = ({ onNotify }) => {
-  const [activeTab, setActiveTab] = useState<"trainees" | "reviews" | "evaluations" | "chat">("trainees");
+  const [activeTab, setActiveTab] = useState<"trainees" | "reviews" | "evaluations" | "library" | "chat">("trainees");
   const [trainees, setTrainees] = useState<AssignedTrainee[]>([]);
   const [selectedTrainee, setSelectedTrainee] = useState<AssignedTrainee | null>(null);
   const [isLoadingTrainees, setIsLoadingTrainees] = useState(false);
@@ -169,6 +173,13 @@ export const ScientificSupervisorPortal: React.FC<
           </button>
 
           <button
+            onClick={() => setActiveTab("library")}
+            className={`flex items-center gap-2 px-4 py-2 rounded-apple-md text-xs font-semibold whitespace-nowrap transition-all ${activeTab === "library" ? "bg-apple-blue text-white shadow-apple-glow" : "text-slate-400 hover:text-slate-200"}`}
+          >
+            <BookOpen className="w-4 h-4" />کتابخانه منابع
+          </button>
+
+          <button
             onClick={() => setActiveTab("chat")}
             className={`flex items-center gap-2 px-4 py-2 rounded-apple-md text-xs font-semibold whitespace-nowrap transition-all ${
               activeTab === "chat"
@@ -272,8 +283,17 @@ export const ScientificSupervisorPortal: React.FC<
                             تاریخ ثبت: {new Date(ev.createdAt).toLocaleDateString("fa-IR")}
                           </span>
                           <span>•</span>
-                          <span>وضعیت: اتمام مطالعه ۶ شیوه‌نامه الزامی</span>
+                          <span>{ev.completedDocuments.length} نسخه در snapshot مطالعه ثبت شده است</span>
                         </div>
+                        {ev.completedDocuments.length > 0 && (
+                          <ul className="flex flex-wrap gap-2 text-[11px] text-slate-400">
+                            {ev.completedDocuments.map((item) => (
+                              <li key={item.versionId} className="rounded-apple-sm border border-white/10 px-2 py-1">
+                                {item.title} · نسخه {item.version} · {item.isRequired ? "الزامی" : "مرجع"}
+                              </li>
+                            ))}
+                          </ul>
+                        )}
                       </div>
 
                       <div className="flex items-center gap-2 self-end md:self-center">
@@ -299,6 +319,7 @@ export const ScientificSupervisorPortal: React.FC<
 
         {/* Tab 3: Direct Messaging */}
         {activeTab === "chat" && <DirectChatView onNotify={onNotify} />}
+        {activeTab === "library" && <LibraryManagementView onNotify={onNotify} />}
       </div>
 
       {/* Modal: Evaluation Decision */}
@@ -326,6 +347,20 @@ export const ScientificSupervisorPortal: React.FC<
                 <p className="mt-1 text-slate-200 leading-relaxed bg-black/20 p-2 rounded">
                   {selectedEvaluation.notes || "توضیحاتی ثبت نشده است."}
                 </p>
+              </div>
+              <div>
+                <strong>نسخه‌های مطالعه‌شده هنگام ثبت درخواست: </strong>
+                {selectedEvaluation.completedDocuments.length === 0 ? (
+                  <p className="mt-1 text-slate-400">snapshot مطالعه خالی است.</p>
+                ) : (
+                  <ul className="mt-1 space-y-1 text-slate-300">
+                    {selectedEvaluation.completedDocuments.map((item) => (
+                      <li key={item.versionId}>
+                        {item.title} · نسخه {item.version} · {item.isRequired ? "الزامی" : "مرجع"}
+                      </li>
+                    ))}
+                  </ul>
+                )}
               </div>
             </div>
 

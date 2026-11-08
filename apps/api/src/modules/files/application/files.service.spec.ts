@@ -86,6 +86,17 @@ describe("FilesService (FR-016, FR-058, AT-05, AT-30)", () => {
       .rejects.toMatchObject({ code: "FORBIDDEN" });
   });
 
+  it("exposes only scanned content to the documents module's publication policy", async () => {
+    const uploaded = await service.upload(pdf(), "supervisor-1");
+    await expect(service.getReadyFileForLibrary(uploaded.id))
+      .resolves.toMatchObject({ name: "research-report.pdf", mimeType: "application/pdf" });
+
+    scanResult = "UNAVAILABLE";
+    const quarantined = await service.upload(pdf(), "supervisor-1");
+    await expect(service.getReadyFileForLibrary(quarantined.id))
+      .rejects.toMatchObject({ code: "FORBIDDEN" });
+  });
+
   it("rejects files above the configured upload limit", async () => {
     process.env.FILE_MAX_BYTES = "5";
     await expect(service.upload(pdf(), "trainee-1")).rejects.toMatchObject({ code: "FILE_TOO_LARGE" });

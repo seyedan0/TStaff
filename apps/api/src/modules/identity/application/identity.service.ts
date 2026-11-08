@@ -6,10 +6,12 @@ import {
   UserNotFoundError,
   InvalidCredentialsError,
   UserSuspendedError,
+  UserAlreadyPromotedError,
 } from "../domain/user-errors.js";
 import type { UserRepositoryPort } from "./ports/user.repository.port.js";
 import type { PasswordHasherPort } from "./ports/password-hasher.port.js";
 import { AssignmentsService } from "../../assignments/application/assignments.service.js";
+import { DocumentsService } from "../../documents/application/documents.service.js";
 
 export const USER_REPOSITORY = Symbol("USER_REPOSITORY");
 export const PASSWORD_HASHER = Symbol("PASSWORD_HASHER");
@@ -23,6 +25,8 @@ export class IdentityService {
     private readonly passwordHasher: PasswordHasherPort,
     @Optional() @Inject(AssignmentsService)
     private readonly assignmentsService?: AssignmentsService,
+    @Optional() @Inject(DocumentsService)
+    private readonly documentsService?: DocumentsService,
   ) {}
 
   /**
@@ -182,7 +186,10 @@ export class IdentityService {
     if (!user) {
       throw new UserNotFoundError(userId);
     }
-    return this.userRepo.createStudyEvaluation(userId, notes);
+    if (user.stage !== "APPRENTICE") throw new UserAlreadyPromotedError(userId);
+    if (!this.documentsService) throw new Error("DocumentsService is required for study evaluation");
+    const studySnapshot = await this.documentsService.getStudySnapshot(userId);
+    return this.userRepo.createStudyEvaluation(userId, notes, studySnapshot.completedDocuments);
   }
 
   async getPendingStudyEvaluations(supervisorId: string) {

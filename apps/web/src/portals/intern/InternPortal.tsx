@@ -2,6 +2,7 @@ import React, { useState } from "react";
 import { HelpCircle, Send } from "lucide-react";
 import { ResearchCasesView } from "../../features/research/ResearchCasesView.js";
 import { DirectChatView } from "../../features/messaging/DirectChatView.js";
+import { LibraryDocumentsView } from "../../features/documents/LibraryDocumentsView.js";
 import { Button } from "../../shared/ui/Button.js";
 import { Modal } from "../../shared/ui/Modal.js";
 import { apiClient } from "../../shared/api-client.js";
@@ -73,6 +74,7 @@ export const InternPortal: React.FC<InternPortalProps> = ({ onNotify }) => {
       {/* Active user portal tab */}
       <div className="animate-fade-in">
         {activeTab === "researcher" && <ResearchCasesView onNotify={onNotify} />}
+        {activeTab === "resources" && <LibraryDocumentsView isApprentice={false} onNotify={onNotify} />}
         {activeTab === "chat" && <DirectChatView onNotify={onNotify} />}
       </div>
 
