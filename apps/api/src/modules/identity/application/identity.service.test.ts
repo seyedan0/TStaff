@@ -30,6 +30,19 @@ class InMemoryUserRepository implements UserRepositoryPort {
     return null;
   }
 
+  async findAllManagers(): Promise<User[]> {
+    return Array.from(this.users.values()).filter(
+      (u) =>
+        u.role &&
+        [
+          "TRACKING_DIRECTOR",
+          "PROVINCIAL_DIRECTOR",
+          "MAIN_SUPERVISOR",
+          "COLLABORATOR_SUPERVISOR",
+        ].includes(u.role),
+    );
+  }
+
   async save(user: User): Promise<void> {
     this.users.set(user.id, user);
   }

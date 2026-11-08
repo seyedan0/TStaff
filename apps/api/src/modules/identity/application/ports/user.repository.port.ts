@@ -4,5 +4,6 @@ export interface UserRepositoryPort {
   findById(id: string): Promise<User | null>;
   findByPhoneNumber(phoneNumber: string): Promise<User | null>;
   findByApplicantId(applicantId: string): Promise<User | null>;
+  findAllManagers(): Promise<User[]>;
   save(user: User): Promise<void>;
 }

@@ -5,7 +5,7 @@
   "description": "TStaff Background Worker (Transactional Outbox & Async Jobs)",
   "main": "dist/main.js",
   "scripts": {
-    "dev": "ts-node src/main.ts",
+    "dev": "tsc && node dist/main.js",
     "build": "tsc",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",

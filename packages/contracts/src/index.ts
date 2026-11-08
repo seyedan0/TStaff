@@ -117,6 +117,26 @@ export const PromoteToInternDtoSchema = z.object({
 });
 export type PromoteToInternDto = z.infer<typeof PromoteToInternDtoSchema>;
 
+export const ManagerRoleSchema = z.enum([
+  "TRACKING_DIRECTOR",
+  "PROVINCIAL_DIRECTOR",
+  "MAIN_SUPERVISOR",
+  "COLLABORATOR_SUPERVISOR",
+]);
+export type ManagerRole = z.infer<typeof ManagerRoleSchema>;
+
+export const CreateManagerDtoSchema = z.object({
+  fullName: z.string().min(3, "نام و نام خانوادگی مدیر باید حداقل ۳ کاراکتر باشد"),
+  phoneNumber: z
+    .string()
+    .regex(/^09\d{9}$/, "شماره همراه باید با 09 آغاز شده و ۱۱ رقم باشد"),
+  password: z.string().min(6, "رمز عبور اولیه باید حداقل ۶ کاراکتر باشد").optional(),
+  role: ManagerRoleSchema,
+  provinceId: z.string().optional(),
+  notes: z.string().optional(),
+});
+export type CreateManagerDto = z.infer<typeof CreateManagerDtoSchema>;
+
 /**
  * ----------------------------------------------------------------------------
  * Milestone 3: Research, Assignments & Scientific Resources

@@ -11,6 +11,8 @@ export interface UserProps {
   stage: UserStageType;
   isActive: boolean;
   isMfaEnabled: boolean;
+  fullName?: string | null | undefined;
+  role?: string | null | undefined;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -71,6 +73,14 @@ export class User {
 
   public get isActive(): boolean {
     return this.props.isActive;
+  }
+
+  public get fullName(): string | null | undefined {
+    return this.props.fullName;
+  }
+
+  public get role(): string | null | undefined {
+    return this.props.role;
   }
 
   public get isMfaEnabled(): boolean {

@@ -14,6 +14,7 @@ import {
   PromoteToInternDtoSchema,
   SuspendUserDtoSchema,
   ReactivateUserDtoSchema,
+  CreateManagerDtoSchema,
 } from "@tstaff/contracts";
 import { IdentityService } from "../application/identity.service.js";
 import {
@@ -34,6 +35,32 @@ export class UsersController {
     @Inject(IdentityService)
     private readonly identityService: IdentityService,
   ) {}
+
+  @Post("managers")
+  @RequireStage("INTERN")
+  @HttpCode(HttpStatus.CREATED)
+  @ApiOperation({
+    summary: "ایجاد و انتصاب مدیر جدید توسط مدیر پیگیری",
+  })
+  @ApiResponse({
+    status: 201,
+    description: "مدیر جدید با موفقیت ایجاد و نقش وی منتسب شد",
+  })
+  async createManager(@Body() body: unknown) {
+    const validated = CreateManagerDtoSchema.parse(body);
+    const user = await this.identityService.createManager(validated);
+    return user.toJSON();
+  }
+
+  @Get("managers")
+  @RequireStage("INTERN")
+  @ApiOperation({
+    summary: "دریافت فهرست کلیه مدیران سامانه",
+  })
+  async getManagers() {
+    const managers = await this.identityService.getManagers();
+    return managers.map((m) => m.toJSON());
+  }
 
   @Post(":id/promote-to-intern")
   @RequireStage("INTERN")

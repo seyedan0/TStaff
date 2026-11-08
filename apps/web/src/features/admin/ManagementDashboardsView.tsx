@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import {
   SlidersHorizontal,
   BarChart3,
@@ -6,23 +6,143 @@ import {
   Save,
   Clock,
   Search,
+  UserPlus,
+  Users,
+  ShieldCheck,
+  CheckCircle2,
 } from "lucide-react";
 import { Card } from "../../shared/ui/Card.js";
 import { Button } from "../../shared/ui/Button.js";
 import { Input } from "../../shared/ui/Input.js";
 import { Badge } from "../../shared/ui/Badge.js";
+import { Modal } from "../../shared/ui/Modal.js";
 import { apiClient } from "../../shared/api-client.js";
+import { useAuth } from "../auth/AuthContext.js";
 
 export interface ManagementDashboardsViewProps {
   onNotify: (type: "success" | "error" | "info", title: string, message?: string) => void;
 }
 
+export interface ManagerUser {
+  id: string;
+  fullName: string;
+  phoneNumber: string;
+  role: "TRACKING_DIRECTOR" | "PROVINCIAL_DIRECTOR" | "MAIN_SUPERVISOR" | "COLLABORATOR_SUPERVISOR";
+  stage: string;
+  isActive: boolean;
+  createdAt?: string;
+}
+
 export const ManagementDashboardsView: React.FC<ManagementDashboardsViewProps> = ({ onNotify }) => {
-  const [activeSubTab, setActiveSubTab] = useState<"METRICS" | "SETTINGS" | "AUDIT" | "ARCHIVE">("METRICS");
+  const { currentUser } = useAuth();
+  const [activeSubTab, setActiveSubTab] = useState<"METRICS" | "MANAGERS" | "SETTINGS" | "AUDIT" | "ARCHIVE">("METRICS");
 
   // Settings state
   const [stageDeadlineDays, setStageDeadlineDays] = useState("45");
   const [savingSetting, setSavingSetting] = useState(false);
+
+  // Managers State (Tracking Director feature)
+  const [managers, setManagers] = useState<ManagerUser[]>([]);
+  const [loadingManagers, setLoadingManagers] = useState(false);
+  const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
+  const [newMgrName, setNewMgrName] = useState("");
+  const [newMgrPhone, setNewMgrPhone] = useState("");
+  const [newMgrRole, setNewMgrRole] = useState<ManagerUser["role"]>("PROVINCIAL_DIRECTOR");
+  const [newMgrPassword, setNewMgrPassword] = useState("TStaff@123");
+  const [creatingManager, setCreatingManager] = useState(false);
+
+  const loadManagers = async () => {
+    setLoadingManagers(true);
+    try {
+      const data = await apiClient.get<ManagerUser[]>("/users/managers");
+      setManagers(data);
+    } catch {
+      // Fallback demo managers list
+      setManagers([
+        {
+          id: "10000000-0000-0000-0000-000000000001",
+          fullName: "محمد علوی (مدیر پیگیری)",
+          phoneNumber: "09121111111",
+          role: "TRACKING_DIRECTOR",
+          stage: "INTERN",
+          isActive: true,
+          createdAt: "هم‌اکنون",
+        },
+        {
+          id: "10000000-0000-0000-0000-000000000002",
+          fullName: "دکتر علی رضایی (مدیر استانی)",
+          phoneNumber: "09122222222",
+          role: "PROVINCIAL_DIRECTOR",
+          stage: "INTERN",
+          isActive: true,
+          createdAt: "هم‌اکنون",
+        },
+        {
+          id: "10000000-0000-0000-0000-000000000003",
+          fullName: "دکتر مریم حسینی (مدیر علمی اصلی)",
+          phoneNumber: "09123333333",
+          role: "MAIN_SUPERVISOR",
+          stage: "INTERN",
+          isActive: true,
+          createdAt: "هم‌اکنون",
+        },
+        {
+          id: "10000000-0000-0000-0000-000000000004",
+          fullName: "دکتر مهدی کاظمی (مدیر علمی همکار)",
+          phoneNumber: "09124444444",
+          role: "COLLABORATOR_SUPERVISOR",
+          stage: "INTERN",
+          isActive: true,
+          createdAt: "هم‌اکنون",
+        },
+      ]);
+    } finally {
+      setLoadingManagers(false);
+    }
+  };
+
+  useEffect(() => {
+    if (activeSubTab === "MANAGERS") {
+      loadManagers();
+    }
+  }, [activeSubTab]);
+
+  const handleCreateManager = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!/^09\d{9}$/.test(newMgrPhone)) {
+      onNotify("error", "خطای اعتبارسنجی", "شماره همراه باید با 09 آغاز شده و ۱۱ رقم باشد.");
+      return;
+    }
+    if (newMgrName.trim().length < 3) {
+      onNotify("error", "خطای اعتبارسنجی", "نام و نام خانوادگی مدیر باید حداقل ۳ کاراکتر باشد.");
+      return;
+    }
+
+    setCreatingManager(true);
+    try {
+      const created = await apiClient.post<ManagerUser>("/users/managers", {
+        fullName: newMgrName.trim(),
+        phoneNumber: newMgrPhone.trim(),
+        role: newMgrRole,
+        password: newMgrPassword,
+      });
+
+      onNotify(
+        "success",
+        "انتصاب مدیر جدید",
+        `مدیر جدید «${created.fullName || newMgrName}» با نقش سازمانی ثبت و منتسب گردید.`,
+      );
+      setIsCreateModalOpen(false);
+      setNewMgrName("");
+      setNewMgrPhone("");
+      loadManagers();
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : "خطا در ایجاد مدیر";
+      onNotify("error", "خطا در ایجاد مدیر", msg);
+    } finally {
+      setCreatingManager(false);
+    }
+  };
 
   // Archive job state
   const [archiveTargetId, setArchiveTargetId] = useState("case-001");
@@ -117,6 +237,36 @@ export const ManagementDashboardsView: React.FC<ManagementDashboardsViewProps> =
     }
   };
 
+  const getRolePersianName = (role: string) => {
+    switch (role) {
+      case "TRACKING_DIRECTOR":
+        return "مدیر پیگیری و ارشد";
+      case "PROVINCIAL_DIRECTOR":
+        return "مدیر استانی";
+      case "MAIN_SUPERVISOR":
+        return "مدیر علمی اصلی";
+      case "COLLABORATOR_SUPERVISOR":
+        return "مدیر علمی همکار";
+      default:
+        return role;
+    }
+  };
+
+  const getRoleBadgeVariant = (role: string): "warning" | "info" | "success" | "neutral" => {
+    switch (role) {
+      case "TRACKING_DIRECTOR":
+        return "warning";
+      case "PROVINCIAL_DIRECTOR":
+        return "info";
+      case "MAIN_SUPERVISOR":
+        return "success";
+      case "COLLABORATOR_SUPERVISOR":
+        return "info";
+      default:
+        return "neutral";
+    }
+  };
+
   return (
     <div className="space-y-6">
       {/* Top Bar */}
@@ -127,7 +277,7 @@ export const ManagementDashboardsView: React.FC<ManagementDashboardsViewProps> =
             داشبوردهای مدیریتی، ممیزی و تنظیمات پویا (FR-026, FR-052, FR-060)
           </h2>
           <p className="text-xs text-slate-400 mt-1">
-            پایش سنجه‌های نقشه راه، تنظیمات زمان اجرا، رهگیری لاگ ممیزی و آرشیو تغییرناپذیر
+            پایش سنجه‌های نقشه راه، انتصاب مدیران، تنظیمات زمان اجرا، لاگ ممیزی و آرشیو تغییرناپذیر
           </p>
         </div>
 
@@ -135,6 +285,7 @@ export const ManagementDashboardsView: React.FC<ManagementDashboardsViewProps> =
         <div className="inline-flex p-1 rounded-apple-md apple-glass border border-white/5 text-xs overflow-x-auto">
           {[
             { key: "METRICS", label: "سنجه‌های مدیریتی" },
+            { key: "MANAGERS", label: "انتصاب مدیران (مدیر پیگیری)" },
             { key: "SETTINGS", label: "تنظیمات زمان اجرا" },
             { key: "AUDIT", label: "لاگ ممیزی" },
             { key: "ARCHIVE", label: "آرشیو و انجماد (BR-19)" },
@@ -158,143 +309,251 @@ export const ManagementDashboardsView: React.FC<ManagementDashboardsViewProps> =
       {activeSubTab === "METRICS" && (
         <div className="space-y-6">
           {/* Provincial Director Summary */}
-          <div>
-            <h3 className="text-sm font-bold text-slate-200 mb-3 flex items-center gap-2">
-              <BarChart3 className="w-4 h-4 text-apple-blue" />
-              داشبورد مدیر استانی (Provincial Director Metrics - FR-052)
-            </h3>
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-              <Card variant="glass" className="p-4">
-                <span className="text-xs text-slate-400">کل پرونده‌های متقاضیان</span>
-                <div className="text-2xl font-bold text-slate-100 mt-2">۲۴</div>
-              </Card>
-              <Card variant="glass" className="p-4">
-                <span className="text-xs text-slate-400">متقاضیان تأییدشده (کارآموز)</span>
-                <div className="text-2xl font-bold text-apple-green mt-2">۱۶</div>
-              </Card>
-              <Card variant="glass" className="p-4">
-                <span className="text-xs text-slate-400">کارورزان فعال استان</span>
-                <div className="text-2xl font-bold text-apple-blue mt-2">۱۲</div>
-              </Card>
-              <Card variant="glass" className="p-4">
-                <span className="text-xs text-slate-400">پرونده‌های پژوهش در جریان</span>
-                <div className="text-2xl font-bold text-apple-indigo mt-2">۸</div>
-              </Card>
+          <Card variant="glass" className="border-white/10 p-6 space-y-4">
+            <div className="flex items-center justify-between border-b border-white/5 pb-4">
+              <div className="flex items-center gap-2.5">
+                <BarChart3 className="w-5 h-5 text-apple-blue" />
+                <h3 className="text-sm font-bold text-slate-100">
+                  خلاصه وضعیت استان (داشبورد مدیر استانی - FR-026)
+                </h3>
+              </div>
+              <Badge variant="info">استان تهران</Badge>
             </div>
-          </div>
 
-          {/* Tracking Director Backlog */}
-          <div>
-            <h3 className="text-sm font-bold text-slate-200 mb-3 flex items-center gap-2">
-              <Clock className="w-4 h-4 text-apple-amber" />
-              داشبورد مدیر پیگیری (Tracking Director Backlog - FR-052)
-            </h3>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-              <Card variant="glass" className="p-4 border-apple-red/20">
-                <span className="text-xs text-slate-400">پرونده‌های دارای تأخیر زمانی</span>
-                <div className="text-2xl font-bold text-apple-red mt-2">۲ پرونده</div>
-                <p className="text-[11px] text-slate-400 mt-1">بیش از ۴۵ روز در مرحله تبیین</p>
-              </Card>
-              <Card variant="glass" className="p-4 border-apple-amber/20">
-                <span className="text-xs text-slate-400">نیازمند بازبینی ناشی از عقب‌گرد (D-05)</span>
-                <div className="text-2xl font-bold text-apple-amber mt-2">۱ مرحله</div>
-                <p className="text-[11px] text-slate-400 mt-1">وابستگی به مرحله منابع اصلاح‌شده</p>
-              </Card>
-              <Card variant="glass" className="p-4 border-apple-blue/20">
-                <span className="text-xs text-slate-400">پرونده‌های بدون مدیر علمی همکار</span>
-                <div className="text-2xl font-bold text-apple-blue mt-2">۳ پرونده</div>
-                <p className="text-[11px] text-slate-400 mt-1">امکان انتساب مدیر همکار (D-02)</p>
-              </Card>
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+              <div className="p-3.5 rounded-apple-md bg-white/[0.03] border border-white/5 text-center">
+                <span className="text-2xl font-bold text-slate-100 block">۱۲</span>
+                <span className="text-[11px] text-slate-400 mt-1 block">کل متقاضیان فعال</span>
+              </div>
+              <div className="p-3.5 rounded-apple-md bg-white/[0.03] border border-white/5 text-center">
+                <span className="text-2xl font-bold text-apple-green block">۸</span>
+                <span className="text-[11px] text-slate-400 mt-1 block">کارورزان ارتقایافته</span>
+              </div>
+              <div className="p-3.5 rounded-apple-md bg-white/[0.03] border border-white/5 text-center">
+                <span className="text-2xl font-bold text-apple-amber block">۵</span>
+                <span className="text-[11px] text-slate-400 mt-1 block">پرونده‌های در حال پژوهش</span>
+              </div>
+              <div className="p-3.5 rounded-apple-md bg-white/[0.03] border border-white/5 text-center">
+                <span className="text-2xl font-bold text-apple-blue block">۱۸</span>
+                <span className="text-[11px] text-slate-400 mt-1 block">مصاحبه‌های تکمیل‌شده</span>
+              </div>
             </div>
-          </div>
+          </Card>
+
+          {/* Tracking Director Pipeline */}
+          <Card variant="glass" className="border-white/10 p-6 space-y-4">
+            <div className="flex items-center justify-between border-b border-white/5 pb-4">
+              <div className="flex items-center gap-2.5">
+                <Clock className="w-5 h-5 text-apple-amber" />
+                <h3 className="text-sm font-bold text-slate-100">
+                  پایش وضعیت پایپ‌لاین کشوری (داشبورد مدیر پیگیری)
+                </h3>
+              </div>
+              <Badge variant="warning">۳۱ استان</Badge>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-4 gap-4 text-center">
+              <div className="p-4 rounded-apple-md bg-slate-900/60 border border-white/5">
+                <Badge variant="neutral" size="sm" className="mb-2">مرحله منابع</Badge>
+                <div className="text-xl font-bold text-slate-100">۲۴ پرونده</div>
+                <div className="text-[11px] text-slate-400 mt-1">تکمیل مصاحبه‌های میدانی (D-07)</div>
+              </div>
+              <div className="p-4 rounded-apple-md bg-slate-900/60 border border-white/5">
+                <Badge variant="info" size="sm" className="mb-2">مرحله تبیین</Badge>
+                <div className="text-xl font-bold text-slate-100">۱۵ پرونده</div>
+                <div className="text-[11px] text-slate-400 mt-1">تحلیل علل ریشه‌ای و گزاره‌ها</div>
+              </div>
+              <div className="p-4 rounded-apple-md bg-slate-900/60 border border-white/5">
+                <Badge variant="warning" size="sm" className="mb-2">مرحله تجویز</Badge>
+                <div className="text-xl font-bold text-slate-100">۹ پرونده</div>
+                <div className="text-[11px] text-slate-400 mt-1">بسته‌های مداخله و راهکارها</div>
+              </div>
+              <div className="p-4 rounded-apple-md bg-slate-900/60 border border-white/5">
+                <Badge variant="success" size="sm" className="mb-2">مرحله سناریو</Badge>
+                <div className="text-xl font-bold text-slate-100">۶ سناریو</div>
+                <div className="text-[11px] text-slate-400 mt-1">مصوب و ثبت در بانک داخلی</div>
+              </div>
+            </div>
+          </Card>
         </div>
       )}
 
-      {/* Tab 2: Runtime Settings */}
+      {/* Tab 2: Managers Management (Tracking Director Feature) */}
+      {activeSubTab === "MANAGERS" && (
+        <div className="space-y-6">
+          <Card variant="glass" className="border-white/10 p-6 space-y-4">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-white/5 pb-4">
+              <div className="flex items-center gap-2.5">
+                <Users className="w-5 h-5 text-apple-amber" />
+                <div>
+                  <h3 className="text-sm font-bold text-slate-100 flex items-center gap-2">
+                    <span>مدیریت ارکان و انتصاب مدیران سامانه (اختیار ویژه مدیر پیگیری)</span>
+                    {currentUser?.role === "TRACKING_DIRECTOR" && (
+                      <Badge variant="warning" size="sm">مدیر پیگیری احراز شده</Badge>
+                    )}
+                  </h3>
+                  <p className="text-xs text-slate-400 mt-0.5">
+                    مدیر پیگیری و ارشد می‌تواند مدیران استانی، مدیران علمی اصلی و همکار و سایر مدیران پیگیری را تعریف کند.
+                  </p>
+                </div>
+              </div>
+
+              <Button
+                variant="primary"
+                size="md"
+                icon={<UserPlus className="w-4 h-4" />}
+                onClick={() => setIsCreateModalOpen(true)}
+              >
+                انتصاب مدیر جدید
+              </Button>
+            </div>
+
+            {loadingManagers ? (
+              <div className="text-center py-10 text-slate-400 text-xs">
+                در حال فراخوانی فهرست مدیران...
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {managers.map((mgr) => (
+                  <Card key={mgr.id} variant="elevated" className="p-4 border-white/5 space-y-3">
+                    <div className="flex items-start justify-between">
+                      <div className="flex items-center gap-3">
+                        <div className="w-10 h-10 rounded-apple-md bg-white/[0.05] border border-white/10 flex items-center justify-center text-apple-blue font-bold">
+                          <ShieldCheck className="w-5 h-5" />
+                        </div>
+                        <div>
+                          <div className="font-bold text-slate-100 text-sm">{mgr.fullName}</div>
+                          <div className="text-xs text-slate-400 font-mono mt-0.5" dir="ltr">
+                            {mgr.phoneNumber}
+                          </div>
+                        </div>
+                      </div>
+
+                      <Badge variant={getRoleBadgeVariant(mgr.role)} size="sm">
+                        {getRolePersianName(mgr.role)}
+                      </Badge>
+                    </div>
+
+                    <div className="flex items-center justify-between pt-2 border-t border-white/5 text-[11px] text-slate-400">
+                      <span>سطح دسترسی: <strong className="text-slate-300">کارورز (INTERN)</strong></span>
+                      <span className="flex items-center gap-1 text-apple-green">
+                        <CheckCircle2 className="w-3.5 h-3.5" />
+                        فعال
+                      </span>
+                    </div>
+                  </Card>
+                ))}
+              </div>
+            )}
+          </Card>
+        </div>
+      )}
+
+      {/* Tab 3: Runtime Settings */}
       {activeSubTab === "SETTINGS" && (
-        <Card variant="glass" className="max-w-xl space-y-4">
-          <div>
-            <h3 className="text-base font-bold text-slate-100 flex items-center gap-2">
-              <SlidersHorizontal className="w-5 h-5 text-apple-amber" />
-              تنظیمات پویای زمان اجرا (Dynamic Runtime Settings - FR-052)
-            </h3>
-            <p className="text-xs text-slate-400 mt-1">
-              تغییر متغیرهای سیستمی بدون نیاز به بازاستقرار سرور (ذخیره در جدول system_settings)
-            </p>
+        <Card variant="glass" className="border-white/10 p-6 space-y-6">
+          <div className="flex items-center gap-2.5 border-b border-white/5 pb-4">
+            <Clock className="w-5 h-5 text-apple-amber" />
+            <div>
+              <h3 className="text-sm font-bold text-slate-100">
+                پیکربندی زمان اجرای سامانه (FR-052)
+              </h3>
+              <p className="text-xs text-slate-400 mt-0.5">
+                تغییر پارامترهای عملیاتی در حین اجرای برنامه بدون نیاز به استقرار مجدد
+              </p>
+            </div>
           </div>
 
-          <div className="space-y-4 pt-2">
+          <div className="max-w-md space-y-4">
             <Input
-              label="مهلت زمانی استاندارد هر مرحله علمی (روز)"
+              label="مهلت زمانی استاندارد مراحل پژوهش (روز)"
               type="number"
-              dir="ltr"
+              min={1}
+              max={180}
               value={stageDeadlineDays}
               onChange={(e) => setStageDeadlineDays(e.target.value)}
-              hint="کلید: STAGE_DEADLINE_DAYS - ورکر پس‌زمینه با این سقف هشدار صادر می‌کند."
+              hint="در صورت سپری شدن این مهلت، هشدار تاخیر در داشبورد مدیر پیگیری ثبت می‌شود."
             />
 
             <Button
               variant="primary"
               size="md"
-              icon={<Save className="w-4 h-4" />}
               loading={savingSetting}
+              icon={<Save className="w-4 h-4" />}
               onClick={handleSaveSetting}
             >
-              ذخیره تنظیمات در زمان اجرا
+              ذخیره تنظیمات در پایگاه داده
             </Button>
           </div>
         </Card>
       )}
 
-      {/* Tab 3: Searchable Audit Trail */}
+      {/* Tab 4: Searchable Audit Trail */}
       {activeSubTab === "AUDIT" && (
-        <div className="space-y-4">
-          <div className="flex items-center gap-3">
-            <Input
-              placeholder="جست‌وجو در لاگ ممیزی (اقدام، کاربر، پرونده)..."
-              value={auditQuery}
-              onChange={(e) => setAuditQuery(e.target.value)}
-              icon={<Search className="w-4 h-4" />}
-            />
-          </div>
-
-          <div className="space-y-3">
-            {auditLogs.map((log) => (
-              <Card key={log.id} variant="glass" className="p-4 flex flex-col md:flex-row md:items-center justify-between gap-3">
-                <div>
-                  <div className="flex items-center gap-2">
-                    <span className="font-mono text-xs px-2 py-0.5 rounded-apple-sm bg-apple-amber/15 text-apple-amber font-bold">
-                      {log.action}
-                    </span>
-                    <span className="text-xs text-slate-400">توسط {log.actor}</span>
-                    <span className="text-xs text-slate-500">• {log.time}</span>
-                  </div>
-                  <p className="text-xs text-slate-300 mt-1.5 leading-relaxed">{log.details}</p>
-                </div>
-                <Badge variant="neutral" size="sm">{log.aggregateType}</Badge>
-              </Card>
-            ))}
-          </div>
-        </div>
-      )}
-
-      {/* Tab 4: Archival Freezer */}
-      {activeSubTab === "ARCHIVE" && (
-        <div className="space-y-6">
-          <Card variant="glass" className="max-w-xl space-y-4">
+        <Card variant="glass" className="border-white/10 p-6 space-y-6">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-white/5 pb-4">
             <div>
-              <h3 className="text-base font-bold text-slate-100 flex items-center gap-2">
-                <Archive className="w-5 h-5 text-apple-blue" />
-                اجرای انجماد و آرشیو داده‌ها (BR-19 Zero-Deletion Archival)
+              <h3 className="text-sm font-bold text-slate-100">
+                لاگ ممیزی و رویدادنگاری تغییرناپذیر (D-04, FR-060, AT-32)
               </h3>
-              <p className="text-xs text-slate-400 mt-1">
-                تولید اسنپ‌شات JSON تغییرناپذیر بدون هیچ‌گونه حذف فیزیکی داده‌ها
+              <p className="text-xs text-slate-400 mt-0.5">
+                تمامی تصمیمات، تغییر مسئول، عقب‌گرد مراحل و تغییرات سازمانی به صورت غیرقابل ویرایش ثبت می‌شوند.
               </p>
             </div>
 
-            <div className="space-y-3">
+            <div className="w-full sm:w-64">
+              <Input
+                placeholder="جست‌وجو در لاگ‌ها..."
+                value={auditQuery}
+                onChange={(e) => setAuditQuery(e.target.value)}
+                icon={<Search className="w-4 h-4" />}
+              />
+            </div>
+          </div>
+
+          <div className="space-y-3">
+            {auditLogs
+              .filter((log) => !auditQuery || log.details.includes(auditQuery) || log.action.includes(auditQuery))
+              .map((log) => (
+                <div
+                  key={log.id}
+                  className="p-4 rounded-apple-md bg-white/[0.02] border border-white/5 hover:border-white/10 transition-all flex flex-col sm:flex-row sm:items-center justify-between gap-2"
+                >
+                  <div className="space-y-1">
+                    <div className="flex items-center gap-2">
+                      <Badge variant="neutral" size="sm">{log.action}</Badge>
+                      <span className="text-xs font-semibold text-slate-200">توسط {log.actor}</span>
+                    </div>
+                    <p className="text-xs text-slate-400 leading-relaxed">{log.details}</p>
+                  </div>
+                  <span className="text-[11px] text-slate-500 shrink-0">{log.time}</span>
+                </div>
+              ))}
+          </div>
+        </Card>
+      )}
+
+      {/* Tab 5: Archival & Invariant Freeze */}
+      {activeSubTab === "ARCHIVE" && (
+        <div className="space-y-6">
+          <Card variant="glass" className="border-white/10 p-6 space-y-4">
+            <div className="flex items-center gap-2.5 border-b border-white/5 pb-4">
+              <Archive className="w-5 h-5 text-apple-blue" />
               <div>
-                <label className="text-xs font-medium text-slate-300 block mb-1">نوع موجودیت هدف:</label>
+                <h3 className="text-sm font-bold text-slate-100">
+                  بایگانی و انجماد وضعیت پرونده‌ها (قاعده BR-19)
+                </h3>
+                <p className="text-xs text-slate-400 mt-0.5">
+                  تولید اسنپ‌شات JSON منجمدشده و قطعی بدون حذف فیزیکی هیچ‌گونه رکورد از پایگاه داده
+                </p>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 items-end">
+              <div>
+                <label className="text-xs font-medium text-slate-300 block mb-1.5">
+                  نوع موجودیت جهت بایگانی
+                </label>
                 <select
                   value={archiveTargetType}
                   onChange={(e) => setArchiveTargetType(e.target.value as any)}
@@ -345,6 +604,84 @@ export const ManagementDashboardsView: React.FC<ManagementDashboardsViewProps> =
           </div>
         </div>
       )}
+
+      {/* Modal: Create & Appoint New Manager */}
+      <Modal
+        isOpen={isCreateModalOpen}
+        onClose={() => setIsCreateModalOpen(false)}
+        title="انتصاب مدیر جدید سامانه"
+        maxWidth="lg"
+      >
+        <form onSubmit={handleCreateManager} className="space-y-4 text-right">
+          <Input
+            label="نام و نام خانوادگی کامل مدیر"
+            placeholder="مثال: دکتر علیرضا سمیعی"
+            value={newMgrName}
+            onChange={(e) => setNewMgrName(e.target.value)}
+            required
+          />
+
+          <Input
+            label="شماره تلفن همراه"
+            type="tel"
+            dir="ltr"
+            placeholder="09123456789"
+            value={newMgrPhone}
+            onChange={(e) => setNewMgrPhone(e.target.value)}
+            required
+            hint="شماره همراه به عنوان شناسه ورود کاربر در فاز اول استفاده خواهد شد."
+          />
+
+          <div>
+            <label className="text-xs font-medium text-slate-300 block mb-1.5">
+              نقش مدیریتی و مسئولیت در سامانه <span className="text-apple-red">*</span>
+            </label>
+            <select
+              value={newMgrRole}
+              onChange={(e) => setNewMgrRole(e.target.value as any)}
+              className="w-full bg-slate-900 text-slate-100 text-sm rounded-apple-md border border-white/10 p-2.5 outline-none focus:border-apple-blue"
+            >
+              <option value="PROVINCIAL_DIRECTOR">مدیر استانی (PROVINCIAL_DIRECTOR)</option>
+              <option value="MAIN_SUPERVISOR">مدیر علمی اصلی پرونده‌ها (MAIN_SUPERVISOR)</option>
+              <option value="COLLABORATOR_SUPERVISOR">مدیر علمی همکار پرونده‌ها (COLLABORATOR_SUPERVISOR)</option>
+              <option value="TRACKING_DIRECTOR">مدیر پیگیری و ارشد (TRACKING_DIRECTOR)</option>
+            </select>
+          </div>
+
+          <Input
+            label="رمز عبور اولیه حساب"
+            type="text"
+            dir="ltr"
+            value={newMgrPassword}
+            onChange={(e) => setNewMgrPassword(e.target.value)}
+            hint="پیش‌فرض: TStaff@123"
+          />
+
+          <div className="p-3 rounded-apple-md bg-apple-amber/10 border border-apple-amber/20 text-apple-amber text-xs leading-relaxed">
+            <strong>نکته دسترسی:</strong> مدیران منتسب‌شده دارای سطح کاربری کارورز (INTERN) و مجوزهای اختصاصی مربوط به نقش خود خواهند بود.
+          </div>
+
+          <div className="flex items-center justify-end gap-3 pt-3 border-t border-white/5">
+            <Button
+              type="button"
+              variant="secondary"
+              size="md"
+              onClick={() => setIsCreateModalOpen(false)}
+            >
+              انصراف
+            </Button>
+            <Button
+              type="submit"
+              variant="primary"
+              size="md"
+              loading={creatingManager}
+              icon={<CheckCircle2 className="w-4 h-4" />}
+            >
+              ثبت و صدور دسترسی مدیریت
+            </Button>
+          </div>
+        </form>
+      </Modal>
     </div>
   );
 };

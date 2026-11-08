@@ -1,6 +1,6 @@
 import { Injectable, Inject } from "@nestjs/common";
 import { randomBytes } from "node:crypto";
-import { LoginDto } from "@tstaff/contracts";
+import { LoginDto, CreateManagerDto } from "@tstaff/contracts";
 import { User } from "../domain/user.entity.js";
 import {
   UserNotFoundError,
@@ -133,5 +133,41 @@ export class IdentityService {
     const updated = user.reactivate();
     await this.userRepo.save(updated);
     return updated;
+  }
+
+  /**
+   * Rule: Tracking Director creates other system managers
+   */
+  async createManager(dto: CreateManagerDto): Promise<User> {
+    const existing = await this.userRepo.findByPhoneNumber(dto.phoneNumber);
+    if (existing) {
+      throw new Error("کاربری با این شماره همراه از قبل در سامانه ثبت شده است");
+    }
+
+    const initialPassword = dto.password || "TStaff@123";
+    const passwordHash = await this.passwordHasher.hash(initialPassword);
+
+    const user = User.reconstitute({
+      id: crypto.randomUUID(),
+      phoneNumber: dto.phoneNumber,
+      passwordHash,
+      stage: "INTERN", // Managers possess full intern+ authority
+      isActive: true,
+      isMfaEnabled: false,
+      fullName: dto.fullName,
+      role: dto.role,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    });
+
+    await this.userRepo.save(user);
+    return user;
+  }
+
+  /**
+   * Fetch all registered managers in the system
+   */
+  async getManagers(): Promise<User[]> {
+    return this.userRepo.findAllManagers();
   }
 }

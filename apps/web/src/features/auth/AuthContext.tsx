@@ -27,45 +27,53 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
         return null;
       }
     }
-    // Default demo session for UI preview
-    return {
-      id: "11111111-1111-1111-1111-111111111111",
-      phoneNumber: "09121234567",
-      fullName: "دکتر علی رضایی (مدیر استانی و مدیر علمی)",
-      stage: "INTERN",
-      isSuspended: false,
-      role: "MAIN_SUPERVISOR",
-    };
+    // Initially, user MUST log in first
+    return null;
   });
 
   useEffect(() => {
     if (currentUser) {
       safeStorage.setItem("tstaff_user_profile", JSON.stringify(currentUser));
       apiClient.setAuth(
-        safeStorage.getItem("tstaff_token") || "mock-jwt-token",
+        safeStorage.getItem("tstaff_token") || "session-token",
         currentUser.stage,
         currentUser.id,
       );
     } else {
       safeStorage.removeItem("tstaff_user_profile");
+      safeStorage.removeItem("tstaff_token");
       apiClient.setAuth(null, "APPRENTICE", null);
     }
   }, [currentUser]);
 
-  const login = async (phoneNumber: string, _pass: string) => {
-    // In Phase 1: password login (OTP deferred to post-MVP per project rules)
-    const mockUser: CurrentUser = {
-      id: "11111111-1111-1111-1111-111111111111",
-      phoneNumber,
-      fullName: "پژوهشگر نمونه سامانه",
-      stage: "INTERN",
-      isSuspended: false,
-      role: "MAIN_SUPERVISOR",
-    };
-    setCurrentUser(mockUser);
+  const login = async (phoneNumber: string, pass: string) => {
+    try {
+      const res = await apiClient.post<{ user: any; token: string }>("/auth/login", {
+        phoneNumber,
+        password: pass,
+      });
+
+      const user = res.user;
+      const loggedInUser: CurrentUser = {
+        id: user.id,
+        phoneNumber: user.phoneNumber,
+        fullName: user.fullName || "کاربر سامانه",
+        stage: user.stage || "INTERN",
+        isSuspended: !user.isActive,
+        role: user.role || "INTERN",
+      };
+
+      safeStorage.setItem("tstaff_token", res.token);
+      setCurrentUser(loggedInUser);
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : "شماره همراه یا گذرواژه واردشده نادرست است";
+      throw new Error(message);
+    }
   };
 
   const logout = () => {
+    safeStorage.removeItem("tstaff_user_profile");
+    safeStorage.removeItem("tstaff_token");
     setCurrentUser(null);
   };
 
