@@ -52,3 +52,9 @@ export class InvalidTraineeAssignmentTargetError extends DomainError {
     super("انتساب مدیر علمی فقط برای حساب کارآموز یا کارورز مجاز است", "BAD_REQUEST");
   }
 }
+
+export class CannotRemoveMainSupervisorWithoutReplacementError extends DomainError {
+  constructor() {
+    super("لغو مدیر علمی اصلی بدون معرفی هم‌زمان جایگزین مجاز نیست (D-02)", "CONFLICT");
+  }
+}

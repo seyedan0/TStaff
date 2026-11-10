@@ -1,4 +1,4 @@
-import { Injectable } from "@nestjs/common";
+import { Inject, Injectable } from "@nestjs/common";
 import { PrismaService } from "@tstaff/database";
 import { ResearchCase } from "../domain/research-case.entity.js";
 import { StageInstance } from "../domain/stage-instance.entity.js";
@@ -7,7 +7,7 @@ import type { ResearchRepositoryPort } from "../application/ports/research.repos
 
 @Injectable()
 export class PrismaResearchRepository implements ResearchRepositoryPort {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(@Inject(PrismaService) private readonly prisma: PrismaService) {}
 
   async create(researchCase: ResearchCase): Promise<void> {
     await this.prisma.$transaction(async (tx) => {

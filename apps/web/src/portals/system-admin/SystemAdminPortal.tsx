@@ -1,23 +1,21 @@
+import React, { useCallback, useEffect, useState } from "react";
+import { Activity, Archive, Clock, Database, RefreshCw, Save, Search, UserPlus } from "lucide-react";
+import { useNavigate, useSearchParams } from "react-router-dom";
+import type { ArchiveJobDto, ArchiveTargetType, HealthResponse, SystemSetting } from "@tstaff/contracts";
+import { getRoleLabel } from "../../app/navigation.js";
 import { usePortalSection } from "../../app/usePortalSection.js";
-import React, { useState, useEffect } from "react";
-import {
-  SlidersHorizontal,
-  Archive,
-  Save,
-  Clock,
-  Server,
-  Database,
-  Users,
-  Activity,
-  UserPlus,
-} from "lucide-react";
-import { Card } from "../../shared/ui/Card.js";
-import { Button } from "../../shared/ui/Button.js";
+import { useAuth } from "../../features/auth/AuthContext.js";
+import { apiClient } from "../../shared/api-client.js";
+import type { ResearchCaseItem } from "../../shared/types.js";
+import { useUnsavedChanges } from "../../shared/useUnsavedChanges.js";
 import { Badge } from "../../shared/ui/Badge.js";
+import { Button } from "../../shared/ui/Button.js";
+import { Card } from "../../shared/ui/Card.js";
 import { Input } from "../../shared/ui/Input.js";
 import { Modal } from "../../shared/ui/Modal.js";
-import { apiClient } from "../../shared/api-client.js";
-import { useAuth } from "../../features/auth/AuthContext.js";
+import { PageHeader } from "../../shared/ui/PageHeader.js";
+import { EmptyState, ErrorState, LoadingState } from "../../shared/ui/StateFeedback.js";
+import { UnsavedChangesDialog } from "../../shared/ui/UnsavedChangesDialog.js";
 
 interface SystemAdminPortalProps {
   onNotify: (
@@ -27,62 +25,143 @@ interface SystemAdminPortalProps {
   ) => void;
 }
 
-export const SystemAdminPortal: React.FC<SystemAdminPortalProps> = ({
-  onNotify,
-}) => {
+interface ManagerRow {
+  id: string;
+  fullName: string;
+  phoneNumber: string;
+  role: string;
+  stage: string;
+  isActive: boolean;
+}
+
+const DEADLINE_KEYS = [
+  { key: "deadline_days.SOURCES", label: "مهلت مرحله ۱: منابع و مصاحبه‌ها (روز)", fallback: "14" },
+  { key: "deadline_days.EXPLANATION", label: "مهلت مرحله ۲: تبیین مسئله (روز)", fallback: "21" },
+  { key: "deadline_days.PRESCRIPTION", label: "مهلت مرحله ۳: تجویز راهکار (روز)", fallback: "21" },
+  { key: "deadline_days.SCENARIO", label: "مهلت مرحله ۴: سناریونویسی (روز)", fallback: "14" },
+] as const;
+
+export const SystemAdminPortal: React.FC<SystemAdminPortalProps> = ({ onNotify }) => {
   const { currentUser } = useAuth();
-  const activeTab = usePortalSection<"settings" | "archive" | "managers" | "health">({ "/management/settings": "settings", "/management/archive": "archive", "/management/managers": "managers", "/management/health": "health" }, "settings");
+  const activeTab = usePortalSection<"settings" | "archive" | "managers" | "health">(
+    { "/management/settings": "settings", "/management/archive": "archive", "/management/managers": "managers", "/management/health": "health" },
+    "settings",
+  );
+  const [query] = useSearchParams();
+  const navigate = useNavigate();
 
-  // Settings State (FR-052 Deadlines)
-  const [sourcesDeadline, setSourcesDeadline] = useState("14");
-  const [explanationDeadline, setExplanationDeadline] = useState("21");
-  const [prescriptionDeadline, setPrescriptionDeadline] = useState("21");
-  const [scenarioDeadline, setScenarioDeadline] = useState("14");
-  const [isSavingSettings, setIsSavingSettings] = useState(false);
+  const [deadlines, setDeadlines] = useState<Record<string, string>>({
+    "deadline_days.SOURCES": "14",
+    "deadline_days.EXPLANATION": "21",
+    "deadline_days.PRESCRIPTION": "21",
+    "deadline_days.SCENARIO": "14",
+  });
+  const [savedDeadlines, setSavedDeadlines] = useState<Record<string, string>>({ ...deadlines });
+  const [extraSettings, setExtraSettings] = useState<SystemSetting[]>([]);
+  const [savingSettings, setSavingSettings] = useState(false);
 
-  // Managers List
-  const [managers, setManagers] = useState<any[]>([]);
-  const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
+  const [archiveJobs, setArchiveJobs] = useState<ArchiveJobDto[]>([]);
+  const [caseOptions, setCaseOptions] = useState<ResearchCaseItem[]>([]);
+  const [archiveTargetType, setArchiveTargetType] = useState<ArchiveTargetType>("RESEARCH_CASE");
+  const [archiveTargetId, setArchiveTargetId] = useState("");
+  const [runningArchive, setRunningArchive] = useState(false);
+
+  const [managers, setManagers] = useState<ManagerRow[]>([]);
+  const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [newMgrName, setNewMgrName] = useState("");
   const [newMgrPhone, setNewMgrPhone] = useState("");
   const [newMgrRole, setNewMgrRole] = useState("SCIENTIFIC_SUPERVISOR");
   const [newMgrPassword, setNewMgrPassword] = useState("");
-  const [isCreatingManager, setIsCreatingManager] = useState(false);
+  const [creatingMgr, setCreatingMgr] = useState(false);
 
-  const fetchManagers = async () => {
+  const [health, setHealth] = useState<HealthResponse | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  const settingsDirty =
+    activeTab === "settings" && JSON.stringify(deadlines) !== JSON.stringify(savedDeadlines);
+  const blocker = useUnsavedChanges(settingsDirty);
+
+  const loadTab = useCallback(async () => {
+    setLoading(true);
+    setError(null);
     try {
-      const data = await apiClient.get<any[]>("/users/managers");
-      setManagers(data);
-    } catch {
-      // fallback
+      if (activeTab === "settings") {
+        const list = await apiClient.get<SystemSetting[]>("/settings");
+        const next: Record<string, string> = {};
+        for (const item of DEADLINE_KEYS) {
+          next[item.key] = list.find((s) => s.key === item.key)?.value ?? item.fallback;
+        }
+        setDeadlines(next);
+        setSavedDeadlines(next);
+        setExtraSettings(list.filter((s) => !DEADLINE_KEYS.some((k) => k.key === s.key)));
+      } else if (activeTab === "archive") {
+        const [jobs, cases] = await Promise.all([
+          apiClient.get<ArchiveJobDto[]>("/archives/jobs"),
+          apiClient.get<ResearchCaseItem[]>("/research-cases/directory").catch(() => []),
+        ]);
+        setArchiveJobs(jobs);
+        setCaseOptions(cases);
+        if (!archiveTargetId && cases[0]) setArchiveTargetId(cases[0].id);
+      } else if (activeTab === "managers") {
+        setManagers(await apiClient.get<ManagerRow[]>("/users/managers"));
+      } else if (activeTab === "health") {
+        setHealth(await apiClient.get<HealthResponse>("/health"));
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "دریافت داده‌های مدیریتی ناموفق بود.");
+    } finally {
+      setLoading(false);
     }
-  };
+  }, [activeTab]);
 
   useEffect(() => {
-    fetchManagers();
-  }, []);
+    void loadTab();
+  }, [loadTab]);
 
-  const handleSaveDeadlines = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setIsSavingSettings(true);
+  const handleSaveDeadlines = async (event: React.FormEvent) => {
+    event.preventDefault();
+    setSavingSettings(true);
     try {
-      // simulate save settings
-      await new Promise((r) => setTimeout(r, 600));
-      onNotify(
-        "success",
-        "تنظیمات زمان‌بندی ذخیره شد",
-        "مهلت استاندارد مراحل چرخه ۴ مرحله‌ای به‌روزرسانی گردید (FR-052).",
+      await Promise.all(
+        DEADLINE_KEYS.map((item) =>
+          apiClient.put(`/settings/${encodeURIComponent(item.key)}`, {
+            value: String(deadlines[item.key] ?? item.fallback),
+            description: item.label,
+          }),
+        ),
       );
+      setSavedDeadlines({ ...deadlines });
+      onNotify("success", "تنظیمات زمان‌بندی ذخیره شد", "مقادیر مهلت مراحل در پایگاه‌داده ثبت گردید (FR-052).");
+    } catch (err) {
+      onNotify("error", "ذخیره تنظیمات ناموفق بود", err instanceof Error ? err.message : undefined);
     } finally {
-      setIsSavingSettings(false);
+      setSavingSettings(false);
     }
   };
 
-  const handleCreateManager = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!newMgrName.trim() || !newMgrPhone.trim()) return;
+  const handleRunArchive = async (event: React.FormEvent) => {
+    event.preventDefault();
+    if (!archiveTargetId.trim()) return;
+    setRunningArchive(true);
+    try {
+      await apiClient.post("/archives/jobs", {
+        targetType: archiveTargetType,
+        targetId: archiveTargetId.trim(),
+      });
+      onNotify("success", "فرایند آرشیو اجرا شد", "اسنپ‌شات تغییرناپذیر بدون حذف فیزیکی رکورد ذخیره گردید (BR-19).");
+      await loadTab();
+    } catch (err) {
+      onNotify("error", "اجرای آرشیو ناموفق بود", err instanceof Error ? err.message : undefined);
+    } finally {
+      setRunningArchive(false);
+    }
+  };
 
-    setIsCreatingManager(true);
+  const handleCreateManager = async (event: React.FormEvent) => {
+    event.preventDefault();
+    if (!newMgrName.trim() || !newMgrPhone.trim()) return;
+    setCreatingMgr(true);
     try {
       await apiClient.post("/users/managers", {
         fullName: newMgrName.trim(),
@@ -90,369 +169,276 @@ export const SystemAdminPortal: React.FC<SystemAdminPortalProps> = ({
         role: newMgrRole,
         password: newMgrPassword,
       });
-
-      onNotify(
-        "success",
-        "کاربر سیستمی ایجاد شد",
-        `حساب «${newMgrName}» با موفقیت فعال گردید.`,
-      );
-
-      setIsCreateModalOpen(false);
+      onNotify("success", "حساب مدیر جدید ایجاد شد", `کاربر «${newMgrName}» فعال گردید.`);
+      setIsCreateOpen(false);
       setNewMgrName("");
       setNewMgrPhone("");
       setNewMgrPassword("");
-      fetchManagers();
-    } catch (err: unknown) {
-      onNotify(
-        "error",
-        "خطا در ایجاد کاربر",
-        err instanceof Error ? err.message : "امکان ثبت وجود ندارد",
-      );
+      await loadTab();
+    } catch (err) {
+      onNotify("error", "ایجاد حساب مدیر انجام نشد", err instanceof Error ? err.message : undefined);
     } finally {
-      setIsCreatingManager(false);
+      setCreatingMgr(false);
     }
   };
 
+  const searchTerm = (query.get("q") ?? "").trim().toLowerCase();
+  const filteredManagers = managers.filter(
+    (m) => !searchTerm || `${m.fullName} ${m.phoneNumber} ${m.role}`.toLowerCase().includes(searchTerm),
+  );
+
   return (
-    <div className="space-y-6">
-      {/* Top Header Card */}
-      <Card
-        variant="elevated"
-        className="p-6 border-white/10 relative overflow-hidden bg-gradient-to-br from-slate-900/90 via-slate-900/70 to-apple-blue/15"
-      >
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-          <div className="space-y-1.5">
-            <div className="flex items-center gap-2">
-              <Badge variant="info" size="sm">
-                پنل مدیر کل سامانه و راهبر ارشد
-              </Badge>
-              <span className="text-xs text-slate-400">
-                پیکربندی مهلت‌ها (FR-052)، فریزر آرشیو (BR-19) و مدیریت جامع
-              </span>
-            </div>
-            <h2 className="text-xl font-bold text-slate-100 tracking-tight">
-              میز راهبری مرکزی سامانه TStaff ({currentUser?.fullName || "دکتر علیرضا راد"})
-            </h2>
-            <p className="text-xs text-slate-300 max-w-2xl leading-relaxed">
-              تعیین مهلت مجاز گام‌های پژوهش، نظارت بر سلامت زیرساخت دیتابیس و پردازش ناهمگام، بازبینی اسناد فریز‌شده و اعمال تغییرات سیستمی.
-            </p>
+    <div className="space-y-5">
+      <UnsavedChangesDialog blocker={blocker} />
+      <PageHeader
+        title={`مدیریت سامانه · ${currentUser?.fullName || "مدیر کل"}`}
+        subtitle="تنظیمات پویای مهلت‌ها، بایگانی و اسنپ‌شات تغییرناپذیر (BR-19)، مدیران و پایش سلامت زیرساخت"
+        actions={
+          <div className="flex flex-wrap items-center gap-2">
+            <Button variant="secondary" size="sm" icon={<RefreshCw className="h-3.5 w-3.5" />} loading={loading} onClick={() => void loadTab()}>
+              به‌روزرسانی
+            </Button>
+            {activeTab === "managers" && (
+              <Button variant="primary" size="sm" icon={<UserPlus className="h-3.5 w-3.5" />} onClick={() => setIsCreateOpen(true)}>
+                تعریف مدیر جدید
+              </Button>
+            )}
           </div>
-        </div>
-      </Card>
+        }
+      />
 
-      {/* Main Views */}
-      <div className="animate-fade-in">
-        {/* Tab 1: Stage Deadlines */}
-        {activeTab === "settings" && (
-          <Card variant="elevated" className="p-6 border-white/10 space-y-6">
-            <div className="flex items-center justify-between border-b border-white/10 pb-4">
-              <div>
-                <h3 className="text-sm font-bold text-slate-100 flex items-center gap-2">
-                  <Clock className="w-4 h-4 text-apple-blue" />
-                  پیکربندی مهلت مجاز انجام مراحل چرخه علمی (قاعده FR-052)
-                </h3>
-                <p className="text-xs text-slate-400 mt-1">
-                  در صورت انقضای مهلت تعیین‌شده بدون اقدام پژوهشگر، وضعیت مرحله خودکار به «هشدار تاخیر» تغییر می‌یابد:
-                </p>
+      {loading ? (
+        <LoadingState message="در حال دریافت داده‌های مدیریتی..." />
+      ) : error ? (
+        <ErrorState message={error} onRetry={() => void loadTab()} />
+      ) : activeTab === "settings" ? (
+        <div className="space-y-4">
+          <Card variant="default" title="پیکربندی مهلت استاندارد مراحل پژوهش (FR-052)">
+            <form onSubmit={(e) => void handleSaveDeadlines(e)} className="max-w-2xl space-y-4">
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                {DEADLINE_KEYS.map((item) => (
+                  <Input
+                    key={item.key}
+                    label={item.label}
+                    type="number"
+                    min={1}
+                    max={365}
+                    dir="ltr"
+                    required
+                    value={deadlines[item.key] ?? item.fallback}
+                    onChange={(e) => setDeadlines((prev) => ({ ...prev, [item.key]: e.target.value }))}
+                  />
+                ))}
               </div>
-            </div>
-
-            <form onSubmit={handleSaveDeadlines} className="space-y-4 max-w-xl text-right">
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <Input
-                  label="مهلت مرحله ۱: منابع و مصاحبه‌ها (روز)"
-                  type="number"
-                  dir="ltr"
-                  required
-                  value={sourcesDeadline}
-                  onChange={(e) => setSourcesDeadline(e.target.value)}
-                />
-
-                <Input
-                  label="مهلت مرحله ۲: تبیین مسئله (روز)"
-                  type="number"
-                  dir="ltr"
-                  required
-                  value={explanationDeadline}
-                  onChange={(e) => setExplanationDeadline(e.target.value)}
-                />
-
-                <Input
-                  label="مهلت مرحله ۳: تجویز و راه‌کارها (روز)"
-                  type="number"
-                  dir="ltr"
-                  required
-                  value={prescriptionDeadline}
-                  onChange={(e) => setPrescriptionDeadline(e.target.value)}
-                />
-
-                <Input
-                  label="مهلت مرحله ۴: سناریونویسی (روز)"
-                  type="number"
-                  dir="ltr"
-                  required
-                  value={scenarioDeadline}
-                  onChange={(e) => setScenarioDeadline(e.target.value)}
-                />
-              </div>
-
-              <div className="pt-2">
-                <Button
-                  type="submit"
-                  variant="primary"
-                  size="md"
-                  loading={isSavingSettings}
-                  icon={<Save className="w-4 h-4" />}
-                >
-                  ذخیره پیکربندی مهلت‌ها
-                </Button>
-              </div>
+              <Button type="submit" variant="primary" loading={savingSettings} icon={<Save className="h-4 w-4" />}>
+                ذخیره تنظیمات در سرور
+              </Button>
             </form>
           </Card>
-        )}
 
-        {/* Tab 2: Archival Freezer BR-19 */}
-        {activeTab === "archive" && (
-          <Card variant="elevated" className="p-6 border-white/10 space-y-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <h3 className="text-sm font-bold text-slate-100 flex items-center gap-2">
-                  <Archive className="w-4 h-4 text-apple-blue" />
-                  فریزر آرشیو و نگهداری تغییرناپذیر داده‌ها (قاعده BR-19)
-                </h3>
-                <p className="text-xs text-slate-400 mt-1">
-                  طبق خط‌مشی بدون‌حذف سامانه، هیچ داده‌ای فیزیکاً از پایگاه‌داده حذف نمی‌گردد و سوابق نهایی به صورت اسنپ‌شات JSON منجمد نگهداری می‌شوند:
-                </p>
+          {extraSettings.length > 0 && (
+            <Card variant="default" title="سایر تنظیمات ثبت‌شده">
+              <div className="divide-y divide-[#214E3A]/10 text-xs">
+                {extraSettings.map((setting) => (
+                  <div key={setting.key} className="flex flex-wrap items-center justify-between gap-2 py-2.5">
+                    <div>
+                      <div dir="ltr" className="font-mono font-semibold text-[#214031]">{setting.key}</div>
+                      {setting.description && <div className="text-[#4F6659]">{setting.description}</div>}
+                    </div>
+                    <Badge variant="neutral" size="sm">{setting.value}</Badge>
+                  </div>
+                ))}
               </div>
-            </div>
-
-            <div className="space-y-3">
-              {[
-                {
-                  id: "SNAP-101",
-                  title: "پرونده تحلیل تاب‌آوری شبکه برق در ساعات اوج بار",
-                  province: "تهران",
-                  date: "۱۴۰۳/۰۸/۰۱",
-                  sha: "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
-                },
-                {
-                  id: "SNAP-102",
-                  title: "الگوی بازآفرینی بافت فرسوده با رویکرد اجتماع‌محور",
-                  province: "اصفهان",
-                  date: "۱۴۰۳/۰۸/۰۴",
-                  sha: "ca978112ca1bbdcafac231b39a23dc4da786eff8147c4e72b9807785afee48bb",
-                },
-              ].map((item) => (
-                <div
-                  key={item.id}
-                  className="p-4 rounded-apple-md bg-white/[0.02] border border-white/5 flex flex-col md:flex-row md:items-center justify-between gap-3 text-xs"
+            </Card>
+          )}
+        </div>
+      ) : activeTab === "archive" ? (
+        <div className="space-y-4">
+          <Card variant="default" title="انجماد و آرشیو داده‌ها بدون حذف فیزیکی (BR-19)">
+            <form onSubmit={(e) => void handleRunArchive(e)} className="grid gap-3 md:grid-cols-3 md:items-end">
+              <label className="block space-y-1 text-xs font-medium text-[#214031]">
+                نوع موجودیت
+                <select
+                  value={archiveTargetType}
+                  onChange={(e) => setArchiveTargetType(e.target.value as ArchiveTargetType)}
+                  className="w-full rounded-xl border border-[#214E3A]/20 bg-[#FFFCF5] p-2.5 text-xs text-[#214031]"
                 >
-                  <div className="space-y-1">
-                    <div className="flex items-center gap-2">
-                      <span className="font-mono text-apple-blue font-bold">
-                        {item.id}
-                      </span>
-                      <span className="font-semibold text-slate-100">
-                        {item.title}
-                      </span>
-                      <Badge variant="neutral" size="sm">
-                        {item.province}
-                      </Badge>
-                    </div>
-                    <div className="font-mono text-[10px] text-slate-500">
-                      SHA256: {item.sha}
-                    </div>
-                  </div>
+                  <option value="RESEARCH_CASE">پرونده پژوهش</option>
+                  <option value="APPLICANT">پرونده متقاضی</option>
+                  <option value="CONVERSATION">گفت‌وگو</option>
+                </select>
+              </label>
 
-                  <div className="flex items-center gap-3">
-                    <span className="text-slate-400">تاریخ انجماد: {item.date}</span>
-                    <Button
-                      variant="secondary"
-                      size="sm"
-                      onClick={() =>
-                        onNotify(
-                          "info",
-                          "دانلود اسنپ‌شات آرشیو",
-                          `بسته JSON منجمد شده پرونده ${item.id} دریافت گردید.`,
-                        )
-                      }
-                      className="text-xs"
-                    >
-                      دانلود فایل JSON منجمد
-                    </Button>
+              {archiveTargetType === "RESEARCH_CASE" && caseOptions.length > 0 ? (
+                <label className="block space-y-1 text-xs font-medium text-[#214031]">
+                  انتخاب پرونده پژوهشی
+                  <select
+                    value={archiveTargetId}
+                    onChange={(e) => setArchiveTargetId(e.target.value)}
+                    className="w-full rounded-xl border border-[#214E3A]/20 bg-[#FFFCF5] p-2.5 text-xs text-[#214031]"
+                  >
+                    {caseOptions.map((c) => (
+                      <option key={c.id} value={c.id}>{c.code} · {c.title}</option>
+                    ))}
+                  </select>
+                </label>
+              ) : (
+                <Input
+                  label="شناسه UUID هدف"
+                  dir="ltr"
+                  required
+                  value={archiveTargetId}
+                  onChange={(e) => setArchiveTargetId(e.target.value)}
+                  placeholder="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"
+                />
+              )}
+
+              <Button type="submit" variant="primary" loading={runningArchive} icon={<Archive className="h-4 w-4" />}>
+                ثبت کار آرشیو
+              </Button>
+            </form>
+          </Card>
+
+          {archiveJobs.length === 0 ? (
+            <EmptyState title="سابقه آرشیوی ثبت نشده است" description="هنوز عملیات انجمادی در سرور اجرا نشده است." />
+          ) : (
+            <Card variant="default" title={`تاریخچه اسنپ‌شات‌ها (${archiveJobs.length})`}>
+              <div className="space-y-2.5">
+                {archiveJobs.map((job) => (
+                  <div key={job.id} className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-[#214E3A]/15 bg-[#F3EBDD]/45 p-3 text-xs">
+                    <div className="space-y-1">
+                      <div className="flex items-center gap-2">
+                        <Badge variant={job.status === "COMPLETED" ? "success" : job.status === "FAILED" ? "danger" : "warning"} size="sm">
+                          {job.status}
+                        </Badge>
+                        <span className="font-semibold text-[#214031]">{job.targetType}</span>
+                        <span dir="ltr" className="font-mono text-[11px] text-[#4F6659]">{job.targetId}</span>
+                      </div>
+                      {job.storageLocation && (
+                        <div dir="ltr" className="font-mono text-[11px] text-[#4F6659]">{job.storageLocation}</div>
+                      )}
+                    </div>
+                    <div className="flex items-center gap-1 text-[11px] text-[#4F6659]">
+                      <Clock className="h-3.5 w-3.5" />
+                      <span>{new Date(job.createdAt).toLocaleString("fa-IR")}</span>
+                    </div>
                   </div>
-                </div>
-              ))}
+                ))}
+              </div>
+            </Card>
+          )}
+        </div>
+      ) : activeTab === "managers" ? (
+        <div className="space-y-4">
+          <Card variant="default" padding="sm">
+            <div className="relative">
+              <Search className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#6B8073]" />
+              <input
+                type="search"
+                aria-label="جست‌وجوی مدیران"
+                value={query.get("q") ?? ""}
+                onChange={(e) => {
+                  const next = new URLSearchParams(query);
+                  e.target.value ? next.set("q", e.target.value) : next.delete("q");
+                  navigate({ search: next.toString() }, { replace: true });
+                }}
+                placeholder="جست‌وجوی نام، شماره همراه یا نقش..."
+                className="w-full rounded-xl border border-[#214E3A]/20 bg-[#FFFCF5] py-2 pr-9 pl-3 text-sm text-[#214031]"
+              />
             </div>
           </Card>
-        )}
 
-        {/* Tab 3: Managers Management */}
-        {activeTab === "managers" && (
-          <div className="space-y-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <h3 className="text-base font-bold text-slate-100">
-                  مدیریت تمامی نقش‌ها و انتصابات شبکه
-                </h3>
-                <p className="text-xs text-slate-400">
-                  فهرست مدیران سیستم، مدیران علمی، استانی و پشتیبانی
-                </p>
-              </div>
-
-              <Button
-                variant="primary"
-                size="md"
-                icon={<UserPlus className="w-4 h-4" />}
-                onClick={() => setIsCreateModalOpen(true)}
-              >
-                تعریف کاربر ارشد جدید
-              </Button>
-            </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-              {managers.map((m) => (
-                <Card
-                  key={m.id}
-                  variant="elevated"
-                  className="p-4 border-white/10 space-y-2"
-                >
-                  <div className="flex items-start justify-between">
+          {filteredManagers.length === 0 ? (
+            <EmptyState title="مدیری یافت نشد" description="عبارت جست‌وجو را تغییر دهید یا مدیر جدید بسازید." />
+          ) : (
+            <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
+              {filteredManagers.map((m) => (
+                <Card key={m.id} variant="default" className="space-y-2">
+                  <div className="flex items-start justify-between gap-2">
                     <div>
-                      <h4 className="font-bold text-sm text-slate-100">
-                        {m.fullName}
-                      </h4>
-                      <div className="text-xs text-slate-400 font-mono">
-                        {m.phoneNumber}
-                      </div>
+                      <h3 className="text-sm font-bold text-[#214031]">{m.fullName}</h3>
+                      <div dir="ltr" className="mt-0.5 text-right font-mono text-xs text-[#4F6659]">{m.phoneNumber}</div>
                     </div>
-                    <Badge variant="info" size="sm">
-                      {m.role}
-                    </Badge>
+                    <Badge variant="info" size="sm">{getRoleLabel(m.role as never)}</Badge>
                   </div>
-                  <div className="text-[11px] text-slate-400 pt-2 border-t border-white/5">
-                    سطح دسترسی: <strong className="text-slate-200">{m.stage}</strong>
+                  <div className="flex items-center justify-between border-t border-[#214E3A]/10 pt-2 text-[11px] text-[#4F6659]">
+                    <span>وضعیت: <strong className={m.isActive ? "text-[#214E3A]" : "text-[#D94F3D]"}>{m.isActive ? "فعال" : "معلق"}</strong></span>
+                    <span>سطح: {m.stage}</span>
                   </div>
                 </Card>
               ))}
             </div>
-          </div>
-        )}
+          )}
+        </div>
+      ) : (
+        <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+          <Card variant="default" className="space-y-3">
+            <div className="flex items-center gap-2">
+              <Database className="h-5 w-5 text-[#214E3A]" />
+              <h3 className="text-sm font-bold text-[#214031]">وضعیت پایگاه‌داده و هسته API</h3>
+            </div>
+            <div className="flex items-center gap-2 text-xs">
+              <span>وضعیت سرویس:</span>
+              <Badge variant={health?.status === "ok" ? "success" : "danger"} size="sm">
+                {health?.status === "ok" ? "سالم و فعال" : "نیازمند بررسی"}
+              </Badge>
+            </div>
+            <div className="flex items-center gap-2 text-xs">
+              <span>پایگاه‌داده PostgreSQL:</span>
+              <Badge variant={health?.database === "connected" ? "success" : "danger"} size="sm">
+                {health?.database === "connected" ? "متصل" : "قطع"}
+              </Badge>
+            </div>
+          </Card>
 
-        {/* Tab 4: System & Infrastructure Health */}
-        {activeTab === "health" && (
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <Card variant="elevated" className="p-5 border-white/10 space-y-3">
-              <div className="flex items-center gap-2">
-                <Database className="w-5 h-5 text-apple-blue" />
-                <h4 className="font-bold text-sm text-slate-100">
-                  پایگاه داده رابطه‌ای (PostgreSQL 16)
-                </h4>
+          <Card variant="default" className="space-y-3">
+            <div className="flex items-center gap-2">
+              <Activity className="h-5 w-5 text-[#214E3A]" />
+              <h3 className="text-sm font-bold text-[#214031]">مشخصات اجرا</h3>
+            </div>
+            <dl className="space-y-1.5 text-xs text-[#4F6659]">
+              <div className="flex justify-between">
+                <dt>نسخه سرویس:</dt>
+                <dd className="font-mono font-semibold text-[#214031]">{health?.version ?? "-"}</dd>
               </div>
-              <p className="text-xs text-slate-300">
-                وضعیت اتصال: <span className="text-apple-green font-bold">برقرار و پایدار</span>
-              </p>
-              <div className="text-[11px] text-slate-400 space-y-1">
-                <div>حوضچه اتصالات (Pool): ۱۵/۵۰ فعال</div>
-                <div>آخرین اعمال مایگریشن: Prisma Engine v5.22 - موفق</div>
-                <div>انطباق شاخص‌های یکتایی: uq_interview_resource فعال است</div>
+              <div className="flex justify-between">
+                <dt>مدت کارکرد پیوسته (ثانیه):</dt>
+                <dd className="font-mono font-semibold text-[#214031]">{health?.uptime ?? 0}</dd>
               </div>
-            </Card>
-
-            <Card variant="elevated" className="p-5 border-white/10 space-y-3">
-              <div className="flex items-center gap-2">
-                <Server className="w-5 h-5 text-apple-green" />
-                <h4 className="font-bold text-sm text-slate-100">
-                  سرویس پردازشگر پس‌زمینه (Worker Daemon)
-                </h4>
+              <div className="flex justify-between">
+                <dt>آخرین بررسی:</dt>
+                <dd className="font-semibold text-[#214031]">
+                  {health?.timestamp ? new Date(health.timestamp).toLocaleString("fa-IR") : "-"}
+                </dd>
               </div>
-              <p className="text-xs text-slate-300">
-                وضعیت جاب‌های زمان‌بندی‌شده:{" "}
-                <span className="text-apple-green font-bold">فعال (پایش مهلت مراحل)</span>
-              </p>
-              <div className="text-[11px] text-slate-400 space-y-1">
-                <div>چرخه بررسی خودکار: هر ۱۰ دقیقه</div>
-                <div>رویدادنگاری ممیزی: ثبت خطاهای بحرانی (D-04)</div>
-                <div>بار پردازشی CPU سرور: ۳.۲٪</div>
-              </div>
-            </Card>
-          </div>
-        )}
-      </div>
+            </dl>
+          </Card>
+        </div>
+      )}
 
-      {/* Modal: Create Manager */}
-      {isCreateModalOpen && (
-        <Modal
-          isOpen={true}
-          onClose={() => setIsCreateModalOpen(false)}
-          title="تعریف کاربر و مدیر سیستمی جدید"
-          maxWidth="md"
-        >
-          <form onSubmit={handleCreateManager} className="space-y-4 text-right">
-            <Input
-              label="نام و نام خانوادگی"
-              type="text"
-              dir="rtl"
-              required
-              placeholder="مثال: دکتر مهدی مهدوی"
-              value={newMgrName}
-              onChange={(e) => setNewMgrName(e.target.value)}
-            />
-
-            <Input
-              label="شماره تلفن همراه"
-              type="tel"
-              dir="ltr"
-              required
-              placeholder="09121234567"
-              value={newMgrPhone}
-              onChange={(e) => setNewMgrPhone(e.target.value)}
-            />
-
-            <div className="space-y-1.5">
-              <label className="block text-xs font-medium text-slate-300">
-                نقش سیستمی
-              </label>
+      {isCreateOpen && (
+        <Modal isOpen onClose={() => setIsCreateOpen(false)} title="تعریف مدیر سیستمی جدید" maxWidth="md">
+          <form onSubmit={(e) => void handleCreateManager(e)} className="space-y-4 text-right">
+            <Input label="نام و نام خانوادگی" required value={newMgrName} onChange={(e) => setNewMgrName(e.target.value)} />
+            <Input label="شماره همراه" type="tel" dir="ltr" required value={newMgrPhone} onChange={(e) => setNewMgrPhone(e.target.value)} placeholder="09121234567" />
+            <label className="block space-y-1 text-xs font-medium text-[#214031]">
+              نقش سازمانی
               <select
-                dir="rtl"
                 value={newMgrRole}
                 onChange={(e) => setNewMgrRole(e.target.value)}
-                className="w-full px-3 py-2 rounded-apple-md bg-slate-900 border border-white/10 text-xs text-slate-100 focus:outline-none focus:border-apple-blue/50"
+                className="w-full rounded-xl border border-[#214E3A]/20 bg-[#FFFCF5] p-2.5 text-xs text-[#214031]"
               >
                 <option value="SCIENTIFIC_SUPERVISOR">مدیر علمی</option>
                 <option value="PROVINCIAL_DIRECTOR">مدیر استانی</option>
                 <option value="SUPPORT_DIRECTOR">مدیر پشتیبانی</option>
                 <option value="TRACKING_DIRECTOR">مدیر پیگیری</option>
-                <option value="SYSTEM_ADMIN">مدیر کل و ادمین سامانه</option>
+                <option value="SYSTEM_ADMIN">مدیر سامانه</option>
               </select>
-            </div>
-
-            <Input
-              label="گذرواژه اولیه"
-              type="password"
-              dir="ltr"
-              required
-              minLength={8}
-              value={newMgrPassword}
-              onChange={(e) => setNewMgrPassword(e.target.value)}
-            />
-
-            <div className="flex items-center justify-end gap-2 pt-4 border-t border-white/10">
-              <Button
-                type="button"
-                variant="ghost"
-                size="md"
-                onClick={() => setIsCreateModalOpen(false)}
-              >
-                انصراف
-              </Button>
-              <Button
-                type="submit"
-                variant="primary"
-                size="md"
-                loading={isCreatingManager}
-                icon={<UserPlus className="w-4 h-4" />}
-              >
+            </label>
+            <Input label="گذرواژه اولیه (حداقل ۸ کاراکتر)" type="password" dir="ltr" required minLength={8} value={newMgrPassword} onChange={(e) => setNewMgrPassword(e.target.value)} />
+            <div className="flex justify-end gap-2 border-t border-[#214E3A]/10 pt-3">
+              <Button type="button" variant="ghost" onClick={() => setIsCreateOpen(false)}>انصراف</Button>
+              <Button type="submit" variant="primary" loading={creatingMgr} icon={<UserPlus className="h-4 w-4" />}>
                 ایجاد حساب
               </Button>
             </div>

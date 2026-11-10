@@ -40,39 +40,38 @@ export const Modal: React.FC<ModalProps> = ({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-      {/* Apple Design: Translucent blurred backdrop with instant feedback */}
       <div
-        className="fixed inset-0 bg-black/60 backdrop-blur-md transition-opacity animate-fade-in"
+        className="fixed inset-0 bg-[#183B2D]/45 backdrop-blur-sm transition-opacity animate-fade-in"
         onClick={onClose}
       />
 
-      {/* Modal Surface: Glass material with spring scale animation */}
       <div
-        className={`relative w-full ${maxWidthClasses} apple-glass-card shadow-apple-elevated border border-white/10 rounded-apple-2xl p-6 z-10 animate-scale-up overflow-hidden`}
+        className={`relative z-10 w-full ${maxWidthClasses} animate-scale-up overflow-hidden rounded-apple-2xl border border-[#214E3A]/20 bg-[#FFFCF5] p-6 text-[#214031] shadow-apple-elevated`}
         role="dialog"
         aria-modal="true"
       >
-        <div className="flex items-start justify-between gap-4 mb-5 pb-3 border-b border-white/10">
+        <div className="mb-5 flex items-start justify-between gap-4 border-b border-[#214E3A]/12 pb-3">
           <div>
             {title && (
-              <h3 className="text-lg font-bold text-slate-100 flex items-center gap-2">
+              <h3 className="flex items-center gap-2 text-lg font-bold text-[#214031]">
                 {title}
               </h3>
             )}
             {subtitle && (
-              <p className="text-xs text-slate-400 mt-1">{subtitle}</p>
+              <p className="mt-1 text-xs text-[#43584A]">{subtitle}</p>
             )}
           </div>
           <button
+            type="button"
             onClick={onClose}
-            className="p-1.5 rounded-full text-slate-400 hover:text-white hover:bg-white/10 active:scale-95 transition-all"
+            className="rounded-full p-1.5 text-[#43584A] transition-all hover:bg-[#214E3A]/10 hover:text-[#214031] active:scale-95"
             aria-label="بستن"
           >
-            <X className="w-5 h-5" />
+            <X className="h-5 w-5" />
           </button>
         </div>
 
-        <div className="max-h-[75vh] overflow-y-auto pr-1 -mr-1">
+        <div className="-mr-1 max-h-[75vh] overflow-y-auto pr-1">
           {children}
         </div>
       </div>

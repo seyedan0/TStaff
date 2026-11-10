@@ -3,7 +3,10 @@ import request from "supertest";
 import { Test } from "@nestjs/testing";
 import { INestApplication } from "@nestjs/common";
 import { AppModule } from "../src/app.module.js";
+import { ProblemDetailsFilter } from "../src/platform/errors/problem-details.filter.js";
 import { USER_REPOSITORY } from "../src/modules/identity/application/identity.service.js";
+import { DOCUMENTS_REPOSITORY } from "../src/modules/documents/application/ports/documents.ports.js";
+import { FilesService } from "../src/modules/files/application/files.service.js";
 import { User } from "../src/modules/identity/domain/user.entity.js";
 
 class MockUserRepository {
@@ -76,14 +79,40 @@ describe("Study Evaluations & Support Tickets E2E Integration", () => {
   const testApprenticeId = "10000000-0000-0000-0000-000000000006";
 
   beforeAll(async () => {
+    const docVersion = {
+      id: "doc-ver-1",
+      documentId: "doc-1",
+      version: 1,
+      title: "شیوه‌نامه استخراج منابع D-07",
+      category: "راهنما",
+      summary: "شیوه‌نامه اصلی",
+      status: "PUBLISHED" as const,
+      isRequired: true,
+      storedObjectId: "file-doc-1",
+      uploadedById: "supervisor-1",
+      publishedAt: new Date(),
+      createdAt: new Date(),
+      isRead: true,
+      readAt: new Date(),
+    };
     const moduleRef = await Test.createTestingModule({
       imports: [AppModule],
     })
       .overrideProvider(USER_REPOSITORY)
       .useValue(mockRepo)
+      .overrideProvider(DOCUMENTS_REPOSITORY)
+      .useValue({
+        getStudyProgress: async () => ({
+          requiredCurrentVersions: [docVersion],
+          readCurrentVersions: [docVersion],
+        }),
+      })
+      .overrideProvider(FilesService)
+      .useValue({ isAvailable: async () => true, assertReadyForUse: async () => {} })
       .compile();
 
     app = moduleRef.createNestApplication();
+    app.useGlobalFilters(new ProblemDetailsFilter());
     await app.init();
   });
 
@@ -96,11 +125,23 @@ describe("Study Evaluations & Support Tickets E2E Integration", () => {
       .post("/users/study-evaluations/request")
       .set("x-user-stage", "APPRENTICE")
       .send({
-        completedGuidelines: ["شیوه‌نامه استخراج منابع D-07"],
         notes: "مطالعه انجام شد",
       });
 
     expect(res.status).toBe(401);
+  });
+
+  it("rejects untrusted client-supplied completedGuidelines field (400 Bad Request)", async () => {
+    const res = await request(app.getHttpServer())
+      .post("/users/study-evaluations/request")
+      .set("x-user-stage", "APPRENTICE")
+      .set("x-user-id", testApprenticeId)
+      .send({
+        completedGuidelines: ["شیوه‌نامه استخراج منابع D-07"],
+        notes: "مطالعه انجام شد",
+      });
+
+    expect(res.status).toBe(400);
   });
 
   it("submits study evaluation request successfully with x-user-id", async () => {
@@ -109,10 +150,6 @@ describe("Study Evaluations & Support Tickets E2E Integration", () => {
       .set("x-user-stage", "APPRENTICE")
       .set("x-user-id", testApprenticeId)
       .send({
-        completedGuidelines: [
-          "شیوه‌نامه استخراج منابع D-07",
-          "راهنمای تحلیل علّی و تدوین بیانیه تبیین مسئله",
-        ],
         notes: "کلیه ۶ شیوه‌نامه مصوب مطالعه گردید.",
       });
 

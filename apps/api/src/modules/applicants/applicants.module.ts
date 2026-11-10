@@ -1,4 +1,4 @@
-import { Module } from "@nestjs/common";
+import { forwardRef, Module } from "@nestjs/common";
 import { ApplicantsController } from "./presentation/applicants.controller.js";
 import {
   ApplicantsService,
@@ -10,6 +10,8 @@ import { PrismaApplicantRepository } from "./infrastructure/prisma-applicant.rep
 import { IdentityModule, IdentityService } from "../identity/index.js";
 import { AssignmentsModule } from "../assignments/assignments.module.js";
 import { AssignmentsService } from "../assignments/application/assignments.service.js";
+import { OrganizationModule } from "../organization/organization.module.js";
+import { ResourcesModule } from "../resources/resources.module.js";
 
 class IdentityApprovedHookAdapter implements ApplicantApprovedHook {
   constructor(
@@ -31,7 +33,7 @@ class IdentityApprovedHookAdapter implements ApplicantApprovedHook {
 }
 
 @Module({
-  imports: [IdentityModule, AssignmentsModule],
+  imports: [IdentityModule, AssignmentsModule, OrganizationModule, forwardRef(() => ResourcesModule)],
   controllers: [ApplicantsController],
   providers: [
     ApplicantsService,

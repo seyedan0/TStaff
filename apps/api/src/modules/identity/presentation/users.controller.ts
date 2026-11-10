@@ -37,6 +37,14 @@ export class UsersController {
     private readonly identityService: IdentityService,
   ) {}
 
+  @Get()
+  @RequireStage("INTERN")
+  @RequireRoles("SUPPORT_DIRECTOR", "SYSTEM_ADMIN", "TRACKING_DIRECTOR")
+  @ApiOperation({ summary: "فهرست کاربران سامانه برای کارتابل پشتیبانی و مدیریت" })
+  async listDirectory() {
+    return this.identityService.getDirectoryUsers();
+  }
+
   @Post("managers")
   @RequireStage("INTERN")
   @RequireRoles("TRACKING_DIRECTOR", "SYSTEM_ADMIN")
@@ -178,7 +186,7 @@ export class UsersController {
   @ApiOperation({ summary: "مشاهده مشخصات حساب کاربر" })
   async getUser(@Param("id") id: string, @Req() request: any) {
     const roles: string[] = request.user.roles ?? (request.user.role ? [request.user.role] : []);
-    const privileged = roles.some((role) => ["SYSTEM_ADMIN", "TRACKING_DIRECTOR", "PROVINCIAL_DIRECTOR"].includes(role));
+    const privileged = roles.some((role) => ["SYSTEM_ADMIN", "TRACKING_DIRECTOR", "PROVINCIAL_DIRECTOR", "SUPPORT_DIRECTOR"].includes(role));
     const assignedSupervisor = roles.includes("SCIENTIFIC_SUPERVISOR") && await this.identityService.isScientificSupervisorAssignedToUser(id, request.user.id);
     if (request.user.id !== id && !privileged && !assignedSupervisor) throw new ForbiddenException("مشاهده حساب کاربر دیگر مجاز نیست");
     const user = await this.identityService.getById(id);
@@ -187,7 +195,7 @@ export class UsersController {
 
   @Post(":id/suspend")
   @RequireStage("INTERN")
-  @RequireRoles("TRACKING_DIRECTOR", "SYSTEM_ADMIN")
+  @RequireRoles("TRACKING_DIRECTOR", "SUPPORT_DIRECTOR", "SYSTEM_ADMIN")
   @HttpCode(HttpStatus.OK)
   @ApiOperation({
     summary: "تعلیق حساب کاربری به دلیل نقض قوانین (FR-035, AT-12, BR-18)",
@@ -196,15 +204,15 @@ export class UsersController {
     status: 200,
     description: "حساب کاربری با موفقیت تعلیق شد",
   })
-  async suspendUser(@Param("id") id: string, @Body() body: unknown) {
+  async suspendUser(@Param("id") id: string, @Req() request: any, @Body() body: unknown) {
     const validated = SuspendUserDtoSchema.parse(body);
-    const user = await this.identityService.suspendUser(id, validated.reason);
+    const user = await this.identityService.suspendUser(id, validated.reason, request.user?.id);
     return user.toJSON();
   }
 
   @Post(":id/reactivate")
   @RequireStage("INTERN")
-  @RequireRoles("TRACKING_DIRECTOR", "SYSTEM_ADMIN")
+  @RequireRoles("TRACKING_DIRECTOR", "SUPPORT_DIRECTOR", "SYSTEM_ADMIN")
   @HttpCode(HttpStatus.OK)
   @ApiOperation({
     summary: "رفع تعلیق و فعال‌سازی مجدد حساب کاربر (FR-035, AT-12)",
@@ -213,11 +221,12 @@ export class UsersController {
     status: 200,
     description: "حساب کاربری مجدداً فعال شد",
   })
-  async reactivateUser(@Param("id") id: string, @Body() body: unknown) {
+  async reactivateUser(@Param("id") id: string, @Req() request: any, @Body() body: unknown) {
     const validated = ReactivateUserDtoSchema.parse(body);
     const user = await this.identityService.reactivateUser(
       id,
       validated.reason,
+      request.user?.id,
     );
     return user.toJSON();
   }

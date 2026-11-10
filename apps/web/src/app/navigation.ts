@@ -1,6 +1,21 @@
 import type { SystemRole } from "@tstaff/contracts";
 
 export interface NavigationItem { to: string; label: string }
+
+export const ROLE_LABELS: Record<SystemRole, string> = {
+  APPRENTICE: "کارآموز",
+  INTERN: "پژوهشگر (کارورز)",
+  SCIENTIFIC_SUPERVISOR: "مدیر علمی",
+  PROVINCIAL_DIRECTOR: "مدیر استانی",
+  TRACKING_DIRECTOR: "مدیر پیگیری",
+  SUPPORT_DIRECTOR: "مدیر پشتیبانی",
+  SYSTEM_ADMIN: "مدیر سامانه",
+};
+
+export function getRoleLabel(role: SystemRole): string {
+  return ROLE_LABELS[role] ?? role;
+}
+
 const userItems: NavigationItem[] = [{ to: "/library", label: "منابع آموزشی" }, { to: "/messages", label: "گفت‌وگو" }];
 const menus: Record<SystemRole, NavigationItem[]> = {
   APPRENTICE: userItems,
@@ -21,9 +36,11 @@ export function getNavigation(role: SystemRole): NavigationItem[] { return menus
 export function getHomePath(role: SystemRole): string { return getNavigation(role)[0]?.to ?? "/"; }
 const researchers: SystemRole[] = ["INTERN", "SCIENTIFIC_SUPERVISOR", "PROVINCIAL_DIRECTOR", "TRACKING_DIRECTOR", "SYSTEM_ADMIN"];
 const routeRules: Array<{ pattern: RegExp; roles: SystemRole[] }> = [
+  { pattern: /^\/projects\/new\/?$/, roles: ["SCIENTIFIC_SUPERVISOR", "SYSTEM_ADMIN"] },
   { pattern: /^\/projects(?:\/[^/]+(?:\/stages\/(?:SOURCES|EXPLANATION|PRESCRIPTION|SCENARIO)|\/resources\/[^/]+)?)?\/?$/, roles: researchers },
   { pattern: /^\/supervision\/(?:users(?:\/[^/]+)?|reviews|evaluations)\/?$/, roles: ["SCIENTIFIC_SUPERVISOR"] },
-  { pattern: /^\/admissions(?:\/[^/]+)?\/?$/, roles: ["SCIENTIFIC_SUPERVISOR", "PROVINCIAL_DIRECTOR", "TRACKING_DIRECTOR", "SYSTEM_ADMIN"] },
+  { pattern: /^\/admissions\/new\/?$/, roles: ["PROVINCIAL_DIRECTOR", "SYSTEM_ADMIN"] },
+  { pattern: /^\/admissions(?:\/[^/]+)?\/?$/, roles: ["SCIENTIFIC_SUPERVISOR", "PROVINCIAL_DIRECTOR", "SYSTEM_ADMIN"] },
   { pattern: /^\/resource-bank(?:\/[^/]+)?\/?$/, roles: ["PROVINCIAL_DIRECTOR", "TRACKING_DIRECTOR"] },
   { pattern: /^\/library(?:\/[^/]+)?\/?$/, roles: ["APPRENTICE", "INTERN", "SCIENTIFIC_SUPERVISOR"] },
   { pattern: /^\/messages(?:\/[^/]+)?\/?$/, roles: ["APPRENTICE", "INTERN", "SCIENTIFIC_SUPERVISOR"] },

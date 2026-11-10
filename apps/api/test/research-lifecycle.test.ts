@@ -9,8 +9,10 @@ import { RESOURCE_REPOSITORY } from "../src/modules/resources/application/resour
 import { RESEARCH_REPOSITORY } from "../src/modules/research/application/research.service.js";
 import { USER_REPOSITORY } from "../src/modules/identity/application/identity.service.js";
 import { APPLICANT_REPOSITORY } from "../src/modules/applicants/application/applicants.service.js";
+import { AUDIT_REPOSITORY } from "../src/modules/audit/application/audit.service.js";
 import { FilesService } from "../src/modules/files/application/files.service.js";
 import { ResearchAssignment } from "../src/modules/assignments/domain/assignment.entity.js";
+import { CannotRemoveMainSupervisorWithoutReplacementError } from "../src/modules/assignments/domain/assignment-errors.js";
 import { Resource } from "../src/modules/resources/domain/resource.entity.js";
 import { Interview } from "../src/modules/resources/domain/interview.entity.js";
 import { InterviewReport } from "../src/modules/resources/domain/interview-report.entity.js";
@@ -50,6 +52,39 @@ class MockAssignmentRepository {
     return this.userAssignments.filter((item) => item.supervisorId === supervisorId).map((item) => ({ id: item.userId, fullName: "کارورز آزمایشی", stage: "INTERN", phoneNumber: "09120000002" }));
   }
   async isSupervisorAssignedToUser(userId: string, supervisorId: string) { return this.userAssignments.some((item) => item.userId === userId && item.supervisorId === supervisorId); }
+  async isSupervisorAssignedToCase(caseId: string, supervisorId: string) { return this.researchAssignments.some((item) => item.researchCaseId === caseId && item.userId === supervisorId && item.isActive); }
+  async getCaseIdsForSupervisor(supervisorId: string) { return this.researchAssignments.filter((item) => item.userId === supervisorId && item.isActive).map((item) => item.researchCaseId); }
+  async listCaseSupervisors(caseId: string) {
+    return this.researchAssignments.filter((item) => item.researchCaseId === caseId && item.isActive).map((item) => ({
+      id: item.id, researchCaseId: item.researchCaseId, userId: item.userId, fullName: "مدیر علمی", phoneNumber: "09120000001", role: item.role, isActive: item.isActive, assignedAt: item.assignedAt,
+    }));
+  }
+  async assignToCase(input: { researchCaseId: string; userId: string; role: "MAIN_SUPERVISOR" | "COLLABORATOR_SUPERVISOR" }) {
+    if (!this.supervisors.has(input.userId)) throw new Error("مدیر علمی نامعتبر است");
+    const active = await this.findActiveByCaseId(input.researchCaseId);
+    if (active.some((item) => item.userId === input.userId && item.role === input.role)) return;
+    ResearchAssignment.validateCanAssign(input.role, active);
+    await this.save(ResearchAssignment.create({ id: crypto.randomUUID(), ...input }));
+  }
+  async replaceMainSupervisorOnCase(caseId: string, supervisorId: string) {
+    if (!this.supervisors.has(supervisorId)) throw new Error("مدیر علمی نامعتبر است");
+    this.researchAssignments = this.researchAssignments.map((item) =>
+      item.researchCaseId === caseId && item.isActive && (item.role === "MAIN_SUPERVISOR" || item.userId === supervisorId)
+        ? item.deactivate()
+        : item,
+    );
+    await this.save(ResearchAssignment.create({ id: crypto.randomUUID(), researchCaseId: caseId, userId: supervisorId, role: "MAIN_SUPERVISOR" }));
+  }
+  async revokeFromUser(userId: string, supervisorId: string) {
+    this.userAssignments = this.userAssignments.filter((item) => !(item.userId === userId && item.supervisorId === supervisorId));
+  }
+  async revokeFromCase(caseId: string, supervisorId: string) {
+    const active = this.researchAssignments.find((item) => item.researchCaseId === caseId && item.userId === supervisorId && item.isActive);
+    if (active?.role === "MAIN_SUPERVISOR") throw new CannotRemoveMainSupervisorWithoutReplacementError();
+    this.researchAssignments = this.researchAssignments.map((item) =>
+      item.researchCaseId === caseId && item.userId === supervisorId && item.isActive ? item.deactivate() : item,
+    );
+  }
 }
 
 class MockResearchRepository {
@@ -106,6 +141,7 @@ describe("Research workflow acceptance (D-02, D-03, D-05, D-07, FR-045, FR-058, 
       .overrideProvider(RESEARCH_REPOSITORY).useClass(MockResearchRepository)
       .overrideProvider(USER_REPOSITORY).useValue({ findByPhoneNumber: async () => null, findById: async () => null, findByApplicantId: async () => null, save: async () => {} })
       .overrideProvider(APPLICANT_REPOSITORY).useValue({ findById: async () => null, findByPhoneNumber: async () => null, findByNationalId: async () => null, save: async () => {}, findAll: async () => [] })
+      .overrideProvider(AUDIT_REPOSITORY).useValue({ save: async () => {}, findById: async () => null, findMany: async () => [] })
       .overrideProvider(FilesService).useValue({ assertReadyForUse: async () => {}, isAvailable: async () => true })
       .compile();
     app = moduleRef.createNestApplication();
@@ -169,6 +205,12 @@ describe("Research workflow acceptance (D-02, D-03, D-05, D-07, FR-045, FR-058, 
     const approved = await managerHeaders(agent.post(`/research-cases/${caseId}/stages/SOURCES/review`), mainSupervisorId).send({ decision: "APPROVED", expectedVersion: completed.body.version });
     expect(approved.status).toBe(200);
     expect(approved.body.stages.find((stage: any) => stage.stageType === "EXPLANATION").status).toBe("IN_PROGRESS");
+
+    const blockedRollback = await managerHeaders(agent.post(`/research-cases/${caseId}/rollback-stage`), otherSupervisorId).send({ targetStage: "SOURCES", reason: "تلاش بدون انتساب به پژوهش", expectedVersion: approved.body.version });
+    expect(blockedRollback.status).toBe(403);
+
+    const assignCollabCase = await directorHeaders(agent.post(`/research-cases/${caseId}/supervisors`)).send({ userId: collaboratorId, role: "COLLABORATOR_SUPERVISOR" });
+    expect(assignCollabCase.status).toBe(201);
 
     const rolledBack = await managerHeaders(agent.post(`/research-cases/${caseId}/rollback-stage`), collaboratorId).send({ targetStage: "SOURCES", reason: "بازبینی داده‌های مصاحبه", expectedVersion: approved.body.version });
     expect(rolledBack.status).toBe(200);

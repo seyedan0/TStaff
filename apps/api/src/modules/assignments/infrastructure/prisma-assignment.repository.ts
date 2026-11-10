@@ -1,16 +1,21 @@
-import { Injectable } from "@nestjs/common";
+import { Inject, Injectable } from "@nestjs/common";
 import { PrismaService } from "@tstaff/database";
-import { InvalidScientificSupervisorError, InvalidTraineeAssignmentTargetError } from "../domain/assignment-errors.js";
+import {
+  CannotRemoveMainSupervisorWithoutReplacementError,
+  InvalidScientificSupervisorError,
+  InvalidTraineeAssignmentTargetError,
+} from "../domain/assignment-errors.js";
 import { ResearchAssignment } from "../domain/assignment.entity.js";
 import type {
   AssignedTraineeRecord,
   AssignmentRepositoryPort,
+  CaseSupervisorRecord,
   SupervisorAssignmentRecord,
 } from "../application/ports/assignment.repository.port.js";
 
 @Injectable()
 export class PrismaAssignmentRepository implements AssignmentRepositoryPort {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(@Inject(PrismaService) private readonly prisma: PrismaService) {}
 
   async isSupervisorAssignedToCase(caseId: string, supervisorId: string): Promise<boolean> {
     return (await this.prisma.researchAssignment.count({ where: { researchCaseId: caseId, userId: supervisorId, isActive: true, role: { in: ["MAIN_SUPERVISOR", "COLLABORATOR_SUPERVISOR"] } } })) > 0;
@@ -19,6 +24,33 @@ export class PrismaAssignmentRepository implements AssignmentRepositoryPort {
   async getCaseIdsForSupervisor(supervisorId: string): Promise<string[]> {
     const rows = await this.prisma.researchAssignment.findMany({ where: { userId: supervisorId, isActive: true, role: { in: ["MAIN_SUPERVISOR", "COLLABORATOR_SUPERVISOR"] } }, select: { researchCaseId: true } });
     return rows.map((row) => row.researchCaseId);
+  }
+
+  async listCaseSupervisors(caseId: string): Promise<CaseSupervisorRecord[]> {
+    const rows = await this.prisma.researchAssignment.findMany({
+      where: { researchCaseId: caseId, isActive: true, role: { in: ["MAIN_SUPERVISOR", "COLLABORATOR_SUPERVISOR"] } },
+      orderBy: [{ role: "asc" }, { assignedAt: "asc" }],
+    });
+    if (rows.length === 0) return [];
+    const users = await this.prisma.user.findMany({
+      where: { id: { in: rows.map((row) => row.userId) } },
+      include: { profile: true },
+    });
+    const byId = new Map(users.map((user) => [user.id, user]));
+    return rows.map((row) => {
+      const user = byId.get(row.userId);
+      const fullName = user?.profile ? `${user.profile.firstName} ${user.profile.lastName}`.trim() : "مدیر علمی";
+      return {
+        id: row.id,
+        researchCaseId: row.researchCaseId,
+        userId: row.userId,
+        fullName,
+        phoneNumber: user?.phoneNumber ?? "",
+        role: row.role as "MAIN_SUPERVISOR" | "COLLABORATOR_SUPERVISOR",
+        isActive: row.isActive,
+        assignedAt: row.assignedAt,
+      };
+    });
   }
 
   async assignToCase(input: { researchCaseId: string; userId: string; role: "MAIN_SUPERVISOR" | "COLLABORATOR_SUPERVISOR" }): Promise<void> {
@@ -32,13 +64,40 @@ export class PrismaAssignmentRepository implements AssignmentRepositoryPort {
     });
   }
 
+  async replaceMainSupervisorOnCase(caseId: string, supervisorId: string): Promise<void> {
+    if (!(await this.isScientificSupervisor(supervisorId))) throw new InvalidScientificSupervisorError();
+    await this.prisma.$transaction(async (tx) => {
+      await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${caseId}))`;
+      const now = new Date();
+      await tx.researchAssignment.updateMany({
+        where: { researchCaseId: caseId, isActive: true, role: "MAIN_SUPERVISOR" },
+        data: { isActive: false, unassignedAt: now },
+      });
+      await tx.researchAssignment.updateMany({
+        where: { researchCaseId: caseId, userId: supervisorId, isActive: true, role: "COLLABORATOR_SUPERVISOR" },
+        data: { isActive: false, unassignedAt: now },
+      });
+      await tx.researchAssignment.create({
+        data: { id: crypto.randomUUID(), researchCaseId: caseId, userId: supervisorId, role: "MAIN_SUPERVISOR", isActive: true },
+      });
+    });
+  }
+
   async revokeFromUser(userId: string, supervisorId: string): Promise<void> {
     await this.prisma.scientificSupervisorAssignment.updateMany({ where: { userId, supervisorId, revokedAt: null }, data: { revokedAt: new Date() } });
   }
 
   async revokeFromCase(caseId: string, supervisorId: string): Promise<void> {
-    // A MAIN replacement must be assigned atomically; standalone revocation of MAIN is forbidden.
-    await this.prisma.researchAssignment.updateMany({ where: { researchCaseId: caseId, userId: supervisorId, isActive: true, role: "COLLABORATOR_SUPERVISOR" }, data: { isActive: false, unassignedAt: new Date() } });
+    const active = await this.prisma.researchAssignment.findFirst({
+      where: { researchCaseId: caseId, userId: supervisorId, isActive: true },
+    });
+    if (active?.role === "MAIN_SUPERVISOR") {
+      throw new CannotRemoveMainSupervisorWithoutReplacementError();
+    }
+    await this.prisma.researchAssignment.updateMany({
+      where: { researchCaseId: caseId, userId: supervisorId, isActive: true, role: "COLLABORATOR_SUPERVISOR" },
+      data: { isActive: false, unassignedAt: new Date() },
+    });
   }
 
   async isIntern(userId: string): Promise<boolean> {

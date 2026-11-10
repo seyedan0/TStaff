@@ -1,6 +1,6 @@
 import { Injectable, Inject, Optional, ForbiddenException } from "@nestjs/common";
 import { createHash, randomBytes } from "node:crypto";
-import { LoginDto, CreateManagerDto } from "@tstaff/contracts";
+import { LoginDto, CreateManagerDto, type DirectoryUserDto } from "@tstaff/contracts";
 import { User } from "../domain/user.entity.js";
 import {
   UserNotFoundError,
@@ -12,6 +12,8 @@ import type { UserRepositoryPort } from "./ports/user.repository.port.js";
 import type { PasswordHasherPort } from "./ports/password-hasher.port.js";
 import { AssignmentsService } from "../../assignments/application/assignments.service.js";
 import { DocumentsService } from "../../documents/application/documents.service.js";
+import { AuditService } from "../../audit/application/audit.service.js";
+import { NotificationsService } from "../../notifications/application/notifications.service.js";
 
 export const USER_REPOSITORY = Symbol("USER_REPOSITORY");
 export const PASSWORD_HASHER = Symbol("PASSWORD_HASHER");
@@ -21,6 +23,34 @@ export class IdentityService {
   async getUserProvinceId(userId: string): Promise<string | null> {
     return this.userRepo.findProvinceIdByUserId?.(userId) ?? null;
   }
+
+  async getUserApplicantDetails(userId: string) {
+    return (await this.userRepo.findApplicantDetailsByUserId?.(userId)) ?? null;
+  }
+
+  async getDirectoryUsers(): Promise<DirectoryUserDto[]> {
+    if (this.userRepo.findAllDirectoryUsers) {
+      return this.userRepo.findAllDirectoryUsers();
+    }
+    const [managers, interns] = await Promise.all([this.getManagers(), this.getInterns()]);
+    const unique = new Map<string, DirectoryUserDto>();
+    for (const user of [...managers, ...interns]) {
+      const json = user.toJSON();
+      unique.set(user.id, {
+        id: json.id,
+        fullName: json.fullName ?? "کاربر",
+        phoneNumber: json.phoneNumber,
+        stage: json.stage,
+        role: (json.role ?? json.stage) as DirectoryUserDto["role"],
+        roles: (json.roles?.length ? json.roles : [json.stage]) as DirectoryUserDto["roles"],
+        isActive: json.isActive,
+        provinceId: null,
+        createdAt: json.createdAt.toISOString(),
+      });
+    }
+    return [...unique.values()];
+  }
+
   constructor(
     @Inject(USER_REPOSITORY)
     private readonly userRepo: UserRepositoryPort,
@@ -30,6 +60,10 @@ export class IdentityService {
     private readonly assignmentsService?: AssignmentsService,
     @Optional() @Inject(DocumentsService)
     private readonly documentsService?: DocumentsService,
+    @Optional() @Inject(AuditService)
+    private readonly auditService?: AuditService,
+    @Optional() @Inject(NotificationsService)
+    private readonly notificationsService?: NotificationsService,
   ) {}
 
   /**
@@ -113,7 +147,7 @@ export class IdentityService {
   /**
    * Rule FR-035 / AT-12 / BR-18: Suspend user account
    */
-  async suspendUser(userId: string, reason: string): Promise<User> {
+  async suspendUser(userId: string, reason: string, actorId?: string): Promise<User> {
     const user = await this.userRepo.findById(userId);
     if (!user) {
       throw new UserNotFoundError(userId);
@@ -121,13 +155,27 @@ export class IdentityService {
 
     const updated = user.suspend();
     await this.userRepo.save(updated);
+    await this.auditService?.recordEvent({
+      aggregateType: "User",
+      aggregateId: userId,
+      action: "USER_SUSPENDED",
+      actorId,
+      payload: { reason },
+    });
+    await this.notificationsService?.createNotification({
+      userId,
+      type: "USER_SUSPENDED",
+      title: "تعلیق حساب کاربری",
+      body: `حساب کاربری شما به دلیل «${reason}» تعلیق شد.`,
+      isCritical: true,
+    });
     return updated;
   }
 
   /**
    * Rule FR-035 / AT-12 / BR-18: Reactivate suspended user account
    */
-  async reactivateUser(userId: string, reason?: string): Promise<User> {
+  async reactivateUser(userId: string, reason?: string, actorId?: string): Promise<User> {
     const user = await this.userRepo.findById(userId);
     if (!user) {
       throw new UserNotFoundError(userId);
@@ -135,6 +183,20 @@ export class IdentityService {
 
     const updated = user.reactivate();
     await this.userRepo.save(updated);
+    await this.auditService?.recordEvent({
+      aggregateType: "User",
+      aggregateId: userId,
+      action: "USER_REACTIVATED",
+      actorId,
+      payload: reason ? { reason } : {},
+    });
+    await this.notificationsService?.createNotification({
+      userId,
+      type: "USER_REACTIVATED",
+      title: "رفع تعلیق حساب کاربری",
+      body: "حساب کاربری شما مجدداً فعال گردید.",
+      isCritical: true,
+    });
     return updated;
   }
 

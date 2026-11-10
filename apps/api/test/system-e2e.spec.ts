@@ -2,6 +2,7 @@ import { describe, it, expect, beforeAll, afterAll } from "vitest";
 import { Test } from "@nestjs/testing";
 import { INestApplication, HttpStatus } from "@nestjs/common";
 import request from "supertest";
+import { IRAN_PROVINCES } from "@tstaff/contracts";
 import { AppModule } from "../src/app.module.js";
 import { ProblemDetailsFilter } from "../src/platform/errors/problem-details.filter.js";
 
@@ -18,6 +19,9 @@ import { MESSAGING_REPOSITORY } from "../src/modules/messaging/application/messa
 import { ARCHIVE_JOB_REPOSITORY } from "../src/modules/archival/application/archival.service.js";
 import { SETTING_REPOSITORY } from "../src/modules/settings/application/settings.service.js";
 import { REPORTING_REPOSITORY } from "../src/modules/reporting/application/reporting.service.js";
+import { DOCUMENTS_REPOSITORY } from "../src/modules/documents/application/ports/documents.ports.js";
+import { ORGANIZATION_REPOSITORY } from "../src/modules/organization/application/ports/organization.repository.port.js";
+import { RESOURCE_BANK_REPOSITORY } from "../src/modules/resources/application/ports/resource-bank.repository.port.js";
 import { FilesService } from "../src/modules/files/application/files.service.js";
 
 import { Applicant } from "../src/modules/applicants/domain/applicant.entity.js";
@@ -67,6 +71,9 @@ describe("E2E System Integration: M1 to M6 Complete Flow & Pre-UI Readiness", ()
   const provincialDirectorId = "11111111-1111-1111-1111-111111111111";
   const mainSupervisorId = "22222222-2222-2222-2222-222222222222";
   const collabSupervisorId = "33333333-3333-3333-3333-333333333333";
+  const trackingDirectorId = "44444444-4444-4444-4444-444444444444";
+  const systemAdminId = "55555555-5555-5555-5555-555555555555";
+  const tehranProvinceId = IRAN_PROVINCES[7]!.id;
   let internUserId: string;
   let applicantId: string;
   let caseId: string;
@@ -122,6 +129,9 @@ describe("E2E System Integration: M1 to M6 Complete Flow & Pre-UI Readiness", ()
         save: async (u: User) => mocks.users.set(u.id, u),
         findAllManagers: async () => [],
         findAllInterns: async () => Array.from(mocks.users.values()).filter((user) => user.stage === "INTERN"),
+        findAllDirectoryUsers: async () => [],
+        findApplicantDetailsByUserId: async () => null,
+        findProvinceIdByUserId: async () => tehranProvinceId,
         createStudyEvaluation: async (userId: string, notes?: string) => {
           const record = { id: crypto.randomUUID(), userId, status: "PENDING", notes, createdAt: new Date(), updatedAt: new Date() };
           mocks.studyEvaluations.set(record.id, record);
@@ -144,6 +154,7 @@ describe("E2E System Integration: M1 to M6 Complete Flow & Pre-UI Readiness", ()
         findById: async (id: string) => mocks.cases.get(id) || null,
         findByCode: async (code: string) =>
           Array.from(mocks.cases.values()).find((c) => c.code === code) || null,
+        findAll: async () => Array.from(mocks.cases.values()),
         saveWithVersionCheck: async (
           c: ResearchCase,
           expectedVersion: number,
@@ -190,6 +201,17 @@ describe("E2E System Integration: M1 to M6 Complete Flow & Pre-UI Readiness", ()
         listSupervisorsForUser: async (userId: string) => mocks.userAssignments.filter((item) => item.userId === userId).map((item) => ({ id: `${item.userId}:${item.supervisorId}`, ...item, supervisorName: "مدیر علمی آزمایشی", phoneNumber: "09120000000", assignedAt: new Date() })),
         listUsersForSupervisor: async (supervisorId: string) => mocks.userAssignments.filter((item) => item.supervisorId === supervisorId).map((item) => ({ id: item.userId, fullName: "کارورز آزمایشی", stage: mocks.users.get(item.userId)?.stage ?? "APPRENTICE", phoneNumber: "09120000001" })),
         isSupervisorAssignedToUser: async (userId: string, supervisorId: string) => mocks.userAssignments.some((item) => item.userId === userId && item.supervisorId === supervisorId),
+        isSupervisorAssignedToCase: async (cId: string, supId: string) => mocks.assignments.some((a) => a.researchCaseId === cId && a.userId === supId && a.isActive),
+        getCaseIdsForSupervisor: async (supId: string) => mocks.assignments.filter((a) => a.userId === supId && a.isActive).map((a) => a.researchCaseId),
+        listCaseSupervisors: async (cId: string) => mocks.assignments.filter((a) => a.researchCaseId === cId && a.isActive).map((a) => ({
+          id: a.id, researchCaseId: a.researchCaseId, userId: a.userId, fullName: "مدیر علمی", phoneNumber: "09120000000", role: a.role, isActive: a.isActive, assignedAt: a.assignedAt,
+        })),
+        assignToCase: async (input: { researchCaseId: string; userId: string; role: "MAIN_SUPERVISOR" | "COLLABORATOR_SUPERVISOR" }) => {
+          const active = mocks.assignments.filter((a) => a.researchCaseId === input.researchCaseId && a.isActive);
+          if (active.some((a) => a.userId === input.userId && a.role === input.role)) return;
+          ResearchAssignment.validateCanAssign(input.role, active);
+          mocks.assignments.push(ResearchAssignment.create({ id: crypto.randomUUID(), ...input }));
+        },
       })
       .overrideProvider(RESOURCE_REPOSITORY)
       .useValue({
@@ -255,6 +277,10 @@ describe("E2E System Integration: M1 to M6 Complete Flow & Pre-UI Readiness", ()
           ),
         saveWithVersionCheck: async (sc: Scenario) =>
           mocks.scenarios.set(sc.id, sc),
+        findVersions: async () => [],
+        findDecisions: async () => [],
+        saveDecision: async () => {},
+        findDecisionByIdempotencyKey: async () => null,
         findInternalBank: async () => Array.from(mocks.scenarios.values()),
       })
       .overrideProvider(NOTIFICATION_REPOSITORY)
@@ -353,6 +379,50 @@ describe("E2E System Integration: M1 to M6 Complete Flow & Pre-UI Readiness", ()
           rollbackFrequencyByStage: { SOURCES: 0, EXPLANATION: 0, PRESCRIPTION: 0, SCENARIO: 0 },
         }),
       })
+      .overrideProvider(DOCUMENTS_REPOSITORY)
+      .useValue({
+        getStudyProgress: async () => {
+          const docVersion = {
+            id: "e2e-doc-ver-1",
+            documentId: "e2e-doc-1",
+            version: 1,
+            title: "راهنمای پژوهش",
+            category: "راهنما",
+            summary: "مستندات مطالعاتی",
+            status: "PUBLISHED" as const,
+            isRequired: true,
+            storedObjectId: "e2e-doc-file-1",
+            uploadedById: mainSupervisorId,
+            publishedAt: new Date(),
+            createdAt: new Date(),
+            isRead: true,
+            readAt: new Date(),
+          };
+          return { requiredCurrentVersions: [docVersion], readCurrentVersions: [docVersion] };
+        },
+      })
+      .overrideProvider(ORGANIZATION_REPOSITORY)
+      .useValue({
+        provinces: async () => [...IRAN_PROVINCES],
+        provinceIds: async (id: string) => id === provincialDirectorId ? [tehranProvinceId] : [],
+        hasUserGrant: async () => false,
+        scopes: async () => [],
+        setProvinceScope: async () => {},
+        setUserGrant: async () => {},
+      })
+      .overrideProvider(RESOURCE_BANK_REPOSITORY)
+      .useValue({
+        list: async () => ({ items: [], total: 0 }),
+        find: async () => null,
+        findReferral: async () => null,
+        hasActiveConversion: async () => null,
+        refer: async () => { throw new Error("not used"); },
+        referral: async () => null,
+        revoke: async () => {},
+        claimConversion: async () => false,
+        completeConversion: async () => {},
+        hasApplicantReferral: async () => false,
+      })
       .overrideProvider(FilesService)
       .useValue({ assertReadyForUse: async () => {}, isAvailable: async () => true })
       .compile();
@@ -376,7 +446,7 @@ describe("E2E System Integration: M1 to M6 Complete Flow & Pre-UI Readiness", ()
         nationalId: "1234567890",
         phoneNumber: "09121234567",
         age: 24.5, // Decimals strictly rejected
-        provinceId: "11111111-1111-1111-1111-111111111111",
+        provinceId: tehranProvinceId,
         education: "کارشناسی",
         fieldOfStudy: "مهندسی صنایع",
         initialSupervisorId: mainSupervisorId,
@@ -392,7 +462,7 @@ describe("E2E System Integration: M1 to M6 Complete Flow & Pre-UI Readiness", ()
         nationalId: "1234567890",
         phoneNumber: "09121234567",
         age: 25,
-        provinceId: "11111111-1111-1111-1111-111111111111",
+        provinceId: tehranProvinceId,
         education: "کارشناسی",
         fieldOfStudy: "مهندسی صنایع",
         initialSupervisorId: mainSupervisorId,
@@ -439,7 +509,7 @@ describe("E2E System Integration: M1 to M6 Complete Flow & Pre-UI Readiness", ()
     const evaluation = await request(app.getHttpServer())
       .post("/users/study-evaluations/request")
       .set("x-user-id", internUserId).set("x-user-stage", "APPRENTICE").set("x-user-role", "APPRENTICE")
-      .send({ completedGuidelines: ["راهنمای پژوهش"], notes: "منابع مقدماتی مطالعه شد" });
+      .send({ notes: "منابع مقدماتی مطالعه شد" });
     expect(evaluation.status).toBe(HttpStatus.CREATED);
     const promoteRes = await request(app.getHttpServer())
       .post(`/users/study-evaluations/${evaluation.body.id}/decide`)
@@ -463,12 +533,18 @@ describe("E2E System Integration: M1 to M6 Complete Flow & Pre-UI Readiness", ()
     expect(createCaseRes.status).toBe(HttpStatus.CREATED);
     caseId = createCaseRes.body.id;
 
-    // B: Tracking director assigns another manager at trainee level
+    // B: Tracking director assigns collaborator manager at both trainee and case levels
     const collaboratorAssignment = await request(app.getHttpServer())
       .post(`/users/${internUserId}/scientific-supervisors`)
-      .set("x-user-id", provincialDirectorId).set("x-user-stage", "INTERN").set("x-user-role", "TRACKING_DIRECTOR")
+      .set("x-user-id", trackingDirectorId).set("x-user-stage", "INTERN").set("x-user-role", "TRACKING_DIRECTOR")
       .send({ supervisorId: collabSupervisorId });
     expect(collaboratorAssignment.status).toBe(HttpStatus.CREATED);
+
+    const caseCollabAssignment = await request(app.getHttpServer())
+      .post(`/research-cases/${caseId}/supervisors`)
+      .set("x-user-id", trackingDirectorId).set("x-user-stage", "INTERN").set("x-user-role", "TRACKING_DIRECTOR")
+      .send({ userId: collabSupervisorId, role: "COLLABORATOR_SUPERVISOR" });
+    expect(caseCollabAssignment.status).toBe(HttpStatus.CREATED);
   });
 
   it("Flow 3: Resource Unique Interview Invariant (D-07, FR-058, AT-30)", async () => {
@@ -617,10 +693,16 @@ describe("E2E System Integration: M1 to M6 Complete Flow & Pre-UI Readiness", ()
     expect(notifRes.status).toBe(HttpStatus.CREATED);
     expect(notifRes.body.isCritical).toBe(true);
 
-    // Persistent Archival Snapshot without physical deletion
+    // Persistent Archival Snapshot without physical deletion (TRACKING_DIRECTOR / SYSTEM_ADMIN)
+    const deniedArchive = await request(app.getHttpServer())
+      .post("/archives/jobs")
+      .set("x-user-id", internUserId).set("x-user-stage", "INTERN").set("x-user-role", "INTERN")
+      .send({ targetType: "RESEARCH_CASE", targetId: caseId });
+    expect(deniedArchive.status).toBe(HttpStatus.FORBIDDEN);
+
     const archiveRes = await request(app.getHttpServer())
       .post("/archives/jobs")
-      .set("x-user-id", internUserId).set("x-user-stage", "INTERN")
+      .set("x-user-id", trackingDirectorId).set("x-user-stage", "INTERN").set("x-user-role", "TRACKING_DIRECTOR")
       .send({
         targetType: "RESEARCH_CASE",
         targetId: caseId,
@@ -630,10 +712,10 @@ describe("E2E System Integration: M1 to M6 Complete Flow & Pre-UI Readiness", ()
   });
 
   it("Flow 7: Runtime Dynamic Settings & Management Dashboards (FR-052, AT-34, FR-026)", async () => {
-    // Dynamic runtime setting update
+    // Dynamic runtime setting update (SYSTEM_ADMIN)
     const settingRes = await request(app.getHttpServer())
       .put("/settings/STAGE_DEADLINE_DAYS")
-      .set("x-user-id", provincialDirectorId).set("x-user-stage", "INTERN")
+      .set("x-user-id", systemAdminId).set("x-user-stage", "INTERN").set("x-user-role", "SYSTEM_ADMIN")
       .send({
         value: "45",
         description: "مهلت زمانی مراحل به روز",
@@ -643,8 +725,8 @@ describe("E2E System Integration: M1 to M6 Complete Flow & Pre-UI Readiness", ()
 
     // Provincial Director Dashboard
     const dashboardRes = await request(app.getHttpServer())
-      .get("/reporting/provincial-director")
-      .set("x-user-id", provincialDirectorId).set("x-user-stage", "INTERN");
+      .get(`/reporting/provincial-director?provinceId=${tehranProvinceId}`)
+      .set("x-user-id", provincialDirectorId).set("x-user-stage", "INTERN").set("x-user-role", "PROVINCIAL_DIRECTOR");
     expect(dashboardRes.status).toBe(HttpStatus.OK);
     expect(dashboardRes.body.totalInterns).toBe(1);
   });

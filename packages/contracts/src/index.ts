@@ -365,6 +365,7 @@ export const CreateResourceDtoSchema = z.object({
   contactInfo: z.string().max(255, "اطلاعات تماس حداکثر ۲۵۵ کاراکتر است").optional(),
   personAge: IntegerAgeSchema.optional(),
   position: z.string().min(2).max(255).optional(),
+  provinceId: z.string().uuid("شناسه استان نامعتبر است").optional(),
   province: z.string().max(120).optional(),
   county: z.string().max(120).optional(),
   organizationName: z.string().max(255).optional(),
@@ -386,6 +387,7 @@ export const UpdateResourceDtoSchema = z.object({
   contactInfo: z.string().max(255).optional(),
   personAge: IntegerAgeSchema.optional(),
   position: z.string().min(2).max(255).optional(),
+  provinceId: z.string().uuid("شناسه استان نامعتبر است").optional(),
   province: z.string().max(120).optional(),
   county: z.string().max(120).optional(),
 }).refine((value) => Object.keys(value).length > 0, "حداقل یک فیلد برای اصلاح لازم است");
@@ -735,6 +737,7 @@ export const AuditQueryFilterSchema = z.object({
   aggregateId: z.string().optional(),
   actorId: z.string().uuid().optional(),
   action: z.string().optional(),
+  q: z.string().max(200).optional(),
   limit: z.coerce.number().int().min(1).max(100).default(50),
   cursor: z.string().optional(),
 });
@@ -956,6 +959,69 @@ export const CreateOutboxEventDtoSchema = z.object({
   payload: z.record(z.unknown()),
 });
 export type CreateOutboxEventDto = z.infer<typeof CreateOutboxEventDtoSchema>;
+
+export const ScenarioVersionDtoSchema = z.object({
+  version: z.number().int().positive(),
+  title: z.string(),
+  summary: z.string(),
+  content: z.string(),
+  status: ScenarioStatusSchema,
+  createdById: z.string().nullable().optional(),
+  createdAt: z.string(),
+});
+export type ScenarioVersionDto = z.infer<typeof ScenarioVersionDtoSchema>;
+
+export const ScenarioDecisionDtoSchema = z.object({
+  id: z.string(),
+  reviewerId: z.string(),
+  reviewerName: z.string().nullable().optional(),
+  decision: z.enum(["APPROVED", "CHANGES_REQUESTED"]),
+  expectedVersion: z.number().int().positive(),
+  actualVersion: z.number().int().positive(),
+  reason: z.string(),
+  decidedAt: z.string(),
+});
+export type ScenarioDecisionDto = z.infer<typeof ScenarioDecisionDtoSchema>;
+
+export const ConversationContactDtoSchema = z.object({
+  id: z.string().uuid(),
+  fullName: z.string(),
+  phoneNumber: z.string(),
+  stage: UserStageSchema,
+  role: SystemRoleSchema,
+});
+export type ConversationContactDto = z.infer<typeof ConversationContactDtoSchema>;
+
+export const DirectoryUserDtoSchema = z.object({
+  id: z.string().uuid(),
+  fullName: z.string(),
+  phoneNumber: z.string(),
+  stage: UserStageSchema,
+  role: SystemRoleSchema,
+  roles: z.array(SystemRoleSchema),
+  isActive: z.boolean(),
+  provinceId: z.string().nullable().optional(),
+  createdAt: z.string(),
+});
+export type DirectoryUserDto = z.infer<typeof DirectoryUserDtoSchema>;
+
+export const ReplaceMainSupervisorDtoSchema = z.object({
+  supervisorId: z.string().uuid("شناسه مدیر علمی جایگزین نامعتبر است"),
+});
+export type ReplaceMainSupervisorDto = z.infer<typeof ReplaceMainSupervisorDtoSchema>;
+
+export const CaseSupervisorDtoSchema = z.object({
+  id: z.string().uuid(),
+  researchCaseId: z.string().uuid(),
+  userId: z.string().uuid(),
+  fullName: z.string(),
+  phoneNumber: z.string(),
+  role: SupervisorRoleSchema,
+  isActive: z.boolean(),
+  assignedAt: z.string(),
+});
+export type CaseSupervisorDto = z.infer<typeof CaseSupervisorDtoSchema>;
+
 
 
 

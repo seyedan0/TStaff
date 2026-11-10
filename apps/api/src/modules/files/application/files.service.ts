@@ -20,6 +20,7 @@ import {
   type PrivateFileStoragePort,
   type StoredObjectRecord,
   type StoredObjectRepositoryPort,
+  type VirusScanResult,
   type VirusScannerPort,
 } from "./ports/files.ports.js";
 
@@ -79,7 +80,13 @@ export class FilesService {
       throw error;
     }
 
-    const scan = await this.scanner.scan(file.buffer);
+    let scan: VirusScanResult = "UNAVAILABLE";
+    try {
+      scan = await this.scanner.scan(file.buffer);
+    } catch {
+      this.logger.error(JSON.stringify({ event: "file_scan_failed", objectId: id }));
+      return { id, originalName: basename(file.originalname), size: file.size, scanStatus: "QUARANTINED" as const };
+    }
     if (scan === "UNAVAILABLE") {
       return { id, originalName: basename(file.originalname), size: file.size, scanStatus: "QUARANTINED" as const };
     }
@@ -96,7 +103,12 @@ export class FilesService {
     const stored = await this.getStoredObject(id);
     if (stored.uploadedById !== requesterId) throw new FileAccessDeniedError("فقط بارگذار فایل می‌تواند اسکن را دوباره اجرا کند");
     if (stored.scanStatus !== "QUARANTINED") return this.toUploadResult(stored);
-    const scan = await this.scanner.scan(await this.storage.read(stored.objectKey, this.location(stored)));
+    let scan: VirusScanResult = "UNAVAILABLE";
+    try {
+      scan = await this.scanner.scan(await this.storage.read(stored.objectKey, this.location(stored)));
+    } catch {
+      throw new FileScannerUnavailableError();
+    }
     if (scan === "UNAVAILABLE") throw new FileScannerUnavailableError();
     const scanStatus: FileScanStatus = scan === "CLEAN" ? "AVAILABLE" : "REJECTED";
     await this.objects.updateScanStatus(id, scanStatus, true);

@@ -1,4 +1,4 @@
-import { Injectable } from "@nestjs/common";
+import { Inject, Injectable } from "@nestjs/common";
 import { PrismaService } from "@tstaff/database";
 import type {
   CreateStoredObjectInput,
@@ -9,7 +9,7 @@ import type {
 
 @Injectable()
 export class PrismaStoredObjectRepository implements StoredObjectRepositoryPort {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(@Inject(PrismaService) private readonly prisma: PrismaService) {}
 
   async create(input: CreateStoredObjectInput): Promise<void> {
     await this.prisma.storedObject.create({ data: input });

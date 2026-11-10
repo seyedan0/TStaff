@@ -1,4 +1,4 @@
-import { Injectable } from "@nestjs/common";
+import { Inject, Injectable } from "@nestjs/common";
 import { PrismaService } from "@tstaff/database";
 import {
   Conversation,
@@ -9,7 +9,7 @@ import type { MessagingRepositoryPort } from "../application/ports/messaging.rep
 
 @Injectable()
 export class PrismaMessagingRepository implements MessagingRepositoryPort {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(@Inject(PrismaService) private readonly prisma: PrismaService) {}
 
   async saveConversation(conversation: Conversation): Promise<void> {
     await this.prisma.$transaction(async (tx) => {

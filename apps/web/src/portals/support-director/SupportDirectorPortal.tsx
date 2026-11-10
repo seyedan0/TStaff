@@ -1,18 +1,16 @@
+import React, { useCallback, useEffect, useState } from "react";
+import { CheckCircle2, LifeBuoy, MessageSquare, RefreshCw, Search, Send, UserX } from "lucide-react";
+import { Link, useNavigate, useParams, useSearchParams } from "react-router-dom";
+import type { DirectoryUserDto } from "@tstaff/contracts";
+import { getRoleLabel } from "../../app/navigation.js";
 import { usePortalSection } from "../../app/usePortalSection.js";
-import React, { useState, useEffect } from "react";
-import {
-  LifeBuoy,
-  UserX,
-  CheckCircle2,
-  MessageSquare,
-  RefreshCw,
-  Send,
-} from "lucide-react";
-import { Card } from "../../shared/ui/Card.js";
-import { Button } from "../../shared/ui/Button.js";
-import { Badge } from "../../shared/ui/Badge.js";
-import { Modal } from "../../shared/ui/Modal.js";
 import { apiClient } from "../../shared/api-client.js";
+import { Badge } from "../../shared/ui/Badge.js";
+import { Button } from "../../shared/ui/Button.js";
+import { Card } from "../../shared/ui/Card.js";
+import { Modal } from "../../shared/ui/Modal.js";
+import { PageHeader } from "../../shared/ui/PageHeader.js";
+import { EmptyState, ErrorState, LoadingState } from "../../shared/ui/StateFeedback.js";
 
 interface SupportDirectorPortalProps {
   onNotify: (
@@ -40,480 +38,453 @@ interface SupportTicketItem {
   };
 }
 
-interface ManagedUserItem {
-  id: string;
-  fullName: string;
-  phoneNumber: string;
-  role: string;
-  stage: string;
-  isActive: boolean;
-}
+export const SupportDirectorPortal: React.FC<SupportDirectorPortalProps> = ({ onNotify }) => {
+  const activeTab = usePortalSection<"tickets" | "users">(
+    { "/support/tickets": "tickets", "/support/users": "users" },
+    "tickets",
+  );
+  const { ticketId, userId } = useParams();
+  const [query] = useSearchParams();
+  const navigate = useNavigate();
 
-export const SupportDirectorPortal: React.FC<SupportDirectorPortalProps> = ({
-  onNotify,
-}) => {
-  const activeTab = usePortalSection<"tickets" | "users">({ "/support/tickets": "tickets", "/support/users": "users" }, "tickets");
-
-  // Tickets State
   const [tickets, setTickets] = useState<SupportTicketItem[]>([]);
-  const [isLoadingTickets, setIsLoadingTickets] = useState(false);
-  const [selectedTicket, setSelectedTicket] = useState<SupportTicketItem | null>(null);
+  const [users, setUsers] = useState<DirectoryUserDto[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
   const [ticketResponse, setTicketResponse] = useState("");
   const [ticketResolutionStatus, setTicketResolutionStatus] = useState<"RESOLVED" | "CLOSED">("RESOLVED");
-  const [isSubmittingResponse, setIsSubmittingResponse] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
-  // Users Management State (Suspension FR-035)
-  const [managedUsers, setManagedUsers] = useState<ManagedUserItem[]>([]);
-  const [userSearch, setUserSearch] = useState("");
+  const [statusModalUser, setStatusModalUser] = useState<DirectoryUserDto | null>(null);
+  const [statusReason, setStatusReason] = useState("");
 
-  const fetchTickets = async () => {
-    setIsLoadingTickets(true);
+  const searchTerm = (query.get("q") ?? "").trim().toLowerCase();
+
+  const loadTickets = useCallback(async () => {
+    setLoading(true);
+    setError(null);
     try {
-      const res = await apiClient.get<SupportTicketItem[]>("/users/support-tickets");
-      setTickets(res);
-    } catch {
-      // Mock fallback
-      setTickets([
-        {
-          id: "ticket-demo-1",
-          userId: "10000000-0000-0000-0000-000000000006",
-          subject: "سوال پیرامون زمان مصاحبه با خبره در مرحله منابع",
-          description:
-            "سلام، در صورتی که فرد مصاحبه‌شونده در هفته جاری در دسترس نباشد، آیا می‌توان گزارش مقدماتی را پیش از فایل صوتی بارگذاری کرد؟",
-          status: "OPEN",
-          createdAt: new Date().toISOString(),
-          updatedAt: new Date().toISOString(),
-          user: {
-            id: "10000000-0000-0000-0000-000000000006",
-            fullName: "رضا میرزایی",
-            phoneNumber: "09126666666",
-          },
-        },
-      ]);
+      const data = await apiClient.get<SupportTicketItem[]>("/users/support-tickets");
+      setTickets(data);
+    } catch (err) {
+      setTickets([]);
+      setError(err instanceof Error ? err.message : "دریافت تیکت‌های پشتیبانی ناموفق بود.");
     } finally {
-      setIsLoadingTickets(false);
+      setLoading(false);
     }
-  };
+  }, []);
 
-  const fetchUsers = async () => {
+  const loadUsers = useCallback(async () => {
+    setLoading(true);
+    setError(null);
     try {
-      // Fetch users
-      const res = await apiClient.get<ManagedUserItem[]>("/users/managers");
-      setManagedUsers(
-        res.length > 0
-          ? res
-          : [
-              {
-                id: "10000000-0000-0000-0000-000000000005",
-                fullName: "سارا ابراهیمی",
-                phoneNumber: "09125555555",
-                role: "INTERN",
-                stage: "INTERN",
-                isActive: true,
-              },
-              {
-                id: "10000000-0000-0000-0000-000000000006",
-                fullName: "رضا میرزایی",
-                phoneNumber: "09126666666",
-                role: "APPRENTICE",
-                stage: "APPRENTICE",
-                isActive: true,
-              },
-            ],
-      );
-    } catch {
-      setManagedUsers([
-        {
-          id: "10000000-0000-0000-0000-000000000005",
-          fullName: "سارا ابراهیمی",
-          phoneNumber: "09125555555",
-          role: "INTERN",
-          stage: "INTERN",
-          isActive: true,
-        },
-        {
-          id: "10000000-0000-0000-0000-000000000006",
-          fullName: "رضا میرزایی",
-          phoneNumber: "09126666666",
-          role: "APPRENTICE",
-          stage: "APPRENTICE",
-          isActive: true,
-        },
-      ]);
+      const data = await apiClient.get<DirectoryUserDto[]>("/users");
+      setUsers(data);
+    } catch (err) {
+      setUsers([]);
+      setError(err instanceof Error ? err.message : "دریافت فهرست کاربران ناموفق بود.");
+    } finally {
+      setLoading(false);
     }
-  };
+  }, []);
 
   useEffect(() => {
     if (activeTab === "tickets") {
-      fetchTickets();
+      void loadTickets();
     } else {
-      fetchUsers();
+      void loadUsers();
     }
-  }, [activeTab]);
+  }, [activeTab, loadTickets, loadUsers]);
 
-  const handleResolveTicket = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!selectedTicket || !ticketResponse.trim()) return;
+  const activeTicket = ticketId ? tickets.find((t) => t.id === ticketId) ?? null : null;
+  const activeUser = userId ? users.find((u) => u.id === userId) ?? null : null;
 
-    setIsSubmittingResponse(true);
+  useEffect(() => {
+    if (activeTicket) {
+      setTicketResponse(activeTicket.response ?? "");
+      setTicketResolutionStatus(activeTicket.status === "CLOSED" ? "CLOSED" : "RESOLVED");
+    }
+  }, [activeTicket]);
+
+  const handleResolveTicket = async (event: React.FormEvent, targetId: string) => {
+    event.preventDefault();
+    if (ticketResponse.trim().length < 5) {
+      onNotify("warning", "پاسخ کوتاه است", "پاسخ باید حداقل ۵ کاراکتر باشد.");
+      return;
+    }
+    setIsSubmitting(true);
     try {
-      await apiClient.post(`/users/support-tickets/${selectedTicket.id}/resolve`, {
+      await apiClient.post(`/users/support-tickets/${encodeURIComponent(targetId)}/resolve`, {
         status: ticketResolutionStatus,
         response: ticketResponse.trim(),
       });
-      onNotify(
-        "success",
-        "تیکت تعیین تکلیف شد",
-        `پاسخ برای کاربر «${selectedTicket.user?.fullName || selectedTicket.userId}» با موفقیت ارسال گردید.`,
-      );
-      setSelectedTicket(null);
-      setTicketResponse("");
-      fetchTickets();
-    } catch (err: unknown) {
-      onNotify(
-        "error",
-        "خطا در پاسخ به تیکت",
-        err instanceof Error ? err.message : "خطا در برقراری ارتباط با سرور",
-      );
+      onNotify("success", "تیکت تعیین تکلیف شد");
+      await loadTickets();
+    } catch (err) {
+      onNotify("error", "ثبت پاسخ تیکت ناموفق بود", err instanceof Error ? err.message : undefined);
     } finally {
-      setIsSubmittingResponse(false);
+      setIsSubmitting(false);
     }
   };
 
-  const handleToggleUserSuspension = async (
-    userId: string,
-    currentStatus: boolean,
-  ) => {
+  const handleToggleSuspension = async (target: DirectoryUserDto, reason: string) => {
+    if (reason.trim().length < 5) {
+      onNotify("warning", "علت الزامی است", "حداقل ۵ کاراکتر دلیل برای تغییر وضعیت حساب ثبت کنید.");
+      return;
+    }
+    setIsSubmitting(true);
     try {
-      if (currentStatus) {
-        // Suspend (POST /users/:id/suspend with reason)
-        await apiClient.post(`/users/${userId}/suspend`, {
-          reason: "تعلیق انضباطی حساب توسط مدیر پشتیبانی (FR-035)",
-        });
-        onNotify(
-          "warning",
-          "حساب کاربر تعلیق شد",
-          "دسترسی کاربر به سامانه تا زمان رفع تعلیق مسدود گردید (FR-035).",
-        );
+      if (target.isActive) {
+        await apiClient.post(`/users/${encodeURIComponent(target.id)}/suspend`, { reason: reason.trim() });
+        onNotify("warning", "حساب کاربر تعلیق شد", "دسترسی کاربر تا زمان رفع تعلیق مسدود شد (FR-035).");
       } else {
-        // Reactivate (POST /users/:id/reactivate with reason)
-        await apiClient.post(`/users/${userId}/reactivate`, {
-          reason: "رفع تعلیق حساب و فعال‌سازی مجدد توسط مدیر پشتیبانی",
-        });
-        onNotify(
-          "success",
-          "حساب کاربر فعال شد",
-          "دسترسی کاربر به سامانه مجدداً برقرار شد.",
-        );
+        await apiClient.post(`/users/${encodeURIComponent(target.id)}/reactivate`, { reason: reason.trim() });
+        onNotify("success", "حساب کاربر فعال شد");
       }
-      setManagedUsers((prev) =>
-        prev.map((u) => (u.id === userId ? { ...u, isActive: !currentStatus } : u)),
-      );
-    } catch (err: unknown) {
-      onNotify(
-        "error",
-        "خطا در تغییر وضعیت حساب",
-        err instanceof Error ? err.message : "امکان انجام عملیات وجود ندارد",
-      );
+      setStatusModalUser(null);
+      setStatusReason("");
+      await loadUsers();
+    } catch (err) {
+      onNotify("error", "تغییر وضعیت کاربر انجام نشد", err instanceof Error ? err.message : undefined);
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
-  const filteredUsers = managedUsers.filter(
+  const setSearchQuery = (val: string) => {
+    const next = new URLSearchParams(query);
+    val ? next.set("q", val) : next.delete("q");
+    navigate({ search: next.toString() }, { replace: true });
+  };
+
+  // Detail route: /support/tickets/:ticketId
+  if (activeTab === "tickets" && ticketId) {
+    if (loading) return <LoadingState message="در حال دریافت جزئیات تیکت..." />;
+    if (error || !activeTicket) {
+      return (
+        <div className="space-y-4">
+          <PageHeader
+            title="جزئیات تیکت پشتیبانی"
+            breadcrumbs={[{ label: "تیکت‌ها", to: "/support/tickets" }, { label: "جزئیات" }]}
+            backTo={{ to: "/support/tickets", label: "بازگشت به تیکت‌ها" }}
+          />
+          <ErrorState message={error ?? "تیکت مورد نظر یافت نشد."} onRetry={() => void loadTickets()} />
+        </div>
+      );
+    }
+    return (
+      <div className="space-y-5">
+        <PageHeader
+          title={activeTicket.subject}
+          subtitle={`ارسال‌کننده: ${activeTicket.userFullName || activeTicket.user?.fullName || activeTicket.userId}`}
+          breadcrumbs={[{ label: "درخواست‌های پشتیبانی", to: "/support/tickets" }, { label: activeTicket.subject }]}
+          backTo={{ to: "/support/tickets", label: "بازگشت به تیکت‌ها" }}
+        />
+
+        <Card variant="default" className="space-y-4">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <Badge variant={activeTicket.status === "OPEN" ? "warning" : activeTicket.status === "RESOLVED" ? "success" : "neutral"} size="sm">
+              {activeTicket.status === "OPEN" ? "در انتظار پاسخ" : activeTicket.status === "RESOLVED" ? "پاسخ‌داده‌شده" : "بسته‌شده"}
+            </Badge>
+            <span className="text-xs text-[#4F6659]">{new Date(activeTicket.createdAt).toLocaleString("fa-IR")}</span>
+          </div>
+
+          <div className="rounded-xl border border-[#214E3A]/15 bg-[#F3EBDD]/60 p-4 text-sm leading-7 text-[#214031]">
+            {activeTicket.description}
+          </div>
+
+          <form onSubmit={(e) => void handleResolveTicket(e, activeTicket.id)} className="space-y-3 border-t border-[#214E3A]/10 pt-4">
+            <label className="block space-y-1.5 text-xs font-medium text-[#214031]">
+              پاسخ پشتیبانی (حداقل ۵ کاراکتر)
+              <textarea
+                required
+                minLength={5}
+                rows={4}
+                value={ticketResponse}
+                onChange={(e) => setTicketResponse(e.target.value)}
+                placeholder="پاسخ و راهنمایی لازم را بنویسید..."
+                className="w-full rounded-xl border border-[#214E3A]/20 bg-[#FFFCF5] p-3 text-sm text-[#214031]"
+              />
+            </label>
+            <div className="flex flex-wrap items-end justify-between gap-3">
+              <label className="block space-y-1 text-xs font-medium text-[#214031]">
+                وضعیت پس از ثبت
+                <select
+                  value={ticketResolutionStatus}
+                  onChange={(e) => setTicketResolutionStatus(e.target.value as "RESOLVED" | "CLOSED")}
+                  className="block rounded-xl border border-[#214E3A]/20 bg-[#FFFCF5] px-3 py-2 text-xs text-[#214031]"
+                >
+                  <option value="RESOLVED">پاسخ‌داده‌شده</option>
+                  <option value="CLOSED">بسته‌شده</option>
+                </select>
+              </label>
+              <Button type="submit" variant="primary" loading={isSubmitting} icon={<Send className="h-4 w-4" />}>
+                ثبت پاسخ پشتیبانی
+              </Button>
+            </div>
+          </form>
+        </Card>
+      </div>
+    );
+  }
+
+  // Detail route: /support/users/:userId
+  if (activeTab === "users" && userId) {
+    if (loading) return <LoadingState message="در حال دریافت مشخصات کاربر..." />;
+    if (error || !activeUser) {
+      return (
+        <div className="space-y-4">
+          <PageHeader
+            title="جزئیات حساب کاربر"
+            breadcrumbs={[{ label: "کاربران", to: "/support/users" }, { label: "جزئیات" }]}
+            backTo={{ to: "/support/users", label: "بازگشت به کاربران" }}
+          />
+          <ErrorState message={error ?? "کاربر یافت نشد."} onRetry={() => void loadUsers()} />
+        </div>
+      );
+    }
+    return (
+      <div className="space-y-5">
+        <PageHeader
+          title={activeUser.fullName}
+          subtitle={`${getRoleLabel(activeUser.role)} · ${activeUser.phoneNumber}`}
+          breadcrumbs={[{ label: "کاربران", to: "/support/users" }, { label: activeUser.fullName }]}
+          backTo={{ to: "/support/users", label: "بازگشت به فهرست کاربران" }}
+        />
+
+        <Card variant="default" className="space-y-4">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <Badge variant={activeUser.isActive ? "success" : "danger"} size="sm">
+              {activeUser.isActive ? "حساب فعال" : "حساب معلق (FR-035)"}
+            </Badge>
+            <span className="text-xs text-[#4F6659]">عضویت: {new Date(activeUser.createdAt).toLocaleDateString("fa-IR")}</span>
+          </div>
+
+          <dl className="grid gap-3 text-xs sm:grid-cols-3">
+            <div className="rounded-xl bg-[#F3EBDD]/55 p-3">
+              <dt className="text-[#4F6659]">شماره همراه</dt>
+              <dd dir="ltr" className="mt-1 text-right font-mono font-semibold text-[#214031]">{activeUser.phoneNumber}</dd>
+            </div>
+            <div className="rounded-xl bg-[#F3EBDD]/55 p-3">
+              <dt className="text-[#4F6659]">نقش اصلی</dt>
+              <dd className="mt-1 font-semibold text-[#214031]">{getRoleLabel(activeUser.role)}</dd>
+            </div>
+            <div className="rounded-xl bg-[#F3EBDD]/55 p-3">
+              <dt className="text-[#4F6659]">مرحله رشد</dt>
+              <dd className="mt-1 font-semibold text-[#214031]">{activeUser.stage === "INTERN" ? "کارورز" : "کارآموز"}</dd>
+            </div>
+          </dl>
+
+          <form
+            onSubmit={(e) => {
+              e.preventDefault();
+              void handleToggleSuspension(activeUser, statusReason);
+            }}
+            className="space-y-3 border-t border-[#214E3A]/10 pt-4"
+          >
+            <label className="block space-y-1.5 text-xs font-medium text-[#214031]">
+              دلیل {activeUser.isActive ? "تعلیق حساب" : "رفع تعلیق"} (حداقل ۵ کاراکتر · ثبت در ممیزی D-04)
+              <textarea
+                required
+                minLength={5}
+                rows={3}
+                value={statusReason}
+                onChange={(e) => setStatusReason(e.target.value)}
+                placeholder="علت دقیق تغییر وضعیت حساب..."
+                className="w-full rounded-xl border border-[#214E3A]/20 bg-[#FFFCF5] p-3 text-sm text-[#214031]"
+              />
+            </label>
+            <div className="flex justify-end">
+              <Button type="submit" variant={activeUser.isActive ? "danger" : "primary"} loading={isSubmitting}>
+                {activeUser.isActive ? "تعلیق حساب کاربری" : "رفع تعلیق و فعال‌سازی"}
+              </Button>
+            </div>
+          </form>
+        </Card>
+      </div>
+    );
+  }
+
+  const filteredTickets = tickets.filter(
+    (t) =>
+      !searchTerm ||
+      `${t.subject} ${t.description} ${t.userFullName ?? t.user?.fullName ?? ""} ${t.userPhone ?? t.user?.phoneNumber ?? ""}`
+        .toLowerCase()
+        .includes(searchTerm),
+  );
+
+  const filteredUsers = users.filter(
     (u) =>
-      u.fullName.toLowerCase().includes(userSearch.toLowerCase()) ||
-      u.phoneNumber.includes(userSearch),
+      !searchTerm ||
+      `${u.fullName} ${u.phoneNumber} ${getRoleLabel(u.role)}`.toLowerCase().includes(searchTerm),
   );
 
   return (
-    <div className="space-y-6">
-      {/* Top Header Card */}
-      <Card
-        variant="elevated"
-        className="p-6 border-white/10 relative overflow-hidden bg-gradient-to-br from-slate-900/90 via-slate-900/70 to-apple-amber/10"
-      >
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-          <div className="space-y-1.5">
-            <div className="flex items-center gap-2">
-              <Badge variant="warning" size="sm">
-                پنل مدیریت پشتیبانی
-              </Badge>
-              <span className="text-xs text-slate-400">
-                رسیدگی به تیکت‌ها و تعلیق/رفع تعلیق کاربران (FR-035, AT-12)
-              </span>
-            </div>
-            <h2 className="text-xl font-bold text-slate-100 tracking-tight">
-              مرکز پشتیبانی و مدیریت حساب پژوهشگران
-            </h2>
-            <p className="text-xs text-slate-300 max-w-2xl leading-relaxed">
-              پاسخگویی به درخواست‌ها و سوالات کارآموزان و کارورزان، بررسی اشکالات گزارش‌شده و اعمال تعلیق‌های انضباطی یا رفع تعلیق حساب‌های کاربری.
-            </p>
-          </div>
+    <div className="space-y-5">
+      <PageHeader
+        title={
+          <span className="flex items-center gap-2">
+            {activeTab === "tickets" ? <LifeBuoy className="h-5 w-5 text-[#214E3A]" /> : <UserX className="h-5 w-5 text-[#214E3A]" />}
+            {activeTab === "tickets" ? "درخواست‌های پشتیبانی" : "مدیریت حساب کاربران (FR-035)"}
+          </span>
+        }
+        subtitle={
+          activeTab === "tickets"
+            ? "رسیدگی به سوالات و گزارش‌های کاربران در سامانه"
+            : "بررسی وضعیت حساب‌ها و اعمال تعلیق یا رفع تعلیق با ثبت ممیزی"
+        }
+        actions={
+          <Button
+            variant="secondary"
+            size="sm"
+            icon={<RefreshCw className="h-3.5 w-3.5" />}
+            loading={loading}
+            onClick={() => void (activeTab === "tickets" ? loadTickets() : loadUsers())}
+          >
+            به‌روزرسانی
+          </Button>
+        }
+      />
+
+      <Card variant="default" padding="sm">
+        <div className="relative">
+          <Search className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#6B8073]" />
+          <input
+            type="search"
+            aria-label="جست‌وجو"
+            value={query.get("q") ?? ""}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            placeholder={activeTab === "tickets" ? "جست‌وجوی موضوع یا نام فرستنده..." : "جست‌وجوی نام، شماره همراه یا نقش..."}
+            className="w-full rounded-xl border border-[#214E3A]/20 bg-[#FFFCF5] py-2 pr-9 pl-3 text-sm text-[#214031] placeholder:text-[#6B8073] focus:border-[#214E3A] focus:outline-none"
+          />
         </div>
       </Card>
 
-      {/* Main Views */}
-      <div className="animate-fade-in">
-        {/* Tab 1: Tickets */}
-        {activeTab === "tickets" && (
-          <div className="space-y-4">
-            <div className="flex items-center justify-between">
-              <h3 className="text-base font-bold text-slate-100 flex items-center gap-2">
-                <LifeBuoy className="w-5 h-5 text-apple-blue" />
-                فهرست درخواست‌ها و تیکت‌های پشتیبانی کاربران
-              </h3>
-              <Button
-                variant="ghost"
-                size="sm"
-                icon={<RefreshCw className="w-3.5 h-3.5" />}
-                onClick={fetchTickets}
-                loading={isLoadingTickets}
-                className="text-xs"
-              >
-                به‌روزرسانی تیکت‌ها
-              </Button>
-            </div>
-
-            {tickets.length === 0 ? (
-              <Card variant="glass" className="p-8 text-center border-white/10">
-                <CheckCircle2 className="w-10 h-10 text-apple-green mx-auto mb-3 opacity-80" />
-                <h4 className="text-sm font-semibold text-slate-200">
-                  هیچ تیکت بی‌پاسخی در صف پشتیبانی وجود ندارد
-                </h4>
-              </Card>
-            ) : (
-              <div className="space-y-3">
-                {tickets.map((t) => (
-                  <Card
-                    key={t.id}
-                    variant="elevated"
-                    className="p-5 border-white/10 hover:border-white/20 transition-all"
-                  >
-                    <div className="flex flex-col md:flex-row md:items-start justify-between gap-4">
-                      <div className="space-y-2 flex-1">
-                        <div className="flex items-center gap-2">
-                          <span className="font-bold text-sm text-slate-100">
-                            {t.subject}
-                          </span>
-                          <Badge
-                            variant={
-                              t.status === "OPEN"
-                                ? "warning"
-                                : t.status === "RESOLVED"
-                                  ? "success"
-                                  : "neutral"
-                            }
-                            size="sm"
-                          >
-                            {t.status === "OPEN"
-                              ? "در انتظار پاسخ"
-                              : t.status === "RESOLVED"
-                                ? "پاسخ‌داده‌شده"
-                                : "بسته شده"}
-                          </Badge>
-                        </div>
-
-                        <p className="text-xs text-slate-300 leading-relaxed bg-white/[0.02] p-3 rounded-apple-md border border-white/5">
-                          {t.description}
-                        </p>
-
-                        {t.response && (
-                          <div className="p-2.5 rounded-apple-md bg-apple-green/10 border border-apple-green/20 text-xs text-slate-200">
-                            <strong className="text-apple-green">پاسخ پشتیبانی: </strong>
-                            {t.response}
-                          </div>
-                        )}
-
-                        <div className="flex items-center gap-3 text-[11px] text-slate-400">
-                          <span>
-                            ارسال‌کننده: {t.userFullName || t.user?.fullName || t.userId} (
-                            <span className="font-mono">{t.userPhone || t.user?.phoneNumber || "-"}</span>)
-                          </span>
-                          <span>•</span>
-                          <span>
-                            ثبت: {new Date(t.createdAt).toLocaleDateString("fa-IR")}
-                          </span>
-                        </div>
-                      </div>
-
-                      <div className="shrink-0 self-end md:self-center">
-                        <Button
-                          variant="primary"
-                          size="md"
-                          icon={<MessageSquare className="w-4 h-4" />}
-                          onClick={() => {
-                            setSelectedTicket(t);
-                            setTicketResponse(t.response || "");
-                          }}
-                        >
-                          {t.response ? "ویرایش پاسخ" : "پاسخ به تیکت"}
-                        </Button>
-                      </div>
+      {loading ? (
+        <LoadingState message={activeTab === "tickets" ? "در حال دریافت تیکت‌ها..." : "در حال دریافت کاربران..."} />
+      ) : error ? (
+        <ErrorState message={error} onRetry={() => void (activeTab === "tickets" ? loadTickets() : loadUsers())} />
+      ) : activeTab === "tickets" ? (
+        filteredTickets.length === 0 ? (
+          <EmptyState title="تیکت پشتیبانی یافت نشد" description="تیکتی ثبت نشده یا با جست‌وجو مطابقت ندارد." icon={<CheckCircle2 className="h-6 w-6" />} />
+        ) : (
+          <div className="space-y-3">
+            {filteredTickets.map((t) => (
+              <Card key={t.id} variant="default" className="space-y-3">
+                <div className="flex flex-col justify-between gap-3 md:flex-row md:items-start">
+                  <div className="space-y-2 flex-1">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <Link to={`/support/tickets/${encodeURIComponent(t.id)}`} className="text-sm font-bold text-[#214031] hover:underline">
+                        {t.subject}
+                      </Link>
+                      <Badge variant={t.status === "OPEN" ? "warning" : t.status === "RESOLVED" ? "success" : "neutral"} size="sm">
+                        {t.status === "OPEN" ? "در انتظار پاسخ" : t.status === "RESOLVED" ? "پاسخ‌داده‌شده" : "بسته‌شده"}
+                      </Badge>
                     </div>
-                  </Card>
-                ))}
-              </div>
-            )}
-          </div>
-        )}
-
-        {/* Tab 2: Users Suspension Management */}
-        {activeTab === "users" && (
-          <div className="space-y-4">
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-              <div className="space-y-0.5">
-                <h3 className="text-base font-bold text-slate-100 flex items-center gap-2">
-                  <UserX className="w-5 h-5 text-apple-amber" />
-                  مدیریت تعلیق و رفع تعلیق حساب کاربران (FR-035, AT-12)
-                </h3>
-                <p className="text-xs text-slate-400">
-                  کاربران تعلیق‌شده امکان ورود به کارتابل یا ثبت پرونده را تا زمان رفع تعلیق نخواهند داشت:
-                </p>
-              </div>
-
-              <div className="w-full sm:w-64">
-                <input
-                  type="text"
-                  dir="rtl"
-                  placeholder="جست‌وجوی نام یا شماره همراه..."
-                  value={userSearch}
-                  onChange={(e) => setUserSearch(e.target.value)}
-                  className="w-full px-3 py-2 rounded-apple-md bg-white/[0.04] border border-white/10 text-xs text-slate-100 placeholder:text-slate-500 focus:outline-none focus:border-apple-blue/50"
-                />
-              </div>
-            </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {filteredUsers.map((u) => (
-                <Card
-                  key={u.id}
-                  variant="elevated"
-                  className={`p-4 border transition-all ${
-                    !u.isActive
-                      ? "border-apple-red/40 bg-apple-red/5"
-                      : "border-white/10"
-                  }`}
-                >
-                  <div className="flex items-center justify-between">
-                    <div className="space-y-1">
-                      <div className="flex items-center gap-2">
-                        <span className="font-bold text-sm text-slate-100">
-                          {u.fullName}
-                        </span>
-                        <Badge
-                          variant={u.isActive ? "success" : "danger"}
-                          size="sm"
-                        >
-                          {u.isActive ? "فعال" : "معلق‌شده (FR-035)"}
-                        </Badge>
+                    <p className="rounded-xl border border-[#214E3A]/10 bg-[#F3EBDD]/50 p-3 text-xs leading-relaxed text-[#214031]">
+                      {t.description}
+                    </p>
+                    {t.response && (
+                      <div className="rounded-xl border border-[#214E3A]/20 bg-[#214E3A]/10 p-2.5 text-xs text-[#214031]">
+                        <strong>پاسخ پشتیبانی: </strong>
+                        {t.response}
                       </div>
-
-                      <div className="text-xs text-slate-400 font-mono">
-                        {u.phoneNumber}
-                      </div>
-
-                      <div className="text-[11px] text-slate-400">
-                        نقش: <span className="text-slate-200">{u.role}</span> | سطح:{" "}
-                        <span className="text-slate-200">{u.stage}</span>
-                      </div>
-                    </div>
-
-                    <div>
-                      <Button
-                        variant={u.isActive ? "secondary" : "primary"}
-                        size="sm"
-                        className={
-                          u.isActive
-                            ? "text-apple-red hover:bg-apple-red hover:text-white border-apple-red/30 text-xs"
-                            : "text-xs"
-                        }
-                        onClick={() =>
-                          handleToggleUserSuspension(u.id, u.isActive)
-                        }
-                      >
-                        {u.isActive ? "تعلیق حساب" : "رفع تعلیق و فعال‌سازی"}
-                      </Button>
+                    )}
+                    <div className="flex flex-wrap items-center gap-3 text-[11px] text-[#4F6659]">
+                      <span>ارسال‌کننده: {t.userFullName || t.user?.fullName || t.userId}</span>
+                      <span>·</span>
+                      <span dir="ltr" className="font-mono">{t.userPhone || t.user?.phoneNumber || "-"}</span>
+                      <span>·</span>
+                      <span>{new Date(t.createdAt).toLocaleDateString("fa-IR")}</span>
                     </div>
                   </div>
-                </Card>
-              ))}
-            </div>
+                  <Link
+                    to={`/support/tickets/${encodeURIComponent(t.id)}`}
+                    className="inline-flex shrink-0 items-center gap-1.5 rounded-xl bg-[#214E3A] px-3.5 py-2 text-xs font-semibold text-[#FFFCF5] hover:bg-[#193C2C]"
+                  >
+                    <MessageSquare className="h-3.5 w-3.5" />
+                    {t.response ? "مشاهده و ویرایش پاسخ" : "بررسی و پاسخ"}
+                  </Link>
+                </div>
+              </Card>
+            ))}
           </div>
-        )}
-      </div>
+        )
+      ) : filteredUsers.length === 0 ? (
+        <EmptyState title="کاربری یافت نشد" description="فهرست کاربران با فیلتر فعلی خالی است." />
+      ) : (
+        <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+          {filteredUsers.map((u) => (
+            <Card key={u.id} variant="default" className={u.isActive ? "" : "border-[#D94F3D]/40 bg-[#D94F3D]/5"}>
+              <div className="flex items-start justify-between gap-3">
+                <div className="space-y-1">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <Link to={`/support/users/${encodeURIComponent(u.id)}`} className="text-sm font-bold text-[#214031] hover:underline">
+                      {u.fullName}
+                    </Link>
+                    <Badge variant={u.isActive ? "success" : "danger"} size="sm">
+                      {u.isActive ? "فعال" : "معلق"}
+                    </Badge>
+                  </div>
+                  <div dir="ltr" className="text-right font-mono text-xs text-[#4F6659]">{u.phoneNumber}</div>
+                  <div className="text-[11px] text-[#4F6659]">
+                    {getRoleLabel(u.role)} · {u.stage === "INTERN" ? "کارورز" : "کارآموز"}
+                  </div>
+                </div>
+                <div className="flex flex-col gap-1.5">
+                  <Button
+                    variant={u.isActive ? "danger" : "primary"}
+                    size="sm"
+                    onClick={() => {
+                      setStatusModalUser(u);
+                      setStatusReason("");
+                    }}
+                  >
+                    {u.isActive ? "تعلیق حساب" : "رفع تعلیق"}
+                  </Button>
+                  <Link
+                    to={`/support/users/${encodeURIComponent(u.id)}`}
+                    className="text-center text-[11px] font-semibold text-[#214E3A] hover:underline"
+                  >
+                    صفحه جزئیات
+                  </Link>
+                </div>
+              </div>
+            </Card>
+          ))}
+        </div>
+      )}
 
-      {/* Modal: Ticket Response */}
-      {selectedTicket && (
+      {statusModalUser && (
         <Modal
-          isOpen={true}
-          onClose={() => setSelectedTicket(null)}
-          title={`پاسخ به تیکت: ${selectedTicket.subject}`}
+          isOpen
+          onClose={() => setStatusModalUser(null)}
+          title={statusModalUser.isActive ? `تعلیق حساب ${statusModalUser.fullName}` : `فعال‌سازی حساب ${statusModalUser.fullName}`}
           maxWidth="md"
         >
-          <form onSubmit={handleResolveTicket} className="space-y-4 text-right">
-            <div className="p-3 rounded-apple-md bg-white/[0.03] border border-white/10 text-xs text-slate-300 space-y-1">
-              <div>
-                <strong>ارسال‌کننده: </strong>
-                {selectedTicket.userFullName || selectedTicket.user?.fullName || selectedTicket.userId}
-              </div>
-              <div>
-                <strong>شرح پیام متقاضی: </strong>
-                <p className="mt-1 text-slate-200 leading-relaxed bg-black/20 p-2 rounded">
-                  {selectedTicket.description}
-                </p>
-              </div>
-            </div>
-
-            <div className="space-y-1.5">
-              <label className="block text-xs font-medium text-slate-300">
-                پاسخ مدیر پشتیبانی
-              </label>
+          <form
+            onSubmit={(e) => {
+              e.preventDefault();
+              void handleToggleSuspension(statusModalUser, statusReason);
+            }}
+            className="space-y-4 text-right"
+          >
+            <label className="block space-y-1.5 text-xs font-medium text-[#214031]">
+              دلیل اقدام (حداقل ۵ کاراکتر · D-04 / FR-035)
               <textarea
-                dir="rtl"
-                rows={4}
                 required
-                placeholder="متن پاسخ و راهنمایی لازم را وارد فرمایید..."
-                value={ticketResponse}
-                onChange={(e) => setTicketResponse(e.target.value)}
-                className="w-full px-3 py-2 rounded-apple-md bg-white/[0.04] border border-white/10 text-xs text-slate-100 placeholder:text-slate-500 focus:outline-none focus:border-apple-blue/50"
+                minLength={5}
+                rows={3}
+                value={statusReason}
+                onChange={(e) => setStatusReason(e.target.value)}
+                className="w-full rounded-xl border border-[#214E3A]/20 bg-[#FFFCF5] p-3 text-sm text-[#214031]"
               />
-            </div>
-
-            <div className="space-y-1.5">
-              <label className="block text-xs font-medium text-slate-300">
-                وضعیت پس از پاسخ
-              </label>
-              <select
-                dir="rtl"
-                value={ticketResolutionStatus}
-                onChange={(e) =>
-                  setTicketResolutionStatus(
-                    e.target.value as "RESOLVED" | "CLOSED",
-                  )
-                }
-                className="w-full px-3 py-2 rounded-apple-md bg-slate-900 border border-white/10 text-xs text-slate-100 focus:outline-none focus:border-apple-blue/50"
-              >
-                <option value="RESOLVED">پاسخ‌داده‌شده (حل مشکل)</option>
-                <option value="CLOSED">بسته شده</option>
-              </select>
-            </div>
-
-            <div className="flex items-center justify-end gap-2 pt-4 border-t border-white/10">
-              <Button
-                type="button"
-                variant="ghost"
-                size="md"
-                onClick={() => setSelectedTicket(null)}
-              >
-                انصراف
-              </Button>
-              <Button
-                type="submit"
-                variant="primary"
-                size="md"
-                loading={isSubmittingResponse}
-                icon={<Send className="w-4 h-4" />}
-              >
-                ثبت و ارسال پاسخ
+            </label>
+            <div className="flex justify-end gap-2 border-t border-[#214E3A]/10 pt-3">
+              <Button type="button" variant="ghost" onClick={() => setStatusModalUser(null)}>انصراف</Button>
+              <Button type="submit" variant={statusModalUser.isActive ? "danger" : "primary"} loading={isSubmitting}>
+                تأیید و ثبت
               </Button>
             </div>
           </form>

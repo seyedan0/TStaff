@@ -1,11 +1,11 @@
-import { Injectable } from "@nestjs/common";
+import { Inject, Injectable } from "@nestjs/common";
 import { PrismaService } from "@tstaff/database";
 import { SystemSetting } from "../domain/system-setting.entity.js";
 import type { SettingRepositoryPort } from "../application/ports/setting.repository.port.js";
 
 @Injectable()
 export class PrismaSettingRepository implements SettingRepositoryPort {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(@Inject(PrismaService) private readonly prisma: PrismaService) {}
 
   async save(setting: SystemSetting): Promise<void> {
     await this.prisma.systemSetting.upsert({

@@ -15,10 +15,23 @@ export interface AssignedTraineeRecord {
   phoneNumber: string;
 }
 
+export interface CaseSupervisorRecord {
+  id: string;
+  researchCaseId: string;
+  userId: string;
+  fullName: string;
+  phoneNumber: string;
+  role: "MAIN_SUPERVISOR" | "COLLABORATOR_SUPERVISOR";
+  isActive: boolean;
+  assignedAt: Date;
+}
+
 export interface AssignmentRepositoryPort {
   isSupervisorAssignedToCase?(caseId: string, supervisorId: string): Promise<boolean>;
   getCaseIdsForSupervisor?(supervisorId: string): Promise<string[]>;
+  listCaseSupervisors?(caseId: string): Promise<CaseSupervisorRecord[]>;
   assignToCase?(input: { researchCaseId: string; userId: string; role: "MAIN_SUPERVISOR" | "COLLABORATOR_SUPERVISOR" }): Promise<void>;
+  replaceMainSupervisorOnCase?(caseId: string, supervisorId: string): Promise<void>;
   revokeFromUser?(userId: string, supervisorId: string): Promise<void>;
   revokeFromCase?(caseId: string, supervisorId: string): Promise<void>;
   assignToUser(input: { userId: string; supervisorId: string; assignedById: string }): Promise<void>;

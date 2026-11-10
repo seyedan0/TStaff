@@ -53,6 +53,16 @@ export class ResearchController {
     return rCase.toJSON();
   }
 
+  @Get("directory")
+  @RequireRoles("TRACKING_DIRECTOR", "SYSTEM_ADMIN")
+  @ApiOperation({ summary: "فهرست ابرداده پرونده‌ها برای مدیریت انتساب‌ها" })
+  async listDirectory(@Query("researcherId") researcherId?: string) {
+    const cases = (await this.researchService.listCases()).filter(
+      (item) => !researcherId || item.researcherId === researcherId,
+    );
+    return cases.map((item) => item.toJSON());
+  }
+
   @Get(":id")
   @ApiOperation({ summary: "مشاهده مشخصات و مراحل پرونده پژوهشی" })
   async getCase(@Param("id") id: string, @Req() request: any) {
@@ -61,7 +71,10 @@ export class ResearchController {
       throw new ForbiddenException("این پرونده خارج از قلمرو دسترسی شماست");
     }
     const rCase = await this.researchService.getCase(id);
-    return rCase.toJSON();
+    const canReview = roles.includes("SCIENTIFIC_SUPERVISOR")
+      ? await this.researchService.isSupervisorAssignedToCase(id, request.user.id)
+      : false;
+    return { ...rCase.toJSON(), canReview };
   }
 
   @Get()
@@ -71,7 +84,16 @@ export class ResearchController {
   })
   async listCases(@Req() request: any, @Query("researcherId") researcherId?: string) {
     const roles: string[] = request.user?.roles ?? (request.user?.role ? [request.user.role] : []);
-    return (await this.researchService.listAccessibleCases(request.user.id, roles, researcherId)).map((item) => item.toJSON());
+    const cases = await this.researchService.listAccessibleCases(request.user.id, roles, researcherId);
+    const isSupervisor = roles.includes("SCIENTIFIC_SUPERVISOR");
+    return Promise.all(
+      cases.map(async (item) => ({
+        ...item.toJSON(),
+        canReview: isSupervisor
+          ? await this.researchService.isSupervisorAssignedToCase(item.id, request.user.id)
+          : false,
+      })),
+    );
   }
 
   @Post(":id/rollback-stage")
@@ -86,7 +108,7 @@ export class ResearchController {
       throw new ForbiddenException("بازگشت مرحله فقط توسط مدیر علمی منتسب به پژوهش مجاز است");
     }
     const validated = RollbackStageDtoSchema.parse(body);
-    const rCase = await this.researchService.rollbackStage(id, validated);
+    const rCase = await this.researchService.rollbackStage(id, validated, request.user.id);
     return rCase.toJSON();
   }
 

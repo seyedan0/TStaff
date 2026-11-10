@@ -1,4 +1,4 @@
-import { Global, Module, OnModuleDestroy, OnModuleInit } from "@nestjs/common";
+import { Global, Inject, Module, OnModuleDestroy, OnModuleInit } from "@nestjs/common";
 import { PrismaService } from "@tstaff/database";
 import { TRANSACTION_RUNNER } from "../transactions/transaction-runner.js";
 
@@ -20,7 +20,7 @@ import { TRANSACTION_RUNNER } from "../transactions/transaction-runner.js";
   exports: [PrismaService, TRANSACTION_RUNNER],
 })
 export class PrismaModule implements OnModuleInit, OnModuleDestroy {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(@Inject(PrismaService) private readonly prisma: PrismaService) {}
 
   async onModuleInit() {
     // Attempt soft connection; don't crash app bootstrap if DB is starting up

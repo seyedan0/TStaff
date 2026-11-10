@@ -5,9 +5,10 @@ import {
   REPORTING_REPOSITORY,
 } from "./application/reporting.service.js";
 import { PrismaReportingRepository } from "./infrastructure/prisma-reporting.repository.js";
+import { OrganizationModule } from "../organization/organization.module.js";
 
 @Module({
-  imports: [],
+  imports: [OrganizationModule],
   controllers: [ReportingController],
   providers: [
     ReportingService,

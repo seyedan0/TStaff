@@ -6,6 +6,8 @@ export interface ResourceBankRepositoryPort {
   list(scope: BankScope, query: ResourceBankQuery): Promise<ResourceBankPage>;
   find(id: string, scope: BankScope): Promise<ResourceBankItem | null>;
   refer(resourceId: string, recipientId: string, actorId: string, snapshot: ResourceBankItem, notes?: string): Promise<ReferralRecord>;
+  findReferral(resourceId: string, recipientId: string): Promise<ReferralRecord | null>;
+  hasActiveConversion(resourceId: string): Promise<{ referralId: string; applicantId: string | null } | null>;
   referral(id: string): Promise<ReferralRecord | null>;
   claimConversion(id: string): Promise<boolean>;
   completeConversion(id: string, applicantId: string): Promise<void>;

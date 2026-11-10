@@ -1,38 +1,83 @@
-import type {
-  ApplicantStatus,
-  PublishedLibraryDocumentDto,
-  StudyEvaluationStatus,
+import {
+  IRAN_PROVINCES,
+  provinceNameFromId,
+  type ApplicantStatus,
+  type PublishedLibraryDocumentDto,
+  type ResearchChangeRequestDto,
+  type ResourceBankItem,
+  type StudyEvaluationStatus,
+  type SupervisorWorkspaceUser,
 } from "@tstaff/contracts";
-import type { ApplicantItem, CurrentUser } from "../../shared/types.js";
+import type { ApplicantItem, CurrentUser, ResearchCaseItem } from "../../shared/types.js";
 import { safeStorage } from "../../shared/storage.js";
 import {
   DEMO_APPLICANTS,
+  DEMO_ARCHIVE_JOBS,
+  DEMO_AUDIT_EVENTS,
   DEMO_CASE_RESOURCES,
   DEMO_CASE_SCENARIOS,
+  DEMO_CHANGE_REQUESTS,
+  DEMO_CONVERSATIONS,
   DEMO_DOCUMENT_SEEDS,
   DEMO_MANAGED_DOCUMENTS,
+  DEMO_MESSAGES,
   DEMO_PENDING_EVALUATION,
   DEMO_PERSONAS,
   DEMO_PUBLISHED_DOCUMENTS,
   DEMO_RESEARCH_CASES,
+  DEMO_RESOURCE_BANK,
+  DEMO_SCOPES,
+  DEMO_SETTINGS,
   DEMO_STAGE_SUBMISSIONS,
+  DEMO_SUPERVISOR_HISTORY,
+  DEMO_SUPPORT_TICKETS,
 } from "./demo-seed.js";
 
-const STORE_KEY = "tstaff-demo-state-v1";
+const STORE_KEY = "tstaff-demo-state-v2";
 
-interface DemoState {
-  version: 1;
+export interface DemoSupportTicket {
+  id: string;
+  userId: string;
+  subject: string;
+  description: string;
+  status: "OPEN" | "IN_PROGRESS" | "RESOLVED" | "CLOSED";
+  response?: string;
+  createdAt: string;
+  updatedAt: string;
+  userFullName?: string;
+  userPhone?: string;
+}
+
+export interface DemoConversation {
+  id: string;
+  type: string;
+  researchCaseId?: string | null;
+  updatedAt: string;
+  participantIds: string[];
+}
+
+export interface DemoState {
+  version: 2;
   sessionUserId: string | null;
   users: CurrentUser[];
   readVersions: Record<string, string[]>;
   evaluations: StudyEvaluationStatus[];
   applicants: ApplicantItem[];
   archivedDocumentIds: string[];
+  researchCases: ResearchCaseItem[];
+  changeRequests: ResearchChangeRequestDto[];
+  resourceBank: ResourceBankItem[];
+  supportTickets: DemoSupportTicket[];
+  conversations: DemoConversation[];
+  messages: typeof DEMO_MESSAGES;
+  settings: typeof DEMO_SETTINGS;
+  archiveJobs: typeof DEMO_ARCHIVE_JOBS;
+  scopes: typeof DEMO_SCOPES;
 }
 
 function initialState(): DemoState {
   return {
-    version: 1,
+    version: 2,
     sessionUserId: null,
     users: DEMO_PERSONAS.map(({ user }) => ({ ...user, roles: [...(user.roles ?? [])] })),
     readVersions: {
@@ -41,53 +86,62 @@ function initialState(): DemoState {
       "20000000-0000-4000-8000-000000000003": [],
     },
     evaluations: [{ ...DEMO_PENDING_EVALUATION, completedDocuments: [...DEMO_PENDING_EVALUATION.completedDocuments] }],
-    applicants: DEMO_APPLICANTS.map((applicant) => ({ ...applicant })),
+    applicants: DEMO_APPLICANTS.map((a) => ({ ...a })),
     archivedDocumentIds: [],
+    researchCases: DEMO_RESEARCH_CASES.map((c) => ({ ...c, stages: c.stages.map((s) => ({ ...s })), supervisors: c.supervisors?.map((s) => ({ ...s })) })),
+    changeRequests: DEMO_CHANGE_REQUESTS.map((r) => ({ ...r })),
+    resourceBank: DEMO_RESOURCE_BANK.map((r) => ({ ...r, referrals: [...r.referrals] })),
+    supportTickets: DEMO_SUPPORT_TICKETS.map((t) => ({ ...t })),
+    conversations: DEMO_CONVERSATIONS.map((c) => ({ ...c, participantIds: [...c.participantIds] })),
+    messages: DEMO_MESSAGES.map((m) => ({ ...m })),
+    settings: DEMO_SETTINGS.map((s) => ({ ...s })),
+    archiveJobs: DEMO_ARCHIVE_JOBS.map((j) => ({ ...j })),
+    scopes: DEMO_SCOPES.map((s) => ({ ...s })),
   };
 }
 
-function parseState(raw: string | null): DemoState {
+export function readDemoState(): DemoState {
+  const raw = safeStorage.getItem(STORE_KEY);
   if (!raw) return initialState();
   try {
-    const value: unknown = JSON.parse(raw);
-    if (!value || typeof value !== "object" || (value as { version?: unknown }).version !== 1) {
-      return initialState();
-    }
-    const state = value as Partial<DemoState>;
+    const parsed = JSON.parse(raw) as Partial<DemoState>;
+    if (!parsed || typeof parsed !== "object" || parsed.version !== 2) return initialState();
     const seed = initialState();
     return {
       ...seed,
-      ...state,
-      sessionUserId: typeof state.sessionUserId === "string" ? state.sessionUserId : null,
-      users: Array.isArray(state.users) ? state.users : seed.users,
-      readVersions: state.readVersions && typeof state.readVersions === "object" ? state.readVersions : seed.readVersions,
-      evaluations: Array.isArray(state.evaluations) ? state.evaluations : seed.evaluations,
-      applicants: Array.isArray(state.applicants) ? state.applicants : seed.applicants,
-      archivedDocumentIds: Array.isArray(state.archivedDocumentIds) ? state.archivedDocumentIds : [],
-      version: 1,
+      ...parsed,
+      users: Array.isArray(parsed.users) ? parsed.users : seed.users,
+      applicants: Array.isArray(parsed.applicants) ? parsed.applicants : seed.applicants,
+      evaluations: Array.isArray(parsed.evaluations) ? parsed.evaluations : seed.evaluations,
+      researchCases: Array.isArray(parsed.researchCases) ? parsed.researchCases : seed.researchCases,
+      changeRequests: Array.isArray(parsed.changeRequests) ? parsed.changeRequests : seed.changeRequests,
+      resourceBank: Array.isArray(parsed.resourceBank) ? parsed.resourceBank : seed.resourceBank,
+      supportTickets: Array.isArray(parsed.supportTickets) ? parsed.supportTickets : seed.supportTickets,
+      conversations: Array.isArray(parsed.conversations) ? parsed.conversations : seed.conversations,
+      messages: Array.isArray(parsed.messages) ? parsed.messages : seed.messages,
+      settings: Array.isArray(parsed.settings) ? parsed.settings : seed.settings,
+      scopes: Array.isArray(parsed.scopes) ? parsed.scopes : seed.scopes,
+      version: 2,
     };
   } catch {
     return initialState();
   }
 }
 
-function readState(): DemoState {
-  return parseState(safeStorage.getItem(STORE_KEY));
-}
-
-function writeState(state: DemoState): void {
-  safeStorage.setItem(STORE_KEY, JSON.stringify(state));
-}
-
-function updateState<T>(update: (state: DemoState) => { state: DemoState; result: T }): T {
-  const current = readState();
-  const next = update(current);
-  writeState(next.state);
+export function updateDemoState<T>(update: (state: DemoState) => { state: DemoState; result: T }): T {
+  const next = update(readDemoState());
+  safeStorage.setItem(STORE_KEY, JSON.stringify(next.state));
   return next.result;
 }
 
+export function requireDemoSession(state: DemoState): CurrentUser {
+  const user = state.users.find((item) => item.id === state.sessionUserId);
+  if (!user) throw new Error("برای ادامه ابتدا یک حساب نمایشی انتخاب کنید.");
+  return user;
+}
+
 export function getDemoPersonas() {
-  const state = readState();
+  const state = readDemoState();
   const seeded = DEMO_PERSONAS.flatMap((persona) => {
     const user = state.users.find((item) => item.id === persona.user.id);
     if (!user) return [];
@@ -114,68 +168,64 @@ export function getDemoPersonas() {
 }
 
 export function loginDemoPersona(personaId: string): CurrentUser {
-  return updateState((state) => {
+  return updateDemoState((state) => {
     const persona = DEMO_PERSONAS.find((item) => item.id === personaId);
     const applicantId = personaId.startsWith("applicant:") ? personaId.slice("applicant:".length) : null;
     const applicant = applicantId && state.applicants.find((item) => item.id === applicantId && item.status === "APPROVED");
     const user = persona
       ? state.users.find((item) => item.id === persona.user.id)
       : applicant ? state.users.find((item) => item.phoneNumber === applicant.phoneNumber) : undefined;
-    if ((!persona && !applicant) || !user || user.isSuspended) throw new Error("حساب نمونه‌ی انتخاب‌شده در دسترس نیست.");
-    const updated = { ...state, sessionUserId: user.id };
-    return { state: updated, result: { ...user, roles: [...(user.roles ?? [])] } };
+    if ((!persona && !applicant) || !user || user.isSuspended) throw new Error("حساب نمونه انتخاب‌شده در دسترس نیست.");
+    return { state: { ...state, sessionUserId: user.id }, result: { ...user, roles: [...(user.roles ?? [])] } };
   });
 }
 
 export function getDemoSession(): CurrentUser | null {
-  const state = readState();
+  const state = readDemoState();
   const user = state.users.find((item) => item.id === state.sessionUserId);
   return user ? { ...user, roles: [...(user.roles ?? [])] } : null;
 }
 
 export function logoutDemo(): void {
-  updateState((state) => ({ state: { ...state, sessionUserId: null }, result: undefined }));
+  updateDemoState((state) => ({ state: { ...state, sessionUserId: null }, result: undefined }));
 }
 
 export function resetDemoData(): void {
-  writeState(initialState());
-}
-
-function requireSession(state: DemoState): CurrentUser {
-  const user = state.users.find((item) => item.id === state.sessionUserId);
-  if (!user) throw new Error("برای ادامه ابتدا یک حساب نمایشی انتخاب کنید.");
-  return user;
+  safeStorage.setItem(STORE_KEY, JSON.stringify(initialState()));
 }
 
 export function getDemoPublishedDocuments(): PublishedLibraryDocumentDto[] {
-  const state = readState();
-  const user = requireSession(state);
+  const state = readDemoState();
+  const user = requireDemoSession(state);
   const read = new Set(state.readVersions[user.id] ?? []);
   return DEMO_PUBLISHED_DOCUMENTS
-    .filter((document) => !state.archivedDocumentIds.includes(document.id))
-    .map((document) => ({
-      ...document,
-      currentVersion: { ...document.currentVersion, isRead: read.has(document.currentVersion.id) },
-    }));
+    .filter((doc) => !state.archivedDocumentIds.includes(doc.id))
+    .map((doc) => ({ ...doc, currentVersion: { ...doc.currentVersion, isRead: read.has(doc.currentVersion.id) } }));
+}
+
+export function getDemoPublishedDocument(documentId: string): PublishedLibraryDocumentDto {
+  const found = getDemoPublishedDocuments().find((d) => d.id === documentId);
+  if (!found) throw new Error("سند مورد نظر یافت نشد.");
+  return found;
 }
 
 export function getDemoManagedDocuments() {
-  const state = readState();
-  if (requireSession(state).role !== "SCIENTIFIC_SUPERVISOR") throw new Error("مدیریت کتابخانه فقط برای مدیر علمی است.");
-  return DEMO_MANAGED_DOCUMENTS.map((document) => ({
-    ...document,
-    archivedAt: state.archivedDocumentIds.includes(document.id) ? "2026-11-08T09:00:00.000Z" : null,
-    currentVersion: document.currentVersion ? { ...document.currentVersion } : null,
-    versions: document.versions.map((version) => ({ ...version })),
+  const state = readDemoState();
+  if (requireDemoSession(state).role !== "SCIENTIFIC_SUPERVISOR") throw new Error("مدیریت کتابخانه فقط برای مدیر علمی است.");
+  return DEMO_MANAGED_DOCUMENTS.map((doc) => ({
+    ...doc,
+    archivedAt: state.archivedDocumentIds.includes(doc.id) ? "2026-11-08T09:00:00.000Z" : null,
+    currentVersion: doc.currentVersion ? { ...doc.currentVersion } : null,
+    versions: doc.versions.map((v) => ({ ...v })),
   }));
 }
 
 export function markDemoDocumentRead(documentId: string, versionId: string): void {
-  updateState((state) => {
-    const user = requireSession(state);
-    const seed = DEMO_DOCUMENT_SEEDS.find((document) => document.documentId === documentId && document.versionId === versionId);
+  updateDemoState((state) => {
+    const user = requireDemoSession(state);
+    const seed = DEMO_DOCUMENT_SEEDS.find((d) => d.documentId === documentId && d.versionId === versionId);
     if (user.role !== "APPRENTICE" || !seed || state.archivedDocumentIds.includes(documentId)) {
-      throw new Error("این حساب اجازه‌ی ثبت مطالعه‌ی سند را ندارد.");
+      throw new Error("این حساب اجازه ثبت مطالعه سند را ندارد.");
     }
     const read = new Set(state.readVersions[user.id] ?? []);
     read.add(versionId);
@@ -184,36 +234,21 @@ export function markDemoDocumentRead(documentId: string, versionId: string): voi
 }
 
 export function getDemoStudyEvaluation(): StudyEvaluationStatus | null {
-  const state = readState();
-  const user = requireSession(state);
-  return state.evaluations.find((evaluation) => evaluation.userId === user.id) ?? null;
-}
-
-function snapshotsFor(userId: string, readVersions: Record<string, string[]>, readAt: string) {
-  const read = new Set(readVersions[userId] ?? []);
-  return DEMO_DOCUMENT_SEEDS
-    .filter((document) => read.has(document.versionId))
-    .map((document) => ({
-      documentId: document.documentId,
-      versionId: document.versionId,
-      title: document.title,
-      category: document.category,
-      version: 1,
-      isRequired: document.isRequired,
-      readAt,
-    }));
+  const state = readDemoState();
+  const user = requireDemoSession(state);
+  return state.evaluations.find((e) => e.userId === user.id) ?? null;
 }
 
 export function requestDemoStudyEvaluation(notes?: string): StudyEvaluationStatus {
-  return updateState((state) => {
-    const user = requireSession(state);
+  return updateDemoState((state) => {
+    const user = requireDemoSession(state);
     if (user.role !== "APPRENTICE") throw new Error("فقط کارآموز می‌تواند درخواست ارزیابی ثبت کند.");
-    const existing = state.evaluations.find((evaluation) => evaluation.userId === user.id);
+    const existing = state.evaluations.find((e) => e.userId === user.id);
     if (existing?.status === "PENDING" || existing?.status === "APPROVED") return { state, result: existing };
     const reads = new Set(state.readVersions[user.id] ?? []);
-    const required = DEMO_DOCUMENT_SEEDS.filter((document) => document.isRequired);
-    if (required.length === 0 || required.some((document) => !reads.has(document.versionId))) {
-      throw new Error("ابتدا همه‌ی نسخه‌های جاریِ اسناد الزامی را مطالعه کنید.");
+    const required = DEMO_DOCUMENT_SEEDS.filter((d) => d.isRequired);
+    if (required.length === 0 || required.some((d) => !reads.has(d.versionId))) {
+      throw new Error("ابتدا همه نسخه‌های جاری اسناد الزامی را مطالعه کنید.");
     }
     const now = new Date().toISOString();
     const evaluation: StudyEvaluationStatus = {
@@ -221,23 +256,24 @@ export function requestDemoStudyEvaluation(notes?: string): StudyEvaluationStatu
       userId: user.id,
       status: "PENDING",
       notes: notes?.trim() || null,
-      completedDocuments: snapshotsFor(user.id, state.readVersions, now),
+      completedDocuments: DEMO_DOCUMENT_SEEDS.filter((d) => reads.has(d.versionId)).map((d) => ({
+        documentId: d.documentId, versionId: d.versionId, title: d.title, category: d.category, version: 1, isRequired: d.isRequired, readAt: now,
+      })),
       createdAt: now,
       updatedAt: now,
     };
-    const nextEvaluations = [...state.evaluations.filter((item) => item.userId !== user.id), evaluation];
-    return { state: { ...state, evaluations: nextEvaluations }, result: evaluation };
+    return { state: { ...state, evaluations: [...state.evaluations.filter((i) => i.userId !== user.id), evaluation] }, result: evaluation };
   });
 }
 
 export function getDemoPendingEvaluations() {
-  const state = readState();
-  if (requireSession(state).role !== "SCIENTIFIC_SUPERVISOR") throw new Error("کارتابل ارزیابی فقط برای مدیر علمی است.");
-  return state.evaluations.filter((evaluation) => evaluation.status === "PENDING").map((evaluation) => {
-    const user = state.users.find((item) => item.id === evaluation.userId);
+  const state = readDemoState();
+  if (requireDemoSession(state).role !== "SCIENTIFIC_SUPERVISOR") throw new Error("کارتابل ارزیابی فقط برای مدیر علمی است.");
+  return state.evaluations.filter((e) => e.status === "PENDING").map((e) => {
+    const user = state.users.find((i) => i.id === e.userId);
     return {
-      ...evaluation,
-      completedDocuments: evaluation.completedDocuments.map((document) => ({ ...document })),
+      ...e,
+      completedDocuments: e.completedDocuments.map((d) => ({ ...d })),
       userFullName: user?.fullName ?? "کارآموز نمونه",
       userPhone: user?.phoneNumber ?? "",
       user: user ? { id: user.id, fullName: user.fullName, phoneNumber: user.phoneNumber } : undefined,
@@ -246,49 +282,164 @@ export function getDemoPendingEvaluations() {
 }
 
 export function decideDemoEvaluation(evaluationId: string, decision: "APPROVED" | "REVISION_REQUIRED", feedback: string): void {
-  updateState((state) => {
-    const supervisor = requireSession(state);
-    if (supervisor.role !== "SCIENTIFIC_SUPERVISOR") throw new Error("این اقدام فقط برای مدیر علمی فعال است.");
-    const existing = state.evaluations.find((item) => item.id === evaluationId && item.status === "PENDING");
+  updateDemoState((state) => {
+    if (requireDemoSession(state).role !== "SCIENTIFIC_SUPERVISOR") throw new Error("این اقدام فقط برای مدیر علمی فعال است.");
+    const existing = state.evaluations.find((i) => i.id === evaluationId && i.status === "PENDING");
     if (!existing) throw new Error("درخواست تغییر کرده یا قبلاً بررسی شده است.");
-    const now = new Date().toISOString();
-    const evaluation = { ...existing, status: decision, feedback, updatedAt: now };
+    const evaluation = { ...existing, status: decision, feedback, updatedAt: new Date().toISOString() };
     const users = decision === "APPROVED"
-      ? state.users.map((user) => user.id === existing.userId ? { ...user, role: "INTERN" as const, roles: ["INTERN" as const], stage: "INTERN" as const } : user)
+      ? state.users.map((u) => (u.id === existing.userId ? { ...u, role: "INTERN" as const, roles: ["INTERN" as const], stage: "INTERN" as const } : u))
       : state.users;
+    return { state: { ...state, users, evaluations: state.evaluations.map((i) => (i.id === evaluationId ? evaluation : i)) }, result: undefined };
+  });
+}
+
+function buildWorkspaceUsers(state: DemoState): SupervisorWorkspaceUser[] {
+  const supervisor = requireDemoSession(state);
+  if (supervisor.role !== "SCIENTIFIC_SUPERVISOR") throw new Error("این کارتابل فقط برای مدیر علمی است.");
+  const trainees = state.users.filter((u) => ["APPRENTICE", "INTERN"].includes(u.role));
+  const users: SupervisorWorkspaceUser[] = trainees.map((u) => {
+    const evalRow = state.evaluations.find((e) => e.userId === u.id && e.status === "PENDING");
+    const cases = state.researchCases.filter(
+      (c) => c.researcherId === u.id && c.supervisors?.some((s) => s.userId === supervisor.id && s.isActive),
+    );
+    const pendingReqs = state.changeRequests.filter((r) => r.status === "PENDING" && cases.some((c) => c.id === r.researchCaseId));
+    const submittedStagesCount = cases.reduce((acc, c) => acc + c.stages.filter((s) => s.status === "SUBMITTED").length, 0);
+    const pendingCount = (evalRow ? 1 : 0) + pendingReqs.length + submittedStagesCount;
+    const dates: string[] = [];
+    if (evalRow) dates.push(evalRow.createdAt);
+    pendingReqs.forEach((r) => dates.push(r.createdAt));
+    cases.forEach((c) => { if (c.updatedAt && c.stages.some((s) => s.status === "SUBMITTED")) dates.push(c.updatedAt); });
+    const oldestPendingAt = dates.sort()[0] ?? null;
+    const applicantMatch = state.applicants.find((a) => a.phoneNumber === u.phoneNumber);
     return {
-      state: { ...state, users, evaluations: state.evaluations.map((item) => item.id === evaluationId ? evaluation : item) },
-      result: undefined,
+      id: u.id,
+      fullName: u.fullName,
+      phoneNumber: u.phoneNumber,
+      stage: u.stage,
+      nationalId: applicantMatch?.nationalId ?? "0012345678",
+      age: applicantMatch?.age ?? 25,
+      provinceId: u.provinceId ?? IRAN_PROVINCES[27]!.id,
+      provinceName: provinceNameFromId(u.provinceId ?? IRAN_PROVINCES[27]!.id) ?? "مرکزی",
+      education: applicantMatch?.education ?? "کارشناسی ارشد",
+      fieldOfStudy: applicantMatch?.fieldOfStudy ?? "علوم اجتماعی",
+      cases: cases.map((c) => ({
+        id: c.id,
+        code: c.code,
+        title: c.title,
+        subject: c.subject,
+        status: c.status,
+        version: c.version,
+        researcherId: c.researcherId ?? null,
+        stages: c.stages.map((s) => ({ ...s })),
+        canReview: true,
+      })),
+      pendingCount,
+      oldestPendingAt,
+      pendingStudyEvaluationId: evalRow?.id ?? null,
+      changeRequests: pendingReqs,
+      canCreateResearch: true,
+      history: DEMO_SUPERVISOR_HISTORY,
+    };
+  });
+  return users.sort((a, b) => {
+    if ((a.pendingCount > 0) !== (b.pendingCount > 0)) return a.pendingCount > 0 ? -1 : 1;
+    if (a.oldestPendingAt && b.oldestPendingAt) return a.oldestPendingAt.localeCompare(b.oldestPendingAt);
+    return a.fullName.localeCompare(b.fullName, "fa");
+  });
+}
+
+export function getDemoSupervisorWorkspace() {
+  const users = buildWorkspaceUsers(readDemoState());
+  return { users, total: users.length };
+}
+
+export function getDemoSupervisorTraineeProfile(userId: string) {
+  const user = buildWorkspaceUsers(readDemoState()).find((u) => u.id === userId);
+  if (!user) throw new Error("پروفایل کاربر در محدوده دسترسی یافت نشد.");
+  return user;
+}
+
+export function getDemoTrainees() {
+  return buildWorkspaceUsers(readDemoState()).map(({ id, fullName, phoneNumber, stage }) => ({ id, fullName, phoneNumber, stage }));
+}
+
+export function getDemoSupervisorReviews() {
+  const state = readDemoState();
+  const supervisor = requireDemoSession(state);
+  if (supervisor.role !== "SCIENTIFIC_SUPERVISOR") return [];
+  return state.researchCases.flatMap((c) => {
+    const researcher = state.users.find((u) => u.id === c.researcherId);
+    return c.stages
+      .filter((s) => s.status === "SUBMITTED" && s.stageType !== "SCENARIO")
+      .map((s) => ({
+        id: s.id,
+        kind: s.stageType === "SOURCES" ? ("SOURCE_STAGE" as const) : ("SUBMISSION" as const),
+        caseId: c.id,
+        caseCode: c.code,
+        caseTitle: c.title,
+        researcherId: c.researcherId ?? "",
+        internName: researcher?.fullName ?? "پژوهشگر",
+        stageId: s.id,
+        stageType: s.stageType,
+        stageName: s.stageType,
+        caseVersion: c.version,
+        submittedAt: c.updatedAt ?? "2026-11-07T11:30:00.000Z",
+        summary: "مرحله ارسال‌شده جهت بررسی مدیر علمی (حالت نمایشی).",
+      }));
+  });
+}
+
+export function getDemoSupervisorScenarios() {
+  const state = readDemoState();
+  if (requireDemoSession(state).role !== "SCIENTIFIC_SUPERVISOR") return [];
+  return DEMO_CASE_SCENARIOS.filter((sc) => sc.status === "UNDER_REVIEW").map((sc) => {
+    const researchCase = state.researchCases.find((c) => c.id === sc.researchCaseId);
+    const intern = state.users.find((u) => u.id === researchCase?.researcherId);
+    return {
+      id: sc.id,
+      version: sc.version,
+      caseVersion: researchCase?.version ?? 1,
+      title: sc.title,
+      summary: sc.summary,
+      content: sc.content,
+      caseId: sc.researchCaseId,
+      caseCode: researchCase?.code ?? "TS-DEMO",
+      caseTitle: researchCase?.title ?? "پژوهش نمونه",
+      internName: intern?.fullName ?? "پژوهشگر نمونه",
     };
   });
 }
 
-export function getDemoTrainees() {
-  const state = readState();
-  const supervisor = requireSession(state);
-  if (supervisor.role !== "SCIENTIFIC_SUPERVISOR") throw new Error("این فهرست فقط برای مدیر علمی است.");
-  return state.users
-    .filter((user) => ["APPRENTICE", "INTERN"].includes(user.role))
-    .map(({ id, fullName, phoneNumber, stage }) => ({ id, fullName, phoneNumber, stage }));
+export function getDemoApplicants(): ApplicantItem[] {
+  const state = readDemoState();
+  const user = requireDemoSession(state);
+  if (!["PROVINCIAL_DIRECTOR", "SCIENTIFIC_SUPERVISOR", "SYSTEM_ADMIN"].includes(user.role)) {
+    throw new Error("فهرست پذیرش در دسترس این نقش نیست.");
+  }
+  return state.applicants.map((a) => ({ ...a }));
 }
 
-export function getDemoApplicants(): ApplicantItem[] {
-  const state = readState();
-  if (requireSession(state).role !== "PROVINCIAL_DIRECTOR") throw new Error("فهرست پذیرش فقط برای مدیر استانی است.");
-  return state.applicants.map((applicant) => ({ ...applicant }));
+export function getDemoApplicant(id: string): ApplicantItem {
+  const found = getDemoApplicants().find((a) => a.id === id);
+  if (!found) throw new Error("پرونده متقاضی پیدا نشد.");
+  return found;
 }
 
 export function updateDemoApplicantStatus(id: string, status: ApplicantStatus, reason?: string): void {
-  updateState((state) => {
-    if (requireSession(state).role !== "PROVINCIAL_DIRECTOR") throw new Error("تغییر پرونده‌ی پذیرش فقط برای مدیر استانی فعال است.");
+  updateDemoState((state) => {
+    const role = requireDemoSession(state).role;
+    if (!["PROVINCIAL_DIRECTOR", "SCIENTIFIC_SUPERVISOR", "SYSTEM_ADMIN"].includes(role)) {
+      throw new Error("تغییر پرونده پذیرش برای این نقش مجاز نیست.");
+    }
     const now = new Date().toISOString();
-    const target = state.applicants.find((applicant) => applicant.id === id);
-    if (!target) throw new Error("پرونده‌ی نمونه پیدا نشد.");
-    const applicants = state.applicants.map((applicant) => applicant.id === id
-      ? { ...applicant, status, updatedAt: now, ...(status === "REJECTED" && reason ? { rejectionReason: reason } : {}) }
-      : applicant);
-    const accountExists = state.users.some((user) => user.phoneNumber === target.phoneNumber);
-    const users = status === "APPROVED" && !accountExists
+    const target = state.applicants.find((a) => a.id === id);
+    if (!target) throw new Error("پرونده نمونه پیدا نشد.");
+    const applicants = state.applicants.map((a) =>
+      a.id === id ? { ...a, status, updatedAt: now, ...(status === "REJECTED" && reason ? { rejectionReason: reason } : {}) } : a,
+    );
+    const exists = state.users.some((u) => u.phoneNumber === target.phoneNumber);
+    const users = status === "APPROVED" && !exists
       ? [...state.users, {
         id: globalThis.crypto?.randomUUID?.() ?? "70000000-0000-4000-8000-000000000001",
         phoneNumber: target.phoneNumber,
@@ -297,6 +448,7 @@ export function updateDemoApplicantStatus(id: string, status: ApplicantStatus, r
         roles: ["APPRENTICE" as const],
         stage: "APPRENTICE" as const,
         isSuspended: false,
+        provinceId: target.provinceId,
       }]
       : state.users;
     return { state: { ...state, users, applicants }, result: undefined };
@@ -304,62 +456,62 @@ export function updateDemoApplicantStatus(id: string, status: ApplicantStatus, r
 }
 
 export function getDemoAssetPath(documentId: string): string | null {
-  const state = readState();
-  requireSession(state);
+  const state = readDemoState();
+  requireDemoSession(state);
   if (state.archivedDocumentIds.includes(documentId)) return null;
-  return DEMO_DOCUMENT_SEEDS.find((document) => document.documentId === documentId)?.assetPath ?? null;
+  return DEMO_DOCUMENT_SEEDS.find((d) => d.documentId === documentId)?.assetPath ?? null;
 }
 
 function accessibleDemoCase(state: DemoState, caseId: string) {
-  const user = requireSession(state);
-  const researchCase = DEMO_RESEARCH_CASES.find((item) => item.id === caseId);
-  if (!researchCase) return null;
-  if (researchCase.researcherId === user.id) return researchCase;
-  if (user.role === "SCIENTIFIC_SUPERVISOR" && researchCase.supervisors?.some((supervisor) => supervisor.userId === user.id && supervisor.isActive)) {
-    return researchCase;
-  }
+  const user = requireDemoSession(state);
+  const rc = state.researchCases.find((item) => item.id === caseId);
+  if (!rc) return null;
+  if (rc.researcherId === user.id || ["TRACKING_DIRECTOR", "SYSTEM_ADMIN"].includes(user.role)) return rc;
+  if (user.role === "SCIENTIFIC_SUPERVISOR" && rc.supervisors?.some((s) => s.userId === user.id && s.isActive)) return rc;
   return null;
 }
 
 export function getDemoResearchCases(researcherId?: string | null) {
-  const state = readState();
-  const user = requireSession(state);
+  const state = readDemoState();
+  const user = requireDemoSession(state);
   if (user.role === "INTERN" || user.role === "APPRENTICE") {
-    return DEMO_RESEARCH_CASES
-      .filter((researchCase) => researchCase.researcherId === user.id && (!researcherId || researcherId === user.id))
-      .map((researchCase) => ({ ...researchCase, stages: researchCase.stages.map((stage) => ({ ...stage })), supervisors: researchCase.supervisors?.map((item) => ({ ...item })) }));
+    return state.researchCases.filter((rc) => rc.researcherId === user.id && (!researcherId || researcherId === user.id));
   }
-  if (user.role !== "SCIENTIFIC_SUPERVISOR") return [];
-  return DEMO_RESEARCH_CASES
-    .filter((researchCase) => (!researcherId || researchCase.researcherId === researcherId) && researchCase.supervisors?.some((supervisor) => supervisor.userId === user.id && supervisor.isActive))
-    .map((researchCase) => ({ ...researchCase, stages: researchCase.stages.map((stage) => ({ ...stage })), supervisors: researchCase.supervisors?.map((item) => ({ ...item })) }));
+  if (user.role === "SCIENTIFIC_SUPERVISOR") {
+    return state.researchCases.filter(
+      (rc) => (!researcherId || rc.researcherId === researcherId) && rc.supervisors?.some((s) => s.userId === user.id && s.isActive),
+    );
+  }
+  return [];
+}
+
+export function getDemoResearchCase(caseId: string) {
+  const rc = accessibleDemoCase(readDemoState(), caseId);
+  if (!rc) throw new Error("پرونده در این حساب نمایشی قابل مشاهده نیست.");
+  return rc;
 }
 
 export function getDemoCaseResources(caseId: string) {
-  const state = readState();
-  if (!accessibleDemoCase(state, caseId)) throw new Error("پرونده در این حساب نمایشی قابل مشاهده نیست.");
-  return DEMO_CASE_RESOURCES
-    .filter((resource) => resource.researchCaseId === caseId)
-    .map((resource) => ({ ...resource, interview: resource.interview ? { ...resource.interview, latestReport: resource.interview.latestReport ? { ...resource.interview.latestReport } : null } : null }));
+  if (!accessibleDemoCase(readDemoState(), caseId)) throw new Error("پرونده در این حساب نمایشی قابل مشاهده نیست.");
+  return DEMO_CASE_RESOURCES.filter((r) => r.researchCaseId === caseId);
 }
 
 export function getDemoStageSubmissions(stageId: string) {
-  const state = readState();
-  const researchCase = DEMO_RESEARCH_CASES.find((item) => item.stages.some((stage) => stage.id === stageId));
-  if (!researchCase || !accessibleDemoCase(state, researchCase.id)) throw new Error("مرحله در این حساب نمایشی قابل مشاهده نیست.");
-  return (DEMO_STAGE_SUBMISSIONS[stageId] ?? []).map((item) => ({ ...item }));
+  const state = readDemoState();
+  const rc = state.researchCases.find((item) => item.stages.some((s) => s.id === stageId));
+  if (!rc || !accessibleDemoCase(state, rc.id)) throw new Error("مرحله در این حساب نمایشی قابل مشاهده نیست.");
+  return DEMO_STAGE_SUBMISSIONS[stageId] ?? [];
 }
 
 export function getDemoCaseScenarios(caseId: string) {
-  const state = readState();
-  if (!accessibleDemoCase(state, caseId)) throw new Error("پرونده در این حساب نمایشی قابل مشاهده نیست.");
-  return DEMO_CASE_SCENARIOS
-    .filter((scenario) => scenario.researchCaseId === caseId)
-    .map((scenario) => ({ ...scenario }));
+  if (!accessibleDemoCase(readDemoState(), caseId)) throw new Error("پرونده در این حساب نمایشی قابل مشاهده نیست.");
+  return DEMO_CASE_SCENARIOS.filter((s) => s.researchCaseId === caseId);
 }
 
-export function getDemoRequiredReadState(userId: string): { required: number; read: number } {
-  const read = new Set(readState().readVersions[userId] ?? []);
-  const required = DEMO_DOCUMENT_SEEDS.filter((document) => document.isRequired);
-  return { required: required.length, read: required.filter((document) => read.has(document.versionId)).length };
+export function getDemoCaseChangeRequests(caseId: string) {
+  const state = readDemoState();
+  if (!accessibleDemoCase(state, caseId)) throw new Error("پرونده در این حساب نمایشی قابل مشاهده نیست.");
+  return state.changeRequests.filter((r) => r.researchCaseId === caseId);
 }
+
+export { DEMO_AUDIT_EVENTS };

@@ -1,4 +1,4 @@
-import { Injectable } from "@nestjs/common";
+import { Inject, Injectable } from "@nestjs/common";
 import { randomUUID } from "node:crypto";
 import { PrismaService } from "@tstaff/database";
 import type { Prisma } from "@tstaff/database";
@@ -28,7 +28,7 @@ type VersionRow = Prisma.LibraryDocumentVersionGetPayload<{ include: { storedObj
 
 @Injectable()
 export class PrismaDocumentsRepository implements DocumentsRepositoryPort {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(@Inject(PrismaService) private readonly prisma: PrismaService) { }
 
   async createDocument(id: string, input: CreateDocumentVersionInput): Promise<LibraryDocumentRecord> {
     await this.prisma.$transaction(async (tx) => {

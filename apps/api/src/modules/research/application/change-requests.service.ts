@@ -42,7 +42,7 @@ export class ChangeRequestsService {
       if (item.version !== dto.caseVersion) throw new StaleRevisionError(item.version, dto.caseVersion);
       const decided = { ...request, status: dto.decision, version: request.version + 1, reviewerId, decisionReason: dto.reason, decidedAt: new Date().toISOString() };
       await this.repository.decide(decided, dto.expectedVersion);
-      if (dto.decision === "APPROVED") await this.research.rollbackStage(caseId, { targetStage: request.targetStage, reason: dto.reason, expectedVersion: dto.caseVersion });
+      if (dto.decision === "APPROVED") await this.research.rollbackStage(caseId, { targetStage: request.targetStage, reason: dto.reason, expectedVersion: dto.caseVersion }, reviewerId);
       await this.audit.recordEvent({ aggregateType: "ResearchCase", aggregateId: caseId, action: "CHANGE_REQUEST_DECIDED", actorId: reviewerId, payload: { requestId, decision: dto.decision, targetStage: request.targetStage, reason: dto.reason } });
       return decided;
     });

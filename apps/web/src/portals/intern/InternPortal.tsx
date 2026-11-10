@@ -20,7 +20,6 @@ interface InternPortalProps {
 export const InternPortal: React.FC<InternPortalProps> = ({ onNotify }) => {
   const activeTab = usePortalSection<UserNavigationTab>({ "/projects": "researcher", "/library": "resources", "/messages": "chat" }, "researcher");
 
-  // Support Ticket Modal
   const [showSupportModal, setShowSupportModal] = useState(false);
   const [ticketSubject, setTicketSubject] = useState("");
   const [ticketDescription, setTicketDescription] = useState("");
@@ -56,87 +55,69 @@ export const InternPortal: React.FC<InternPortalProps> = ({ onNotify }) => {
   };
 
   return (
-    <div className="space-y-6">
-
-      {/* Support ticket action */}
-      <div className="flex items-center justify-between border-b border-white/10 pb-4">
+    <div className="space-y-5">
+      <div className="flex items-center justify-end border-b border-[#214E3A]/15 pb-3">
         <Button
           variant="secondary"
           size="sm"
-          icon={<HelpCircle className="w-3.5 h-3.5" />}
+          icon={<HelpCircle className="h-3.5 w-3.5" />}
           onClick={() => setShowSupportModal(true)}
-          className="text-xs"
         >
           ارسال تیکت به پشتیبانی
         </Button>
       </div>
 
-      {/* Active user portal tab */}
       <div className="animate-fade-in">
         {activeTab === "researcher" && <ResearchCasesView onNotify={onNotify} />}
         {activeTab === "resources" && <LibraryDocumentsView isApprentice={false} onNotify={onNotify} />}
         {activeTab === "chat" && <DirectChatView onNotify={onNotify} />}
       </div>
 
-      {/* Modal: Support Ticket */}
       {showSupportModal && (
         <Modal
-          isOpen={true}
+          isOpen
           onClose={() => setShowSupportModal(false)}
           title="ارسال تیکت به مدیر پشتیبانی"
           maxWidth="md"
         >
-          <form onSubmit={handleCreateSupportTicket} className="space-y-4 text-right">
-            <p className="text-xs text-slate-400 leading-relaxed">
+          <form onSubmit={(e) => void handleCreateSupportTicket(e)} className="space-y-4 text-right">
+            <p className="text-xs leading-relaxed text-[#4F6659]">
               هرگونه مشکل سامانه‌ای یا ابهام در فرایندهای پژوهشی را گزارش نمایید:
             </p>
 
-            <div className="space-y-1.5">
-              <label className="block text-xs font-medium text-slate-300">
-                موضوع تیکت
-              </label>
+            <label className="block space-y-1.5 text-xs font-medium text-[#214031]">
+              موضوع تیکت
               <input
                 type="text"
                 dir="rtl"
                 required
+                minLength={3}
                 placeholder="مثال: عدم دسترسی به ضبط مصاحبه در مرحله منابع"
                 value={ticketSubject}
                 onChange={(e) => setTicketSubject(e.target.value)}
-                className="w-full px-3 py-2 rounded-apple-md bg-white/[0.04] border border-white/10 text-xs text-slate-100 placeholder:text-slate-500 focus:outline-none focus:border-apple-blue/50"
+                className="w-full rounded-xl border border-[#214E3A]/20 bg-[#FFFCF5] px-3 py-2 text-sm text-[#214031] placeholder:text-[#6B8073] focus:border-[#214E3A] focus:outline-none"
               />
-            </div>
+            </label>
 
-            <div className="space-y-1.5">
-              <label className="block text-xs font-medium text-slate-300">
-                شرح درخواست
-              </label>
+            <label className="block space-y-1.5 text-xs font-medium text-[#214031]">
+              شرح درخواست
               <textarea
                 dir="rtl"
                 rows={4}
                 required
+                minLength={10}
                 placeholder="شرح دقیق موضوع..."
                 value={ticketDescription}
                 onChange={(e) => setTicketDescription(e.target.value)}
-                className="w-full px-3 py-2 rounded-apple-md bg-white/[0.04] border border-white/10 text-xs text-slate-100 placeholder:text-slate-500 focus:outline-none focus:border-apple-blue/50"
+                className="w-full rounded-xl border border-[#214E3A]/20 bg-[#FFFCF5] px-3 py-2 text-sm text-[#214031] placeholder:text-[#6B8073] focus:border-[#214E3A] focus:outline-none"
               />
-            </div>
+            </label>
 
-            <div className="flex items-center justify-end gap-2 pt-3 border-t border-white/10">
-              <Button
-                type="button"
-                variant="ghost"
-                size="md"
-                onClick={() => setShowSupportModal(false)}
-              >
+            <div className="flex items-center justify-end gap-2 border-t border-[#214E3A]/10 pt-3">
+              <Button type="button" variant="ghost" size="md" onClick={() => setShowSupportModal(false)}>
                 انصراف
               </Button>
-              <Button
-                type="submit"
-                variant="primary"
-                size="md"
-                loading={isSubmittingTicket}
-                icon={<Send className="w-4 h-4" />}
-              >
+              <Button type="submit" variant="primary" size="md" loading={isSubmittingTicket} icon={<Send className="h-4 w-4" />}>
                 ارسال تیکت
               </Button>
             </div>

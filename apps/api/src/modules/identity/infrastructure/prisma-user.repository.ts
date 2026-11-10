@@ -1,9 +1,15 @@
-import { Injectable } from "@nestjs/common";
+import { Inject, Injectable } from "@nestjs/common";
 import { PrismaService } from "@tstaff/database";
 import type { Prisma } from "@tstaff/database";
-import { StudyDocumentSnapshotSchema, type StudyDocumentSnapshot } from "@tstaff/contracts";
+import {
+  provinceNameFromId,
+  StudyDocumentSnapshotSchema,
+  type DirectoryUserDto,
+  type StudyDocumentSnapshot,
+} from "@tstaff/contracts";
 import { User, UserStageType } from "../domain/user.entity.js";
 import type {
+  UserApplicantDetailsRecord,
   UserRepositoryPort,
   StudyEvaluationRecord,
   SupportTicketRecord,
@@ -39,7 +45,59 @@ export class PrismaUserRepository implements UserRepositoryPort {
     const user = await this.prisma.user.findUnique({ where: { id: userId }, select: { applicant: { select: { provinceId: true } } } });
     return user?.applicant?.provinceId ?? null;
   }
-  constructor(private readonly prisma: PrismaService) {}
+
+  async findApplicantDetailsByUserId(userId: string): Promise<UserApplicantDetailsRecord | null> {
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+      select: {
+        applicant: {
+          select: {
+            nationalId: true,
+            age: true,
+            provinceId: true,
+            educationLevel: true,
+            fieldOfStudy: true,
+          },
+        },
+      },
+    });
+    if (!user?.applicant) return null;
+    const provinceId = user.applicant.provinceId ?? null;
+    return {
+      nationalId: user.applicant.nationalId ?? null,
+      age: user.applicant.age ?? null,
+      provinceId,
+      provinceName: provinceNameFromId(provinceId),
+      education: user.applicant.educationLevel ?? null,
+      fieldOfStudy: user.applicant.fieldOfStudy ?? null,
+    };
+  }
+
+  async findAllDirectoryUsers(): Promise<DirectoryUserDto[]> {
+    const rows = await this.prisma.user.findMany({
+      include: {
+        profile: true,
+        userRoles: { include: { role: true } },
+        applicant: { select: { provinceId: true } },
+      },
+      orderBy: { createdAt: "desc" },
+    });
+    return rows.map((row) => {
+      const domainUser = this.toDomain(row).toJSON();
+      return {
+        id: domainUser.id,
+        fullName: domainUser.fullName ?? "کاربر",
+        phoneNumber: domainUser.phoneNumber,
+        stage: domainUser.stage,
+        role: (domainUser.role ?? domainUser.stage) as DirectoryUserDto["role"],
+        roles: (domainUser.roles?.length ? domainUser.roles : [domainUser.stage]) as DirectoryUserDto["roles"],
+        isActive: domainUser.isActive,
+        provinceId: row.applicant?.provinceId ?? null,
+        createdAt: domainUser.createdAt.toISOString(),
+      };
+    });
+  }
+  constructor(@Inject(PrismaService) private readonly prisma: PrismaService) {}
 
   async createSession(input: { userId: string; tokenHash: string; expiresAt: Date }): Promise<void> {
     await this.prisma.userSession.create({ data: input });

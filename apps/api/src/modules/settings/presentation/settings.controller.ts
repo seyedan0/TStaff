@@ -9,6 +9,7 @@ import {
   HttpCode,
   HttpStatus,
   Inject,
+  Req,
 } from "@nestjs/common";
 import { ApiTags, ApiOperation, ApiResponse, ApiHeader } from "@nestjs/swagger";
 import { UpdateSystemSettingDtoSchema } from "@tstaff/contracts";
@@ -16,12 +17,14 @@ import { SettingsService } from "../application/settings.service.js";
 import {
   StageGuard,
   RequireStage,
+  RequireRoles,
 } from "../../../platform/security/stage.guard.js";
 
 @ApiTags("Settings (تنظیمات پویای سامانه FR-052, AT-34)")
 @Controller("settings")
 @UseGuards(StageGuard)
 @RequireStage("INTERN")
+@RequireRoles("SYSTEM_ADMIN", "TRACKING_DIRECTOR", "SUPPORT_DIRECTOR", "PROVINCIAL_DIRECTOR", "SCIENTIFIC_SUPERVISOR")
 @ApiHeader({
   name: "x-user-stage",
   description: "سطح کاربری جهت اعتبارسنجی سطح دسترسی (INTERN)",
@@ -61,6 +64,7 @@ export class SettingsController {
   }
 
   @Put(":key")
+  @RequireRoles("SYSTEM_ADMIN")
   @HttpCode(HttpStatus.OK)
   @ApiOperation({
     summary:
@@ -72,10 +76,12 @@ export class SettingsController {
   })
   async updateSetting(
     @Param("key") key: string,
-    @Headers("x-user-id") updatedBy: string | undefined,
+    @Headers("x-user-id") headerUpdatedBy: string | undefined,
     @Body() body: unknown,
+    @Req() request?: any,
   ) {
     const dto = UpdateSystemSettingDtoSchema.parse(body);
+    const updatedBy = request?.user?.id ?? headerUpdatedBy;
     const setting = await this.settingsService.updateSetting(
       key,
       dto,

@@ -1,4 +1,4 @@
-import { Controller, Get, HttpStatus } from "@nestjs/common";
+import { Controller, Get, HttpStatus, Inject } from "@nestjs/common";
 import { ApiOperation, ApiResponse, ApiTags } from "@nestjs/swagger";
 import { PrismaService } from "@tstaff/database";
 import type { HealthResponse } from "@tstaff/contracts";
@@ -6,7 +6,7 @@ import type { HealthResponse } from "@tstaff/contracts";
 @ApiTags("Platform")
 @Controller("health")
 export class HealthController {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(@Inject(PrismaService) private readonly prisma: PrismaService) {}
 
   @Get()
   @ApiOperation({

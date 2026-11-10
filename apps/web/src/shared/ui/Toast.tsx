@@ -16,30 +16,34 @@ export const Toast: React.FC<ToastProps> = ({ toast, onDismiss }) => {
   }, [toast.id, onDismiss]);
 
   const icons = {
-    success: <CheckCircle2 className="w-5 h-5 text-apple-green shrink-0" />,
-    error: <AlertCircle className="w-5 h-5 text-apple-red shrink-0" />,
-    warning: <AlertTriangle className="w-5 h-5 text-apple-amber shrink-0" />,
-    info: <Info className="w-5 h-5 text-apple-blue shrink-0" />,
+    success: <CheckCircle2 className="h-5 w-5 shrink-0 text-[#214E3A]" />,
+    error: <AlertCircle className="h-5 w-5 shrink-0 text-[#D94F3D]" />,
+    warning: <AlertTriangle className="h-5 w-5 shrink-0 text-[#A65D31]" />,
+    info: <Info className="h-5 w-5 shrink-0 text-[#214E3A]" />,
   }[toast.type];
 
   return (
-    <div className="apple-glass-card border border-white/10 shadow-apple-elevated rounded-apple-lg p-4 flex items-start gap-3 w-80 max-w-full animate-spring-slide text-right">
+    <div
+      role="status"
+      className="animate-spring-slide flex w-80 max-w-full items-start gap-3 rounded-apple-lg border border-[#214E3A]/20 bg-[#FFFCF5] p-4 text-right shadow-apple-elevated"
+    >
       {icons}
-      <div className="flex-1 min-w-0">
-        <h4 className="text-sm font-semibold text-slate-100">{toast.title}</h4>
+      <div className="min-w-0 flex-1">
+        <h4 className="text-sm font-bold text-[#214031]">{toast.title}</h4>
         {toast.message && (
-          <p className="text-xs text-slate-300 mt-0.5 line-clamp-3">
+          <p className="mt-0.5 line-clamp-3 text-xs leading-relaxed text-[#43584A]">
             {toast.message}
           </p>
         )}
       </div>
       <button
+        type="button"
+        aria-label="بستن اعلان"
         onClick={() => onDismiss(toast.id)}
-        className="p-1 text-slate-400 hover:text-white rounded-full hover:bg-white/10 active:scale-90 transition-all shrink-0"
+        className="shrink-0 rounded-full p-1 text-[#59675A] transition-all hover:bg-[#214E3A]/10 hover:text-[#214031] active:scale-90"
       >
-        <X className="w-4 h-4" />
+        <X className="h-4 w-4" />
       </button>
     </div>
   );
 };
-

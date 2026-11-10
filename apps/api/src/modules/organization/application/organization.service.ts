@@ -7,12 +7,13 @@ import { TRANSACTION_RUNNER, type TransactionRunner } from "../../../platform/tr
 export class OrganizationService {
   constructor(
     @Inject(ORGANIZATION_REPOSITORY) private readonly repository: OrganizationRepositoryPort,
-    private readonly audit: AuditService,
+    @Optional() @Inject(AuditService) private readonly audit?: AuditService,
     @Optional() @Inject(TRANSACTION_RUNNER) private readonly transactions?: TransactionRunner,
   ) {}
   provinces() { return this.repository.provinces(); }
   provinceIds(managerId: string) { return this.repository.provinceIds(managerId); }
   scopes(managerId?: string) { return this.repository.scopes(managerId); }
+  userGrants(managerId?: string) { return this.repository.userGrants?.(managerId) ?? Promise.resolve([]); }
   hasUserGrant(managerId: string, userId: string) { return this.repository.hasUserGrant(managerId, userId); }
   async canAccessProvince(managerId: string, provinceId: string | null) {
     return !!provinceId && (await this.provinceIds(managerId)).includes(provinceId);
@@ -26,13 +27,13 @@ export class OrganizationService {
     if (!(await this.provinces()).some((province) => province.id === provinceId)) throw new BadRequestException("استان معتبر نیست");
     return this.atomic(async () => {
       await this.repository.setProvinceScope(managerId, provinceId, actorId, active);
-      await this.audit.recordEvent({ aggregateType: "ProvincialScope", aggregateId: managerId, actorId, action: active ? "SCOPE_ASSIGNED" : "SCOPE_REVOKED", payload: { provinceId } });
+      await this.audit?.recordEvent({ aggregateType: "ProvincialScope", aggregateId: managerId, actorId, action: active ? "SCOPE_ASSIGNED" : "SCOPE_REVOKED", payload: { provinceId } });
     });
   }
   async setUserGrant(managerId: string, userId: string, actorId: string, active: boolean) {
     return this.atomic(async () => {
       await this.repository.setUserGrant(managerId, userId, actorId, active);
-      await this.audit.recordEvent({ aggregateType: "UserManagerGrant", aggregateId: userId, actorId, action: active ? "USER_GRANT_ASSIGNED" : "USER_GRANT_REVOKED", payload: { managerId } });
+      await this.audit?.recordEvent({ aggregateType: "UserManagerGrant", aggregateId: userId, actorId, action: active ? "USER_GRANT_ASSIGNED" : "USER_GRANT_REVOKED", payload: { managerId } });
     });
   }
   private atomic<T>(operation: () => Promise<T>) { return this.transactions ? this.transactions.run(operation) : operation(); }

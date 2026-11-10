@@ -6,6 +6,7 @@ import {
   UnauthorizedException,
   SetMetadata,
   Optional,
+  Inject,
 } from "@nestjs/common";
 import { Reflector } from "@nestjs/core";
 import { createHash } from "node:crypto";
@@ -23,8 +24,10 @@ type Stage = (typeof ALLOWED_STAGES)[number];
 @Injectable()
 export class StageGuard implements CanActivate {
   constructor(
+    @Optional() @Inject(Reflector)
     private reflector: Reflector = new Reflector(),
-    @Optional() private readonly prisma?: PrismaService,
+    @Optional() @Inject(PrismaService)
+    private readonly prisma?: PrismaService,
   ) {}
 
   async canActivate(context: ExecutionContext): Promise<boolean> {

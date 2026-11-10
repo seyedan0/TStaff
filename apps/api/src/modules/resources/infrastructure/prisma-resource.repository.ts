@@ -1,4 +1,4 @@
-import { Injectable } from "@nestjs/common";
+import { Inject, Injectable } from "@nestjs/common";
 import { PrismaService } from "@tstaff/database";
 import { provinceIdFromName } from "@tstaff/contracts";
 import { Resource } from "../domain/resource.entity.js";
@@ -8,7 +8,7 @@ import type { ResourceRepositoryPort } from "../application/ports/resource.repos
 
 @Injectable()
 export class PrismaResourceRepository implements ResourceRepositoryPort {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(@Inject(PrismaService) private readonly prisma: PrismaService) {}
   async findFileCaseIds(fileId: string): Promise<string[]> {
     const reports = await this.prisma.interviewReport.findMany({ where: { storedObjectId: fileId }, select: { interview: { select: { resource: { select: { researchCaseId: true } } } } } });
     return [...new Set(reports.map((report) => report.interview.resource.researchCaseId))];
@@ -38,7 +38,7 @@ export class PrismaResourceRepository implements ResourceRepositoryPort {
         personAge: resource.toJSON().personAge,
         position: resource.toJSON().position,
         province: resource.toJSON().province,
-        provinceId: provinceIdFromName(resource.toJSON().province),
+        provinceId: resource.toJSON().provinceId ?? provinceIdFromName(resource.toJSON().province),
         county: resource.toJSON().county,
         status: resource.status as any,
       },
@@ -61,6 +61,7 @@ export class PrismaResourceRepository implements ResourceRepositoryPort {
       contactInfo: raw.contactInfo,
       personAge: raw.personAge,
       position: raw.position,
+      provinceId: raw.provinceId,
       province: raw.province,
       county: raw.county,
       status: raw.status as any,
@@ -86,6 +87,7 @@ export class PrismaResourceRepository implements ResourceRepositoryPort {
         contactInfo: r.contactInfo,
         personAge: r.personAge,
         position: r.position,
+        provinceId: r.provinceId,
         province: r.province,
         county: r.county,
         status: r.status as any,
@@ -107,7 +109,7 @@ export class PrismaResourceRepository implements ResourceRepositoryPort {
         personAge: resource.toJSON().personAge,
         position: resource.toJSON().position,
         province: resource.toJSON().province,
-        provinceId: provinceIdFromName(resource.toJSON().province),
+        provinceId: resource.toJSON().provinceId ?? provinceIdFromName(resource.toJSON().province),
         county: resource.toJSON().county,
       },
     });

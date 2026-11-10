@@ -5,12 +5,10 @@ import {
   Patch,
   Body,
   Param,
-  Query,
   UseGuards,
   HttpCode,
   HttpStatus,
   Inject,
-  UnauthorizedException,
   ForbiddenException,
   Req,
 } from "@nestjs/common";
@@ -20,7 +18,6 @@ import {
   UpdateScenarioDtoSchema,
   SubmitScenarioDtoSchema,
   ReviewScenarioDtoSchema,
-  ScenarioBankQuerySchema,
 } from "@tstaff/contracts";
 import { ScenariosService } from "../application/scenarios.service.js";
 import {
@@ -30,7 +27,7 @@ import {
 } from "../../../platform/security/stage.guard.js";
 import { ResearchService } from "../../research/application/research.service.js";
 
-@ApiTags("Scenarios (سناریوها و بانک داخلی)")
+@ApiTags("Scenarios (سناریوهای پرونده پژوهش)")
 @Controller()
 @UseGuards(StageGuard)
 @RequireStage("INTERN")
@@ -62,23 +59,20 @@ export class ScenariosController {
   }
 
   @Get("research-cases/:caseId/scenarios")
-  @ApiOperation({ summary: "دریافت لیست سناریوهای یک پرونده پژوهشی" })
+  @ApiOperation({ summary: "دریافت لیست سناریوهای یک پرونده پژوهشی همراه با تاریخچه نسخه و داوری" })
   async getScenariosForCase(@Param("caseId") caseId: string, @Req() request: any) {
     const roles: string[] = request.user.roles ?? (request.user.role ? [request.user.role] : []);
-    if (!(await this.researchService.canUserAccessCase(caseId, request.user.id, roles))) throw new ForbiddenException("دسترسی به این پرونده مجاز نیست");
+    if (!(await this.researchService.canUserAccessCase(caseId, request.user.id, roles))) {
+      throw new ForbiddenException("دسترسی به این پرونده مجاز نیست");
+    }
     const list = await this.scenariosService.getScenariosByCaseId(caseId);
-    return list.map((s) => s.toJSON());
-  }
-
-  @Get("scenarios/bank")
-  @ApiOperation({
-    summary:
-      "مشاهده بانک سناریوهای تأییدشده داخلی (FR-023, FR-040, AT-16 - فاقد اکسپلور عمومی طبق مرزهای MVP)",
-  })
-  async getInternalBank(@Query() query: unknown) {
-    const validated = ScenarioBankQuerySchema.parse(query);
-    const list = await this.scenariosService.getInternalBank(validated);
-    return list.map((s) => s.toJSON());
+    return Promise.all(
+      list.map(async (scenario) => ({
+        ...scenario.toJSON(),
+        versions: await this.scenariosService.getVersions(scenario.id),
+        decisions: await this.scenariosService.getDecisions(scenario.id),
+      })),
+    );
   }
 
   @Get("scientific-supervisors/me/scenarios")
@@ -87,13 +81,41 @@ export class ScenariosController {
     return this.scenariosService.getPendingForSupervisor(request.user.id);
   }
 
+  @Get("scenarios/:id/versions")
+  @ApiOperation({ summary: "تاریخچه نسخه‌های سناریو" })
+  async getScenarioVersions(@Param("id") id: string, @Req() request: any) {
+    const scenario = await this.scenariosService.getScenarioById(id);
+    const roles: string[] = request.user.roles ?? (request.user.role ? [request.user.role] : []);
+    if (!(await this.researchService.canUserAccessCase(scenario.researchCaseId, request.user.id, roles))) {
+      throw new ForbiddenException("دسترسی به این سناریو مجاز نیست");
+    }
+    return this.scenariosService.getVersions(id);
+  }
+
+  @Get("scenarios/:id/decisions")
+  @ApiOperation({ summary: "سوابق تصمیم‌گیری علمی سناریو" })
+  async getScenarioDecisions(@Param("id") id: string, @Req() request: any) {
+    const scenario = await this.scenariosService.getScenarioById(id);
+    const roles: string[] = request.user.roles ?? (request.user.role ? [request.user.role] : []);
+    if (!(await this.researchService.canUserAccessCase(scenario.researchCaseId, request.user.id, roles))) {
+      throw new ForbiddenException("دسترسی به این سناریو مجاز نیست");
+    }
+    return this.scenariosService.getDecisions(id);
+  }
+
   @Get("scenarios/:id")
-  @ApiOperation({ summary: "مشاهده جزئیات یک سناریو" })
+  @ApiOperation({ summary: "مشاهده جزئیات، نسخه‌ها و تصمیم‌های یک سناریو در محدوده دسترسی" })
   async getScenario(@Param("id") id: string, @Req() request: any) {
     const scenario = await this.scenariosService.getScenarioById(id);
     const roles: string[] = request.user.roles ?? (request.user.role ? [request.user.role] : []);
-    if (!(await this.researchService.canUserAccessCase(scenario.researchCaseId, request.user.id, roles))) throw new ForbiddenException("دسترسی به این سناریو مجاز نیست");
-    return scenario.toJSON();
+    if (!(await this.researchService.canUserAccessCase(scenario.researchCaseId, request.user.id, roles))) {
+      throw new ForbiddenException("دسترسی به این سناریو مجاز نیست");
+    }
+    return {
+      ...scenario.toJSON(),
+      versions: await this.scenariosService.getVersions(id),
+      decisions: await this.scenariosService.getDecisions(id),
+    };
   }
 
   @Patch("scenarios/:id")

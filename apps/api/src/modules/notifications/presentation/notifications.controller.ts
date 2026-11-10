@@ -12,6 +12,7 @@ import {
   HttpStatus,
   BadRequestException,
   Inject,
+  Req,
 } from "@nestjs/common";
 import { ApiTags, ApiOperation, ApiResponse, ApiHeader } from "@nestjs/swagger";
 import {
@@ -51,10 +52,11 @@ export class NotificationsController {
     @Headers("x-user-id") headerUserId: string | undefined,
     @Query("userId") queryUserId: string | undefined,
     @Query() query: unknown,
+    @Req() request?: any,
   ) {
-    const userId = headerUserId || queryUserId;
+    const userId = request?.user?.id || headerUserId || queryUserId;
     if (!userId) {
-      throw new BadRequestException("شناسه کاربر الزامی است (x-user-id)");
+      throw new BadRequestException("شناسه کاربر الزامی است");
     }
     const filter = NotificationQuerySchema.parse(query);
     const notifications =
@@ -68,10 +70,11 @@ export class NotificationsController {
   async getUnreadCount(
     @Headers("x-user-id") headerUserId: string | undefined,
     @Query("userId") queryUserId: string | undefined,
+    @Req() request?: any,
   ) {
-    const userId = headerUserId || queryUserId;
+    const userId = request?.user?.id || headerUserId || queryUserId;
     if (!userId) {
-      throw new BadRequestException("شناسه کاربر الزامی است (x-user-id)");
+      throw new BadRequestException("شناسه کاربر الزامی است");
     }
     return this.notificationsService.getUnreadCount(userId);
   }
@@ -104,10 +107,11 @@ export class NotificationsController {
     @Param("id") id: string,
     @Headers("x-user-id") headerUserId: string | undefined,
     @Query("userId") queryUserId: string | undefined,
+    @Req() request?: any,
   ) {
-    const userId = headerUserId || queryUserId;
+    const userId = request?.user?.id || headerUserId || queryUserId;
     if (!userId) {
-      throw new BadRequestException("شناسه کاربر الزامی است (x-user-id)");
+      throw new BadRequestException("شناسه کاربر الزامی است");
     }
     const notification = await this.notificationsService.markAsRead(id, userId);
     return notification.toJSON();

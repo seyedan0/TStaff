@@ -1,10 +1,17 @@
+import React, { useCallback, useEffect, useState } from "react";
+import { Building2, RefreshCw, ShieldAlert } from "lucide-react";
+import { Link, useNavigate, useSearchParams } from "react-router-dom";
+import type { ProvincialDirectorMetrics } from "@tstaff/contracts";
+import { provinceNameFromId } from "@tstaff/contracts";
 import { usePortalSection } from "../../app/usePortalSection.js";
-import React, { useState } from "react";
-import { Users, BarChart3, ShieldAlert } from "lucide-react";
 import { ApplicantsView } from "../../features/applicants/ApplicantsView.js";
-import { Card } from "../../shared/ui/Card.js";
-import { Badge } from "../../shared/ui/Badge.js";
 import { useAuth } from "../../features/auth/AuthContext.js";
+import { apiClient } from "../../shared/api-client.js";
+import { Badge } from "../../shared/ui/Badge.js";
+import { Button } from "../../shared/ui/Button.js";
+import { Card } from "../../shared/ui/Card.js";
+import { PageHeader } from "../../shared/ui/PageHeader.js";
+import { ErrorState, LoadingState } from "../../shared/ui/StateFeedback.js";
 
 interface ProvincialDirectorPortalProps {
   onNotify: (
@@ -14,99 +21,187 @@ interface ProvincialDirectorPortalProps {
   ) => void;
 }
 
-export const ProvincialDirectorPortal: React.FC<
-  ProvincialDirectorPortalProps
-> = ({ onNotify }) => {
+interface ScopeRow {
+  managerId: string;
+  provinceId: string;
+  assignedAt: string;
+  revokedAt?: string | null;
+}
+
+export const ProvincialDirectorPortal: React.FC<ProvincialDirectorPortalProps> = ({ onNotify }) => {
   const { currentUser } = useAuth();
-  const activeTab = usePortalSection<"applicants" | "kpis">({ "/admissions": "applicants", "/province/metrics": "kpis" }, "applicants");
+  const activeTab = usePortalSection<"applicants" | "kpis">(
+    { "/admissions": "applicants", "/province/metrics": "kpis" },
+    "applicants",
+  );
+  const [query] = useSearchParams();
+  const navigate = useNavigate();
+
+  const [scopes, setScopes] = useState<ScopeRow[]>([]);
+  const [metrics, setMetrics] = useState<ProvincialDirectorMetrics | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  const selectedProvinceId = query.get("provinceId") ?? "";
+
+  const loadMetrics = useCallback(async () => {
+    if (activeTab !== "kpis") return;
+    setLoading(true);
+    setError(null);
+    try {
+      const scopeRows = await apiClient.get<ScopeRow[]>("/organization/scopes");
+      const activeScopes = scopeRows.filter((row) => !row.revokedAt);
+      setScopes(activeScopes);
+
+      const targetProvince = selectedProvinceId || activeScopes[0]?.provinceId || "";
+      const endpoint = targetProvince
+        ? `/reporting/provincial-director?provinceId=${encodeURIComponent(targetProvince)}`
+        : "/reporting/provincial-director";
+      setMetrics(await apiClient.get<ProvincialDirectorMetrics>(endpoint));
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : "دریافت آمار استان ناموفق بود.";
+      setError(msg);
+      setMetrics(null);
+    } finally {
+      setLoading(false);
+    }
+  }, [activeTab, selectedProvinceId]);
+
+  useEffect(() => {
+    void loadMetrics();
+  }, [loadMetrics]);
+
+  if (activeTab === "applicants") {
+    return <ApplicantsView onNotify={onNotify} />;
+  }
+
+  const effectiveProvinceId = selectedProvinceId || scopes[0]?.provinceId || "";
+  const effectiveProvinceName = provinceNameFromId(effectiveProvinceId);
 
   return (
     <div className="space-y-6">
-      {/* Top Header Card */}
-      <Card
-        variant="elevated"
-        className="p-6 border-white/10 relative overflow-hidden bg-gradient-to-br from-slate-900/90 via-slate-900/70 to-apple-blue/10"
-      >
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-          <div className="space-y-1.5">
-            <div className="flex items-center gap-2">
-              <Badge variant="info" size="sm">
-                پنل مدیریت استانی
+      <PageHeader
+        title={`وضعیت استان · ${currentUser?.fullName || "مدیر استانی"}`}
+        subtitle={
+          effectiveProvinceName
+            ? `آمار زنده متقاضیان، کارآموزان و پژوهش‌های فعال استان ${effectiveProvinceName}`
+            : "پایش متقاضیان، کارآموزان و پژوهشگران در استان‌های تحت قلمرو"
+        }
+        actions={
+          <div className="flex flex-wrap items-center gap-2">
+            <Button variant="secondary" size="sm" icon={<RefreshCw className="h-3.5 w-3.5" />} loading={loading} onClick={() => void loadMetrics()}>
+              به‌روزرسانی
+            </Button>
+            <Link
+              to="/admissions/new"
+              className="rounded-xl bg-[#214E3A] px-3.5 py-2 text-xs font-semibold text-[#FFFCF5] hover:bg-[#193C2C]"
+            >
+              ثبت متقاضی جدید
+            </Link>
+            <Link
+              to="/resource-bank"
+              className="rounded-xl border border-[#214E3A]/20 bg-[#EAE5D7] px-3.5 py-2 text-xs font-semibold text-[#214031] hover:bg-[#DDD5C3]"
+            >
+              بانک منابع
+            </Link>
+          </div>
+        }
+      />
+
+      {scopes.length > 0 && (
+        <Card variant="default" padding="sm" className="flex flex-wrap items-center justify-between gap-3">
+          <div className="flex flex-wrap items-center gap-2 text-xs text-[#214031]">
+            <Building2 className="h-4 w-4 text-[#214E3A]" />
+            <span className="font-semibold">استان‌های تحت قلمرو:</span>
+            {scopes.map((s) => (
+              <Badge key={s.provinceId} variant="success" size="sm">
+                {provinceNameFromId(s.provinceId) ?? s.provinceId}
               </Badge>
-              <span className="text-xs text-slate-400">
-                قوانین الزامی: FR-001 (عدم ساخت کاربر قبل از قبولی) و D-01 (سن فقط عدد صحیح)
-              </span>
-            </div>
-            <h2 className="text-xl font-bold text-slate-100 tracking-tight">
-              میز پذیرش علمی و راهبری پژوهشگران استان (مدیر استانی: {currentUser?.fullName || "دکتر علی رضایی"})
-            </h2>
-            <p className="text-xs text-slate-300 max-w-2xl leading-relaxed">
-              ثبت‌نام متقاضیان، هدایت مصاحبه‌های علمی و غربالگری، نظارت بر استانداردهای ورود به دوره کارآموزی و نظارت بر کارایی پژوهشگران استان.
-            </p>
+            ))}
           </div>
+
+          {scopes.length > 1 && (
+            <select
+              aria-label="انتخاب استان"
+              value={effectiveProvinceId}
+              onChange={(e) => {
+                const next = new URLSearchParams(query);
+                e.target.value ? next.set("provinceId", e.target.value) : next.delete("provinceId");
+                navigate({ search: next.toString() }, { replace: true });
+              }}
+              className="rounded-xl border border-[#214E3A]/20 bg-[#FFFCF5] px-3 py-1.5 text-xs text-[#214031]"
+            >
+              {scopes.map((s) => (
+                <option key={s.provinceId} value={s.provinceId}>
+                  {provinceNameFromId(s.provinceId) ?? s.provinceId}
+                </option>
+              ))}
+            </select>
+          )}
+        </Card>
+      )}
+
+      {!loading && scopes.length === 0 && (
+        <Card variant="outlined" className="border-[#D94F3D]/35 bg-[#D94F3D]/5 p-4 text-xs leading-relaxed text-[#214031]">
+          هنوز قلمرو استانی فعالی برای حساب شما ثبت نشده است. برای مشاهده داده‌های استان و بانک منابع، مدیر پیگیری باید استان شما را تعیین کند.
+        </Card>
+      )}
+
+      {loading ? (
+        <LoadingState message="در حال دریافت آمار زنده استان..." />
+      ) : error ? (
+        <ErrorState message={error} onRetry={() => void loadMetrics()} />
+      ) : metrics ? (
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-5">
+          <Card variant="default" className="space-y-1">
+            <span className="text-xs text-[#4F6659]">کل متقاضیان استان</span>
+            <div className="text-2xl font-bold text-[#214031]">{metrics.totalApplicants}</div>
+            <span className="text-[11px] text-[#59675A]">پرونده‌های ثبت‌شده در پذیرش</span>
+          </Card>
+
+          <Card variant="default" className="space-y-1">
+            <span className="text-xs text-[#4F6659]">متقاضیان تأییدشده</span>
+            <div className="text-2xl font-bold text-[#214E3A]">{metrics.approvedApplicants}</div>
+            <span className="text-[11px] text-[#59675A]">دارای حساب کاربری فعال (FR-001)</span>
+          </Card>
+
+          <Card variant="default" className="space-y-1">
+            <span className="text-xs text-[#4F6659]">کارآموزان فعال</span>
+            <div className="text-2xl font-bold text-[#214031]">{metrics.totalApprentices}</div>
+            <span className="text-[11px] text-[#59675A]">در مرحله مطالعه شیوه‌نامه‌ها</span>
+          </Card>
+
+          <Card variant="default" className="space-y-1">
+            <span className="text-xs text-[#4F6659]">کارورزان فعال</span>
+            <div className="text-2xl font-bold text-[#214E3A]">{metrics.totalInterns}</div>
+            <span className="text-[11px] text-[#59675A]">مجاز به اجرای پژوهش چهارمرحله‌ای</span>
+          </Card>
+
+          <Card variant="default" className="space-y-1">
+            <span className="text-xs text-[#4F6659]">پژوهش‌های فعال استان</span>
+            <div className="text-2xl font-bold text-[#D94F3D]">{metrics.activeResearchCases}</div>
+            <span className="text-[11px] text-[#59675A]">در حال اجرا یا بررسی</span>
+          </Card>
         </div>
+      ) : null}
+
+      <Card variant="default" className="space-y-3">
+        <h3 className="flex items-center gap-2 text-sm font-bold text-[#214031]">
+          <ShieldAlert className="h-4 w-4 text-[#214E3A]" />
+          قواعد پذیرش و دسترسی استانی
+        </h3>
+        <ul className="list-inside list-disc space-y-1.5 text-xs leading-6 text-[#43584A]">
+          <li>
+            <strong>FR-001 و FR-002:</strong> تا پیش از تأیید نهایی علمی، حساب کاربری ساخته نمی‌شود و متقاضی ردشده آرشیو می‌گردد.
+          </li>
+          <li>
+            <strong>D-01:</strong> سن متقاضی عدد صحیح مثبت است و از تاریخ تولد محاسبه نمی‌شود.
+          </li>
+          <li>
+            <strong>قلمرو بانک منابع:</strong> فهرست بانک منابع فقط شامل اطلاعات استان‌های مجاز شما و موارد ارجاع‌شده به شماست.
+          </li>
+        </ul>
       </Card>
-
-      {/* Main Content */}
-      <div className="animate-fade-in">
-        {activeTab === "applicants" && <ApplicantsView onNotify={onNotify} />}
-
-        {activeTab === "kpis" && (
-          <div className="space-y-4">
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-              <Card variant="glass" className="p-4 border-white/10">
-                <span className="text-xs text-slate-400">کل متقاضیان استان</span>
-                <div className="text-2xl font-bold text-slate-100 mt-1">۱۲ نفر</div>
-                <div className="text-[11px] text-slate-500 mt-1">
-                  در فرآیند غربالگری و مصاحبه علمی
-                </div>
-              </Card>
-
-              <Card variant="glass" className="p-4 border-white/10">
-                <span className="text-xs text-slate-400">کارآموزان فعال</span>
-                <div className="text-2xl font-bold text-apple-blue mt-1">۵ نفر</div>
-                <div className="text-[11px] text-slate-500 mt-1">
-                  در حال مطالعه شیوه‌نامه‌ها
-                </div>
-              </Card>
-
-              <Card variant="glass" className="p-4 border-white/10">
-                <span className="text-xs text-slate-400">کارورزان ارتقایافته</span>
-                <div className="text-2xl font-bold text-apple-green mt-1">۸ نفر</div>
-                <div className="text-[11px] text-slate-500 mt-1">
-                  دارای پرونده فعال در چرخه ۴ مرحله‌ای
-                </div>
-              </Card>
-
-              <Card variant="glass" className="p-4 border-white/10">
-                <span className="text-xs text-slate-400">متقاضیان ردشده (بدون حساب)</span>
-                <div className="text-2xl font-bold text-apple-amber mt-1">۳ نفر</div>
-                <div className="text-[11px] text-slate-500 mt-1">
-                  بایگانی‌شده بر اساس اصل FR-002
-                </div>
-              </Card>
-            </div>
-
-            <Card variant="elevated" className="p-6 border-white/10">
-              <h3 className="text-sm font-bold text-slate-100 mb-3 flex items-center gap-2">
-                <ShieldAlert className="w-4 h-4 text-apple-blue" />
-                قواعد ممیزی استانی منطبق با مصوبات محصول:
-              </h3>
-              <ul className="text-xs text-slate-300 space-y-2 list-disc list-inside leading-relaxed">
-                <li>
-                  <strong>قاعده FR-001 و FR-002:</strong> تا پیش از تایید نهایی در مرحله مصاحبه علمی، هیچ رکوردی در جدول کاربران ایجاد نمی‌شود. متقاضیان ردشده اکانت دریافت نمی‌کنند.
-                </li>
-                <li>
-                  <strong>قاعده D-01 (سن فقط عدد صحیح):</strong> سن متقاضی عدد صحیح مثبت بین ۱۸ تا ۱۰۰ سال است و نباید از روی تاریخ تولد مشتق شود.
-                </li>
-                <li>
-                  <strong>قاعده محلی‌سازی:</strong> مدیر استانی به پرونده‌های متقاضیان استان تحت نظارت خود دسترسی مستقیم دارد.
-                </li>
-              </ul>
-            </Card>
-          </div>
-        )}
-      </div>
     </div>
   );
 };

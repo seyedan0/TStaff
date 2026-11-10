@@ -24,21 +24,21 @@ export const Badge: React.FC<BadgeProps> = ({
   className = "",
 }) => {
   const variantStyles = {
-    success: "bg-apple-green/15 text-apple-green border-apple-green/30",
-    info: "bg-apple-blue/15 text-apple-blue border-apple-blue/30",
-    warning: "bg-apple-amber/15 text-apple-amber border-apple-amber/30",
-    danger: "bg-apple-red/15 text-apple-red border-apple-red/30",
-    neutral: "bg-slate-800/80 text-slate-300 border-white/10",
-    indigo: "bg-apple-indigo/15 text-apple-indigo border-apple-indigo/30",
+    success: "bg-[#214E3A]/10 text-[#214E3A] border-[#214E3A]/25",
+    info: "bg-[#214E3A]/12 text-[#183B2D] border-[#214E3A]/30",
+    warning: "bg-[#A65D31]/12 text-[#854621] border-[#A65D31]/30",
+    danger: "bg-[#D94F3D]/12 text-[#B53727] border-[#D94F3D]/35",
+    neutral: "bg-[#EAE5D7] text-[#304B3D] border-[#214E3A]/15",
+    indigo: "bg-[#3A5F4D]/12 text-[#214031] border-[#3A5F4D]/25",
   }[variant];
 
   const dotColor = {
-    success: "bg-apple-green",
-    info: "bg-apple-blue",
-    warning: "bg-apple-amber",
-    danger: "bg-apple-red",
-    neutral: "bg-slate-400",
-    indigo: "bg-apple-indigo",
+    success: "bg-[#214E3A]",
+    info: "bg-[#214E3A]",
+    warning: "bg-[#A65D31]",
+    danger: "bg-[#D94F3D]",
+    neutral: "bg-[#59675A]",
+    indigo: "bg-[#3A5F4D]",
   }[variant];
 
   const sizeStyles = {
@@ -48,15 +48,14 @@ export const Badge: React.FC<BadgeProps> = ({
 
   return (
     <span
-      className={`inline-flex items-center gap-1.5 font-medium rounded-full border ${variantStyles} ${sizeStyles} ${className}`}
+      className={`inline-flex items-center gap-1.5 rounded-full border font-medium ${variantStyles} ${sizeStyles} ${className}`}
     >
       {dot && (
         <span
-          className={`w-1.5 h-1.5 rounded-full shrink-0 ${dotColor} animate-pulse`}
+          className={`h-1.5 w-1.5 shrink-0 rounded-full ${dotColor} animate-pulse`}
         />
       )}
       <span>{children}</span>
     </span>
   );
 };
-

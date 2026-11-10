@@ -1,4 +1,4 @@
-import { Injectable } from "@nestjs/common";
+import { Inject, Injectable } from "@nestjs/common";
 import type { FileStorageLocation, PrivateFileStoragePort } from "../application/ports/files.ports.js";
 import { LocalPrivateFileStorage } from "./local-private-file.storage.js";
 import { S3PrivateFileStorage } from "./s3-private-file.storage.js";
@@ -6,7 +6,10 @@ import { S3PrivateFileStorage } from "./s3-private-file.storage.js";
 /** Persist location with each object; changing the upload default never moves old files. */
 @Injectable()
 export class ProviderPrivateFileStorage implements PrivateFileStoragePort {
-  constructor(private readonly local: LocalPrivateFileStorage, private readonly s3: S3PrivateFileStorage) {}
+  constructor(
+    @Inject(LocalPrivateFileStorage) private readonly local: LocalPrivateFileStorage,
+    @Inject(S3PrivateFileStorage) private readonly s3: S3PrivateFileStorage,
+  ) {}
 
   getUploadLocation(): FileStorageLocation {
     const configured = process.env.FILE_STORAGE_PROVIDER;

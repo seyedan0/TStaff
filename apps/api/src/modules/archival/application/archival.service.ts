@@ -12,7 +12,7 @@ export class ArchivalService {
   constructor(
     @Inject(ARCHIVE_JOB_REPOSITORY)
     private readonly archiveRepo: ArchiveJobRepositoryPort,
-    @Optional()
+    @Optional() @Inject(AuditService)
     private readonly auditService?: AuditService,
   ) {}
 

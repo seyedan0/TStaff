@@ -5,6 +5,7 @@ import {
   Get,
   HttpCode,
   HttpStatus,
+  Inject,
   Param,
   Post,
   Req,
@@ -38,7 +39,7 @@ interface AuthenticatedRequest extends Request {
 @Controller("documents")
 @UseGuards(StageGuard)
 export class DocumentsController {
-  constructor(private readonly documentsService: DocumentsService) {}
+  constructor(@Inject(DocumentsService) private readonly documentsService: DocumentsService) {}
 
   @Get()
   @ApiOperation({ summary: "فهرست نسخه‌های جاری و منتشرشده کتابخانه (FR-006, FR-007)" })

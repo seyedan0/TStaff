@@ -34,11 +34,31 @@ export const ResearchCaseSnapshotSchema = z.object({
   canReview: z.boolean().optional(),
 });
 export type ResearchCaseSnapshot = z.infer<typeof ResearchCaseSnapshotSchema>;
+export const SupervisorHistoryEventSchema = z.object({
+  id: z.string(),
+  aggregateType: z.string(),
+  aggregateId: z.string(),
+  action: z.string(),
+  actorId: z.string().nullable().optional(),
+  actorName: z.string().nullable().optional(),
+  payload: z.unknown().optional(),
+  createdAt: z.string(),
+});
+export type SupervisorHistoryEvent = z.infer<typeof SupervisorHistoryEventSchema>;
+
 export const SupervisorWorkspaceUserSchema = z.object({
   id: z.string(), fullName: z.string(), phoneNumber: z.string(),
-  stage: z.enum(["APPRENTICE", "INTERN"]), cases: z.array(ResearchCaseSnapshotSchema),
+  stage: z.enum(["APPRENTICE", "INTERN"]),
+  nationalId: z.string().nullable().optional(),
+  age: z.number().int().positive().nullable().optional(),
+  provinceId: z.string().nullable().optional(),
+  provinceName: z.string().nullable().optional(),
+  education: z.string().nullable().optional(),
+  fieldOfStudy: z.string().nullable().optional(),
+  cases: z.array(ResearchCaseSnapshotSchema),
   pendingCount: z.number().int().nonnegative(), oldestPendingAt: z.string().nullable(),
   pendingStudyEvaluationId: z.string().nullable(), changeRequests: z.array(ResearchChangeRequestDtoSchema),
   canCreateResearch: z.boolean().default(false),
+  history: z.array(SupervisorHistoryEventSchema).optional(),
 });
 export type SupervisorWorkspaceUser = z.infer<typeof SupervisorWorkspaceUserSchema>;

@@ -11,8 +11,11 @@ import { REVIEW_REPOSITORY } from "../src/modules/reviews/application/reviews.se
 import { SCENARIO_REPOSITORY } from "../src/modules/scenarios/application/scenarios.service.js";
 import { USER_REPOSITORY } from "../src/modules/identity/application/identity.service.js";
 import { APPLICANT_REPOSITORY } from "../src/modules/applicants/application/applicants.service.js";
+import { AUDIT_REPOSITORY } from "../src/modules/audit/application/audit.service.js";
+import { NOTIFICATION_REPOSITORY } from "../src/modules/notifications/application/notifications.service.js";
 import { FilesService } from "../src/modules/files/application/files.service.js";
 import { ResearchAssignment } from "../src/modules/assignments/domain/assignment.entity.js";
+import { CannotRemoveMainSupervisorWithoutReplacementError } from "../src/modules/assignments/domain/assignment-errors.js";
 import { Resource } from "../src/modules/resources/domain/resource.entity.js";
 import { Interview } from "../src/modules/resources/domain/interview.entity.js";
 import { InterviewReport } from "../src/modules/resources/domain/interview-report.entity.js";
@@ -50,6 +53,39 @@ class MockAssignmentRepository {
   async isSupervisorAssignedToUser(userId: string, supervisorId: string) { return this.userAssignments.some((item) => item.userId === userId && item.supervisorId === supervisorId); }
   async listSupervisorsForUser(userId: string) { return this.userAssignments.filter((item) => item.userId === userId).map((item) => ({ id: `${item.userId}:${item.supervisorId}`, ...item, supervisorName: "مدیر علمی آزمایشی", phoneNumber: "09120000000", assignedAt: new Date() })); }
   async listUsersForSupervisor(supervisorId: string) { return this.userAssignments.filter((item) => item.supervisorId === supervisorId).map((item) => ({ id: item.userId, fullName: "کارورز آزمایشی", stage: "INTERN", phoneNumber: "09120000001" })); }
+  async isSupervisorAssignedToCase(caseId: string, supervisorId: string) { return this.caseAssignments.some((item) => item.researchCaseId === caseId && item.userId === supervisorId && item.isActive); }
+  async getCaseIdsForSupervisor(supervisorId: string) { return this.caseAssignments.filter((item) => item.userId === supervisorId && item.isActive).map((item) => item.researchCaseId); }
+  async listCaseSupervisors(caseId: string) {
+    return this.caseAssignments.filter((item) => item.researchCaseId === caseId && item.isActive).map((item) => ({
+      id: item.id, researchCaseId: item.researchCaseId, userId: item.userId, fullName: "مدیر علمی آزمایشی", phoneNumber: "09120000000", role: item.role, isActive: item.isActive, assignedAt: item.assignedAt,
+    }));
+  }
+  async assignToCase(input: { researchCaseId: string; userId: string; role: "MAIN_SUPERVISOR" | "COLLABORATOR_SUPERVISOR" }) {
+    if (!(await this.isScientificSupervisor(input.userId))) throw new Error("مدیر علمی نامعتبر است");
+    const active = await this.findActiveByCaseId(input.researchCaseId);
+    if (active.some((item) => item.userId === input.userId && item.role === input.role)) return;
+    ResearchAssignment.validateCanAssign(input.role, active);
+    await this.save(ResearchAssignment.create({ id: crypto.randomUUID(), ...input }));
+  }
+  async replaceMainSupervisorOnCase(caseId: string, supervisorId: string) {
+    if (!(await this.isScientificSupervisor(supervisorId))) throw new Error("مدیر علمی نامعتبر است");
+    this.caseAssignments = this.caseAssignments.map((item) =>
+      item.researchCaseId === caseId && item.isActive && (item.role === "MAIN_SUPERVISOR" || item.userId === supervisorId)
+        ? item.deactivate()
+        : item,
+    );
+    await this.save(ResearchAssignment.create({ id: crypto.randomUUID(), researchCaseId: caseId, userId: supervisorId, role: "MAIN_SUPERVISOR" }));
+  }
+  async revokeFromUser(userId: string, supervisorId: string) {
+    this.userAssignments = this.userAssignments.filter((item) => !(item.userId === userId && item.supervisorId === supervisorId));
+  }
+  async revokeFromCase(caseId: string, supervisorId: string) {
+    const active = this.caseAssignments.find((item) => item.researchCaseId === caseId && item.userId === supervisorId && item.isActive);
+    if (active?.role === "MAIN_SUPERVISOR") throw new CannotRemoveMainSupervisorWithoutReplacementError();
+    this.caseAssignments = this.caseAssignments.map((item) =>
+      item.researchCaseId === caseId && item.userId === supervisorId && item.isActive ? item.deactivate() : item,
+    );
+  }
 }
 
 class MockResourceRepository {
@@ -107,18 +143,51 @@ class MockReviewRepository {
 
 class MockScenarioRepository {
   private scenarios: Scenario[] = [];
+  private versions = new Map<string, any[]>();
   private decisions: any[] = [];
-  async create(item: Scenario) { this.scenarios.push(item); }
+  async create(item: Scenario) {
+    this.scenarios.push(item);
+    this.snapshot(item);
+  }
   async findById(id: string) { return this.scenarios.find((item) => item.id === id) ?? null; }
   async findByCaseId(caseId: string) { return this.scenarios.filter((item) => item.researchCaseId === caseId); }
   async saveWithVersionCheck(item: Scenario, expectedVersion: number) {
     const i = this.scenarios.findIndex((entry) => entry.id === item.id);
     if (i < 0 || this.scenarios[i]!.version !== expectedVersion) throw new StaleScenarioRevisionError(this.scenarios[i]?.version ?? 0, expectedVersion);
     this.scenarios[i] = item;
+    this.snapshot(item);
+  }
+  async findVersions(scenarioId: string) { return [...(this.versions.get(scenarioId) ?? [])].sort((a, b) => b.version - a.version); }
+  async findDecisions(scenarioId: string) {
+    return this.decisions
+      .filter((d) => d.scenarioId === scenarioId)
+      .map((d) => ({
+        id: d.id,
+        reviewerId: d.reviewerId,
+        reviewerName: "مدیر علمی آزمایشی",
+        decision: d.decision,
+        expectedVersion: d.expectedVersion,
+        actualVersion: d.actualVersion,
+        reason: d.reason,
+        decidedAt: (d.decidedAt instanceof Date ? d.decidedAt : new Date(d.decidedAt)).toISOString(),
+      }));
   }
   async findInternalBank() { return this.scenarios.filter((item) => item.status === "APPROVED_INTERNAL"); }
   async saveDecision(item: any) { this.decisions.push(item); }
   async findDecisionByIdempotencyKey(key: string) { return this.decisions.find((item) => item.idempotencyKey === key) ?? null; }
+  private snapshot(item: Scenario) {
+    const list = this.versions.get(item.id) ?? [];
+    list.push({
+      version: item.version,
+      title: item.title,
+      summary: item.summary,
+      content: item.content,
+      status: item.status,
+      createdById: item.createdById ?? null,
+      createdAt: item.updatedAt.toISOString(),
+    });
+    this.versions.set(item.id, list);
+  }
 }
 
 describe("Scientific review and scenario workflow (D-02, D-03, D-05, FR-016, FR-019, FR-021, FR-040, AT-02, AT-05, AT-07, AT-08, AT-16, AT-29, AT-33)", () => {
@@ -131,8 +200,10 @@ describe("Scientific review and scenario workflow (D-02, D-03, D-05, FR-016, FR-
       .overrideProvider(RESEARCH_REPOSITORY).useClass(MockResearchRepository)
       .overrideProvider(REVIEW_REPOSITORY).useClass(MockReviewRepository)
       .overrideProvider(SCENARIO_REPOSITORY).useClass(MockScenarioRepository)
-      .overrideProvider(USER_REPOSITORY).useValue({ findByPhoneNumber: async () => null, findById: async () => null, findByApplicantId: async () => null, save: async () => {} })
+      .overrideProvider(USER_REPOSITORY).useValue({ findByPhoneNumber: async () => null, findById: async () => null, findByApplicantId: async () => null, findAllDirectoryUsers: async () => [], save: async () => {} })
       .overrideProvider(APPLICANT_REPOSITORY).useValue({ findById: async () => null, findByPhoneNumber: async () => null, findByNationalId: async () => null, save: async () => {}, findAll: async () => [] })
+      .overrideProvider(AUDIT_REPOSITORY).useValue({ save: async () => {}, findById: async () => null, findMany: async () => [] })
+      .overrideProvider(NOTIFICATION_REPOSITORY).useValue({ save: async () => {}, findById: async () => null, findByUserId: async () => [], countUnread: async () => 0 })
       .overrideProvider(FilesService).useValue({ assertReadyForUse: async () => {}, isAvailable: async () => true })
       .compile();
     app = moduleRef.createNestApplication();
@@ -154,6 +225,8 @@ describe("Scientific review and scenario workflow (D-02, D-03, D-05, FR-016, FR-
     }
     const created = await asManager(agent.post("/research-cases")).send({ title: "پژوهش آزمایشی ساختاریافته", code, subject: "مدیریت آموزشی", researcherId: researcherUserId });
     expect(created.status).toBe(201);
+    const assignedToCase = await agent.post(`/research-cases/${created.body.id}/supervisors`).set("x-user-id", trackingDirectorId).set("x-user-stage", "INTERN").set("x-user-role", "TRACKING_DIRECTOR").send({ userId: collabSupervisorId, role: "COLLABORATOR_SUPERVISOR" });
+    expect(assignedToCase.status).toBe(201);
     return created.body;
   }
 
@@ -211,10 +284,22 @@ describe("Scientific review and scenario workflow (D-02, D-03, D-05, FR-016, FR-
     const decision = await asManager(agent.post(`/scenarios/${scenario.body.id}/review`)).send({ decision: "APPROVED", reason: "سناریو ساختاریافته و آماده انتشار داخلی است.", expectedVersion: 2, caseVersion: caseAfterSubmit.body.version, idempotencyKey: "scenario-approval-key-1" });
     expect(decision.status).toBe(200);
     expect(decision.body.status).toBe("APPROVED_INTERNAL");
-    const bank = await asIntern(agent.get("/scenarios/bank"));
-    expect(bank.status).toBe(200);
-    expect(bank.body.map((item: any) => item.id)).toContain(scenario.body.id);
+    const removedBank = await asIntern(agent.get("/scenarios/bank"));
+    expect(removedBank.status).toBe(404);
+    const scenarioDetail = await asManager(agent.get(`/scenarios/${scenario.body.id}`));
+    expect(scenarioDetail.status).toBe(200);
+    expect(scenarioDetail.body.versions.length).toBeGreaterThanOrEqual(2);
+    expect(scenarioDetail.body.decisions).toHaveLength(1);
     expect(current.status).toBe("SCENARIO_STAGE");
+
+    // Revoking collaborator assignment removes scenario read access while preserving decision history
+    await agent.delete(`/research-cases/${researchCase.id}/supervisors/${collabSupervisorId}`).set("x-user-id", trackingDirectorId).set("x-user-stage", "INTERN").set("x-user-role", "TRACKING_DIRECTOR");
+    await agent.delete(`/users/${researcherUserId}/scientific-supervisors/${collabSupervisorId}`).set("x-user-id", trackingDirectorId).set("x-user-stage", "INTERN").set("x-user-role", "TRACKING_DIRECTOR");
+    const revokedRead = await asManager(agent.get(`/scenarios/${scenario.body.id}`), collabSupervisorId);
+    expect(revokedRead.status).toBe(403);
+    const preservedDecisions = await asManager(agent.get(`/scenarios/${scenario.body.id}/decisions`), mainSupervisorId);
+    expect(preservedDecisions.status).toBe(200);
+    expect(preservedDecisions.body).toHaveLength(1);
   });
 
   it("blocks scenario approval after rollback marks dependent outputs for review (D-05, FR-061, AT-33)", async () => {

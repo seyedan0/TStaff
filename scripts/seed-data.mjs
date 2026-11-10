@@ -170,14 +170,68 @@ async function main() {
     console.log(`  ✓ User: ${u.firstName} ${u.lastName} [${u.phoneNumber}] - ${u.role}`);
   }
 
+  const tehranProvinceId = "91000000-0000-4000-8000-000000000008";
+  const isfahanProvinceId = "91000000-0000-4000-8000-000000000004";
+  const trackingDirectorId = "10000000-0000-0000-0000-000000000001";
+  const provincialDirectorId = "10000000-0000-0000-0000-000000000002";
+  const mainSupId = "10000000-0000-0000-0000-000000000003";
+  const collabSupId = "10000000-0000-0000-0000-000000000004";
+  const internId = "10000000-0000-0000-0000-000000000005";
+  const apprenticeId = "10000000-0000-0000-0000-000000000006";
+
+  // 2.5. Seed canonical provinces & provincial scopes (FR-048 / CHG-2026-11)
+  await prisma.province.upsert({
+    where: { id: tehranProvinceId },
+    update: { name: "تهران" },
+    create: { id: tehranProvinceId, name: "تهران" },
+  });
+  await prisma.province.upsert({
+    where: { id: isfahanProvinceId },
+    update: { name: "اصفهان" },
+    create: { id: isfahanProvinceId, name: "اصفهان" },
+  });
+  await prisma.provincialScope.upsert({
+    where: { managerId_provinceId: { managerId: provincialDirectorId, provinceId: tehranProvinceId } },
+    update: { revokedAt: null, assignedById: trackingDirectorId },
+    create: { managerId: provincialDirectorId, provinceId: tehranProvinceId, assignedById: trackingDirectorId },
+  });
+  // If dev quick-login provincial directors exist, ensure they also have clear initial province scopes
+  for (const [mgrId, provId] of [
+    ["9439cda7-c944-423d-b185-47ca5af5b9f9", tehranProvinceId],
+    ["bc6d4159-38fd-45f0-a786-c25b05546d18", isfahanProvinceId],
+  ]) {
+    const exists = await prisma.user.findUnique({ where: { id: mgrId } });
+    if (exists) {
+      await prisma.provincialScope.upsert({
+        where: { managerId_provinceId: { managerId: mgrId, provinceId: provId } },
+        update: { revokedAt: null, assignedById: trackingDirectorId },
+        create: { managerId: mgrId, provinceId: provId, assignedById: trackingDirectorId },
+      });
+    }
+  }
+
+  // Scientific supervisor assignments for seeded intern & apprentice
+  for (const [traineeId, supId, isPrimary] of [
+    [internId, mainSupId, true],
+    [apprenticeId, mainSupId, true],
+  ]) {
+    await prisma.scientificSupervisorAssignment.upsert({
+      where: { userId_supervisorId: { userId: traineeId, supervisorId: supId } },
+      update: { revokedAt: null, isPrimary, assignedById: trackingDirectorId },
+      create: { userId: traineeId, supervisorId: supId, isPrimary, assignedById: trackingDirectorId },
+    });
+  }
+
   // 3. Seed some initial applicants (FR-001, D-01: strict integer age)
   const applicants = [
     {
       id: "20000000-0000-0000-0000-000000000001",
       fullName: "امیرحسین کریمی",
       nationalId: "0012345678",
-      phoneNumber: "09127777777",
+      phoneNumber: "09127770001",
       age: 26, // Integer only
+      provinceId: tehranProvinceId,
+      initialSupervisorId: mainSupId,
       educationLevel: "کارشناسی ارشد",
       fieldOfStudy: "مهندسی صنایع و تحلیل داده",
       status: "IN_REVIEW",
@@ -187,8 +241,10 @@ async function main() {
       id: "20000000-0000-0000-0000-000000000002",
       fullName: "فاطمه شریفی",
       nationalId: "0023456789",
-      phoneNumber: "09128888888",
+      phoneNumber: "09128880002",
       age: 29, // Integer only
+      provinceId: tehranProvinceId,
+      initialSupervisorId: mainSupId,
       educationLevel: "دکتری تخصصی",
       fieldOfStudy: "سیاست‌گذاری فناوری و نوآوری",
       status: "PENDING",
@@ -200,6 +256,9 @@ async function main() {
     await prisma.applicant.upsert({
       where: { id: app.id },
       update: {
+        phoneNumber: app.phoneNumber,
+        provinceId: app.provinceId,
+        initialSupervisorId: app.initialSupervisorId,
         status: app.status,
         notes: app.notes,
       },
@@ -209,6 +268,8 @@ async function main() {
         nationalId: app.nationalId,
         phoneNumber: app.phoneNumber,
         age: app.age,
+        provinceId: app.provinceId,
+        initialSupervisorId: app.initialSupervisorId,
         educationLevel: app.educationLevel,
         fieldOfStudy: app.fieldOfStudy,
         status: app.status,
@@ -222,23 +283,34 @@ async function main() {
   const sampleCaseId = "30000000-0000-0000-0000-000000000001";
   const researchCase = await prisma.researchCase.upsert({
     where: { id: sampleCaseId },
-    update: {},
+    update: { researcherId: internId },
     create: {
       id: sampleCaseId,
       code: "RC-2026-001",
       title: "بررسی الگوهای تنظیم‌گری و توسعه زیست‌بوم هوش مصنوعی در ایران",
       subject: "سیاست‌گذاری هوش مصنوعی و مدل‌های کلان زبانی",
+      researcherId: internId,
       status: "SOURCES_STAGE",
       version: 1,
     },
   });
   console.log(`  ✓ Research Case: ${researchCase.title}`);
 
-  // Create assignments (D-02: 1 Main Supervisor, 1 Collaborator Supervisor, 1 Primary Researcher)
-  const mainSupId = "10000000-0000-0000-0000-000000000003";
-  const collabSupId = "10000000-0000-0000-0000-000000000004";
-  const internId = "10000000-0000-0000-0000-000000000005";
+  for (const [stageType, stageStatus] of [
+    ["SOURCES", "IN_PROGRESS"],
+    ["EXPLANATION", "PENDING"],
+    ["PRESCRIPTION", "PENDING"],
+    ["SCENARIO", "PENDING"],
+  ]) {
+    await prisma.stageInstance.upsert({
+      where: { researchCaseId_stageType: { researchCaseId: sampleCaseId, stageType } },
+      update: {},
+      create: { researchCaseId: sampleCaseId, stageType, status: stageStatus, version: 1 },
+    });
+  }
 
+  // Create deduplicated assignments (D-02: 1 Main Supervisor, 1 Collaborator Supervisor, 1 Primary Researcher)
+  await prisma.researchAssignment.deleteMany({ where: { researchCaseId: sampleCaseId } });
   await prisma.researchAssignment.createMany({
     data: [
       {
@@ -264,18 +336,44 @@ async function main() {
   });
   console.log("  ✓ Dual Supervisors & Researcher assigned (D-02 parity)");
 
-  // Seed sample resource and interview (D-07 single interview invariant)
+  // Seed sample resources and interview (D-07 single interview invariant + multi-province bank test)
   const sampleResourceId = "40000000-0000-0000-0000-000000000001";
   await prisma.resource.upsert({
     where: { id: sampleResourceId },
-    update: {},
+    update: { province: "تهران", provinceId: tehranProvinceId, county: "تهران", contactInfo: "09123450001", personAge: 47, position: "معاون سیاست‌گذاری" },
     create: {
       id: sampleResourceId,
       researchCaseId: sampleCaseId,
       type: "INDIVIDUAL",
       title: "مصاحبه با معاون مرکز ملی فضای مجازی",
       description: "بررسی اسناد بالادستی و اولویت‌های حاکمیتی در توسعه هوش مصنوعی",
+      contactInfo: "09123450001",
+      personAge: 47,
+      position: "معاون سیاست‌گذاری",
+      province: "تهران",
+      provinceId: tehranProvinceId,
+      county: "تهران",
       status: "INTERVIEWED",
+    },
+  });
+
+  const isfahanResourceId = "40000000-0000-0000-0000-000000000002";
+  await prisma.resource.upsert({
+    where: { id: isfahanResourceId },
+    update: { province: "اصفهان", provinceId: isfahanProvinceId, county: "اصفهان", contactInfo: "09133450002", personAge: 41, position: "پژوهشگر ارشد صنعتی" },
+    create: {
+      id: isfahanResourceId,
+      researchCaseId: sampleCaseId,
+      type: "INDIVIDUAL",
+      title: "دکتر حسین نجفی",
+      description: "متخصص انتقال فناوری و زیست‌بوم علم و فناوری استان اصفهان",
+      contactInfo: "09133450002",
+      personAge: 41,
+      position: "پژوهشگر ارشد صنعتی",
+      province: "اصفهان",
+      provinceId: isfahanProvinceId,
+      county: "اصفهان",
+      status: "IDENTIFIED",
     },
   });
 
@@ -290,7 +388,7 @@ async function main() {
       status: "CONDUCTED",
     },
   });
-  console.log("  ✓ Resource & Single Interview seeded (D-07 compliance)");
+  console.log("  ✓ Resources & Single Interview seeded (D-07 compliance + Tehran/Isfahan bank)");
 
   await prisma.$disconnect();
   console.log("\n✅ All seed data generated successfully!");

@@ -1,5 +1,5 @@
 import {
-  Controller, Get, Param, Post, Req, Res, UploadedFile, UseGuards,
+  Controller, Get, Inject, Param, Post, Req, Res, UploadedFile, UseGuards,
   UseInterceptors,
 } from "@nestjs/common";
 import { FileInterceptor } from "@nestjs/platform-express";
@@ -14,7 +14,7 @@ const maxFileSize = Number(process.env.FILE_MAX_BYTES) || 25 * 1024 * 1024;
 @Controller("files")
 @UseGuards(StageGuard)
 export class FilesController {
-  constructor(private readonly files: FilesService) {}
+  constructor(@Inject(FilesService) private readonly files: FilesService) {}
 
   @Post()
   @UseInterceptors(FileInterceptor("file", { limits: { fileSize: maxFileSize, files: 1 } }))

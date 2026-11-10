@@ -1,171 +1,358 @@
-import React, { useState, useEffect, useRef } from "react";
-import { Send, MessageSquare, Shield, CheckCheck, User } from "lucide-react";
-import { Card } from "../../shared/ui/Card.js";
-import { Button } from "../../shared/ui/Button.js";
+import React, { useCallback, useEffect, useRef, useState } from "react";
+import { ArrowRight, CheckCheck, MessageSquare, RefreshCw, Send, Shield, User } from "lucide-react";
+import { Link, useNavigate, useParams } from "react-router-dom";
+import type { ConversationContactDto, MessageDto } from "@tstaff/contracts";
+import { apiClient } from "../../shared/api-client.js";
 import { Badge } from "../../shared/ui/Badge.js";
+import { Button } from "../../shared/ui/Button.js";
+import { Card } from "../../shared/ui/Card.js";
+import { PageHeader } from "../../shared/ui/PageHeader.js";
+import { EmptyState, ErrorState, LoadingState } from "../../shared/ui/StateFeedback.js";
+import { getRoleLabel } from "../../app/navigation.js";
 import { useAuth } from "../auth/AuthContext.js";
 
 export interface DirectChatViewProps {
-  onNotify: (type: "success" | "error" | "info", title: string, message?: string) => void;
+  onNotify: (type: "success" | "error" | "info" | "warning", title: string, message?: string) => void;
 }
 
-interface ChatMessage {
+interface ConversationSummary {
   id: string;
-  senderId: string;
-  senderName: string;
-  content: string;
-  createdAt: string;
-  isMe: boolean;
+  type: string;
+  researchCaseId?: string | null;
+  updatedAt: string;
+  otherParticipant?: {
+    id: string;
+    fullName: string;
+    phoneNumber: string;
+    role: ConversationContactDto["role"];
+    stage: ConversationContactDto["stage"];
+  } | null;
+  lastMessage?: MessageDto | null;
 }
 
 export const DirectChatView: React.FC<DirectChatViewProps> = ({ onNotify }) => {
   const { currentUser } = useAuth();
-  const [messages, setMessages] = useState<ChatMessage[]>([
-    {
-      id: "msg-1",
-      senderId: "sup-01",
-      senderName: "دکتر حسینی (مدیر علمی)",
-      content: "سلام، گزارش مصاحبه میدانی سوم پرونده سبک زندگی دیجیتال به خوبی تنظیم شده است.",
-      createdAt: "۱۰:۱۵",
-      isMe: false,
-    },
-    {
-      id: "msg-2",
-      senderId: currentUser?.id || "me",
-      senderName: currentUser?.fullName || "من",
-      content: "سلام استاد گرامی. سپاسگزارم. داده‌های کدگذاری‌شده مرحله تبیین نیز آماده بارگذاری است.",
-      createdAt: "۱۰:۱۸",
-      isMe: true,
-    },
-    {
-      id: "msg-3",
-      senderId: "sup-01",
-      senderName: "دکتر حسینی (مدیر علمی)",
-      content: "بسیار عالی. پیش‌نویس مرحله تبیین را ارسال کنید تا پیش از اتمام مهلت داوری بررسی نمایم.",
-      createdAt: "۱۰:۲۲",
-      isMe: false,
-    },
-  ]);
+  const { conversationId } = useParams();
+  const navigate = useNavigate();
 
+  const [contacts, setContacts] = useState<ConversationContactDto[]>([]);
+  const [conversations, setConversations] = useState<ConversationSummary[]>([]);
+  const [messages, setMessages] = useState<MessageDto[]>([]);
+  const [loadingList, setLoadingList] = useState(true);
+  const [loadingMessages, setLoadingMessages] = useState(false);
+  const [listError, setListError] = useState<string | null>(null);
+  const [threadError, setThreadError] = useState<string | null>(null);
   const [inputMessage, setInputMessage] = useState("");
+  const [sending, setSending] = useState(false);
+  const [startingWithId, setStartingWithId] = useState<string | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+
+  const loadInbox = useCallback(async () => {
+    setLoadingList(true);
+    setListError(null);
+    try {
+      const [convRes, contactRes] = await Promise.all([
+        apiClient.get<ConversationSummary[]>("/conversations"),
+        apiClient.get<ConversationContactDto[]>("/conversations/contacts"),
+      ]);
+      setConversations(convRes);
+      setContacts(contactRes);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "دریافت گفت‌وگوها ناموفق بود.";
+      setListError(message);
+    } finally {
+      setLoadingList(false);
+    }
+  }, []);
+
+  const loadMessages = useCallback(async (id: string) => {
+    setLoadingMessages(true);
+    setThreadError(null);
+    try {
+      setMessages(await apiClient.get<MessageDto[]>(`/conversations/${encodeURIComponent(id)}/messages`));
+    } catch (error) {
+      setMessages([]);
+      setThreadError(error instanceof Error ? error.message : "دریافت پیام‌های گفت‌وگو ناموفق بود.");
+    } finally {
+      setLoadingMessages(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    void loadInbox();
+  }, [loadInbox]);
+
+  useEffect(() => {
+    if (conversationId) {
+      void loadMessages(conversationId);
+    } else {
+      setMessages([]);
+      setThreadError(null);
+    }
+  }, [conversationId, loadMessages]);
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [messages]);
+  }, [messages.length]);
 
-  const handleSendMessage = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!inputMessage.trim()) return;
+  const activeConversation = conversations.find((c) => c.id === conversationId) ?? null;
 
-    const newMsg: ChatMessage = {
-      id: `msg-${Date.now()}`,
-      senderId: currentUser?.id || "me",
-      senderName: currentUser?.fullName || "من",
-      content: inputMessage.trim(),
-      createdAt: new Date().toLocaleTimeString("fa-IR", { hour: "2-digit", minute: "2-digit" }),
-      isMe: true,
-    };
-
-    setMessages([...messages, newMsg]);
-    setInputMessage("");
-
-    // Simulate instant delivery
-    onNotify("success", "پیام ارسال شد", "پیام در گفت‌وگوی دونفره مستقیم تحویل داده شد (FR-030).");
+  const openOrStartConversation = async (participantId: string) => {
+    const existing = conversations.find((c) => c.otherParticipant?.id === participantId);
+    if (existing) {
+      navigate(`/messages/${encodeURIComponent(existing.id)}`);
+      return;
+    }
+    setStartingWithId(participantId);
+    try {
+      const created = await apiClient.post<{ id: string }>("/conversations", {
+        participantId,
+        type: "DIRECT_SUPERVISOR_TRAINEE",
+      });
+      await loadInbox();
+      navigate(`/messages/${encodeURIComponent(created.id)}`);
+    } catch (error) {
+      onNotify("error", "آغاز گفت‌وگو ناموفق بود", error instanceof Error ? error.message : undefined);
+    } finally {
+      setStartingWithId(null);
+    }
   };
 
+  const handleSendMessage = async (event: React.FormEvent) => {
+    event.preventDefault();
+    if (!conversationId || !inputMessage.trim()) return;
+    setSending(true);
+    try {
+      const sent = await apiClient.post<MessageDto>(`/conversations/${encodeURIComponent(conversationId)}/messages`, {
+        content: inputMessage.trim(),
+      });
+      setMessages((prev) => [...prev, sent]);
+      setInputMessage("");
+      void loadInbox();
+    } catch (error) {
+      onNotify("error", "ارسال پیام انجام نشد", error instanceof Error ? error.message : undefined);
+    } finally {
+      setSending(false);
+    }
+  };
+
+  const existingParticipantIds = new Set(conversations.map((c) => c.otherParticipant?.id).filter(Boolean));
+  const freshContacts = contacts.filter((c) => !existingParticipantIds.has(c.id));
+
   return (
-    <div className="space-y-4 max-w-4xl mx-auto">
-      {/* Header */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-3">
-        <div>
-          <h2 className="text-xl font-bold text-slate-100 flex items-center gap-2">
-            <MessageSquare className="w-6 h-6 text-apple-blue" />
-            پیام‌رسان دونفره مستقیم علمی (FR-024, FR-030, BR-16)
-          </h2>
-          <p className="text-xs text-slate-400 mt-1">
-            ارتباط مستقیم و امن میان پژوهشگر/کارآموز و مدیر علمی (چت گروهی و تالار عمومی خارج از محدوده است)
-          </p>
+    <div className="space-y-5">
+      <PageHeader
+        title={
+          <span className="flex items-center gap-2">
+            <MessageSquare className="h-5 w-5 text-[#214E3A]" />
+            گفت‌وگوی مستقیم دونفره
+          </span>
+        }
+        subtitle="ارتباط مستقیم و اختصاصی میان اعضای مجاز و مدیران (گفت‌وگوی گروهی و تالار عمومی خارج از محدوده MVP است)"
+        breadcrumbs={
+          conversationId
+            ? [{ label: "گفت‌وگوها", to: "/messages" }, { label: activeConversation?.otherParticipant?.fullName ?? "رشته پیام" }]
+            : [{ label: "گفت‌وگوها" }]
+        }
+        backTo={conversationId ? { to: "/messages", label: "همه گفت‌وگوها" } : undefined}
+        actions={
+          <Button
+            variant="secondary"
+            size="sm"
+            icon={<RefreshCw className="h-3.5 w-3.5" />}
+            loading={loadingList || loadingMessages}
+            onClick={() => {
+              void loadInbox();
+              if (conversationId) void loadMessages(conversationId);
+            }}
+          >
+            به‌روزرسانی
+          </Button>
+        }
+      />
+
+      {listError && <ErrorState message={listError} onRetry={() => void loadInbox()} />}
+
+      <div className="grid gap-4 lg:grid-cols-12">
+        {/* Sidebar: Active conversations & contacts */}
+        <div className={`space-y-4 lg:col-span-4 ${conversationId ? "hidden lg:block" : "block"}`}>
+          <Card variant="default" title="گفت‌وگوهای فعال">
+            {loadingList ? (
+              <LoadingState message="در حال بارگذاری گفت‌وگوها..." />
+            ) : conversations.length === 0 ? (
+              <p className="text-xs leading-relaxed text-[#4F6659]">
+                هنوز گفت‌وگویی آغاز نشده است. از فهرست مخاطبین مجاز زیر یک فرد را انتخاب کنید.
+              </p>
+            ) : (
+              <div className="space-y-2">
+                {conversations.map((conv) => {
+                  const selected = conv.id === conversationId;
+                  return (
+                    <Link
+                      key={conv.id}
+                      to={`/messages/${encodeURIComponent(conv.id)}`}
+                      className={`block rounded-xl border p-3 transition ${
+                        selected
+                          ? "border-[#214E3A] bg-[#214E3A]/10"
+                          : "border-[#214E3A]/15 bg-[#F3EBDD]/40 hover:border-[#214E3A]/35"
+                      }`}
+                    >
+                      <div className="flex items-center justify-between gap-2">
+                        <span className="text-sm font-bold text-[#214031]">
+                          {conv.otherParticipant?.fullName ?? "کاربر"}
+                        </span>
+                        {conv.otherParticipant && (
+                          <Badge variant="neutral" size="sm">{getRoleLabel(conv.otherParticipant.role)}</Badge>
+                        )}
+                      </div>
+                      {conv.lastMessage ? (
+                        <p className="mt-1.5 truncate text-xs text-[#4F6659]">{conv.lastMessage.content}</p>
+                      ) : (
+                        <p className="mt-1.5 text-xs text-[#6B8073]">بدون پیام ثبت‌شده</p>
+                      )}
+                    </Link>
+                  );
+                })}
+              </div>
+            )}
+          </Card>
+
+          <Card variant="default" title="مخاطبین مجاز برای شروع گفت‌وگو">
+            {loadingList ? (
+              <p className="text-xs text-[#4F6659]">در حال دریافت مخاطبین...</p>
+            ) : freshContacts.length === 0 && conversations.length === 0 ? (
+              <p className="text-xs text-[#4F6659]">در حال حاضر مخاطب مجازی یافت نشد.</p>
+            ) : freshContacts.length === 0 ? (
+              <p className="text-xs text-[#4F6659]">با همه مخاطبین مجاز گفت‌وگوی فعال دارید.</p>
+            ) : (
+              <div className="space-y-2">
+                {freshContacts.map((contact) => (
+                  <div
+                    key={contact.id}
+                    className="flex items-center justify-between gap-2 rounded-xl border border-[#214E3A]/15 bg-[#F3EBDD]/40 p-2.5"
+                  >
+                    <div className="min-w-0">
+                      <div className="truncate text-xs font-bold text-[#214031]">{contact.fullName}</div>
+                      <div className="text-[11px] text-[#4F6659]">{getRoleLabel(contact.role)}</div>
+                    </div>
+                    <Button
+                      variant="primary"
+                      size="sm"
+                      loading={startingWithId === contact.id}
+                      onClick={() => void openOrStartConversation(contact.id)}
+                    >
+                      گفت‌وگو
+                    </Button>
+                  </div>
+                ))}
+              </div>
+            )}
+          </Card>
         </div>
 
-        <Badge variant="info" size="sm" dot>
-          گفت‌وگوی دونفره مستقیم فعال
-        </Badge>
-      </div>
-
-      {/* Chat Container */}
-      <Card variant="glass" className="h-[65vh] flex flex-col p-0 overflow-hidden border-white/10">
-        {/* Chat Top Info Bar */}
-        <div className="p-3.5 bg-white/[0.03] border-b border-white/5 flex items-center justify-between">
-          <div className="flex items-center gap-2.5">
-            <div className="w-8 h-8 rounded-full bg-apple-blue/20 border border-apple-blue/40 flex items-center justify-center text-apple-blue">
-              <User className="w-4 h-4" />
-            </div>
-            <div>
-              <h4 className="text-xs font-bold text-slate-100">دکتر مهدی حسینی</h4>
-              <span className="text-[10px] text-slate-400">مدیر علمی پرونده CASE-101</span>
-            </div>
-          </div>
-
-          <div className="text-[11px] text-slate-400 flex items-center gap-1.5">
-            <Shield className="w-3.5 h-3.5 text-apple-green" />
-            کانال مستقیم و اختصاصی (BR-16)
-          </div>
-        </div>
-
-        {/* Message Feed */}
-        <div className="flex-1 overflow-y-auto p-4 space-y-3">
-          {messages.map((msg) => (
-            <div
-              key={msg.id}
-              className={`flex flex-col ${msg.isMe ? "items-start" : "items-end"}`}
-            >
-              <div
-                className={`max-w-[75%] p-3.5 rounded-apple-lg text-xs leading-relaxed ${
-                  msg.isMe
-                    ? "bg-apple-blue text-white rounded-br-none shadow-sm"
-                    : "bg-slate-800/90 text-slate-100 border border-white/10 rounded-bl-none"
-                }`}
-              >
-                {!msg.isMe && (
-                  <span className="block font-bold text-[10px] text-apple-blue mb-1">
-                    {msg.senderName}
-                  </span>
-                )}
-                <p>{msg.content}</p>
-                <div
-                  className={`flex items-center justify-end gap-1 mt-1 text-[10px] ${
-                    msg.isMe ? "text-blue-100" : "text-slate-400"
-                  }`}
-                >
-                  <span>{msg.createdAt}</span>
-                  {msg.isMe && <CheckCheck className="w-3 h-3" />}
+        {/* Thread Pane */}
+        <div className={`lg:col-span-8 ${conversationId ? "block" : "hidden lg:block"}`}>
+          {!conversationId ? (
+            <EmptyState
+              title="یک گفت‌وگو را انتخاب کنید"
+              description="برای مشاهده تاریخچه پیام‌ها یا ارسال پیام تازه، از فهرست سمت راست مخاطب خود را برگزینید."
+              icon={<MessageSquare className="h-6 w-6" />}
+            />
+          ) : (
+            <Card variant="default" padding="none" className="flex h-[65vh] flex-col overflow-hidden">
+              <div className="flex items-center justify-between gap-2 border-b border-[#214E3A]/15 bg-[#F3EBDD]/60 px-4 py-3">
+                <div className="flex items-center gap-2.5">
+                  <Link
+                    to="/messages"
+                    aria-label="بازگشت به فهرست گفت‌وگوها"
+                    className="rounded-lg p-1.5 text-[#214E3A] hover:bg-[#214E3A]/10 lg:hidden"
+                  >
+                    <ArrowRight className="h-4 w-4" />
+                  </Link>
+                  <div className="flex h-9 w-9 items-center justify-center rounded-full bg-[#214E3A]/15 text-[#214E3A]">
+                    <User className="h-4 w-4" />
+                  </div>
+                  <div>
+                    <h2 className="text-sm font-bold text-[#214031]">
+                      {activeConversation?.otherParticipant?.fullName ?? "گفت‌وگوی مستقیم"}
+                    </h2>
+                    <span className="text-[11px] text-[#4F6659]">
+                      {activeConversation?.otherParticipant ? getRoleLabel(activeConversation.otherParticipant.role) : "کانال مستقیم دونفره"}
+                    </span>
+                  </div>
+                </div>
+                <div className="flex items-center gap-1.5 text-[11px] text-[#214E3A]">
+                  <Shield className="h-3.5 w-3.5" />
+                  <span>ارتباط دونفره ایمن</span>
                 </div>
               </div>
-            </div>
-          ))}
-          <div ref={messagesEndRef} />
-        </div>
 
-        {/* Chat Input Bar */}
-        <form onSubmit={handleSendMessage} className="p-3 bg-white/[0.02] border-t border-white/5 flex gap-2">
-          <input
-            className="flex-1 bg-slate-900/80 text-slate-100 placeholder-slate-500 text-xs rounded-apple-md border border-white/10 px-4 py-2.5 outline-none focus:border-apple-blue"
-            placeholder="پیام خود را بنویسید..."
-            value={inputMessage}
-            onChange={(e) => setInputMessage(e.target.value)}
-          />
-          <Button
-            type="submit"
-            variant="primary"
-            size="md"
-            icon={<Send className="w-4 h-4 -scale-x-100" />}
-            disabled={!inputMessage.trim()}
-          >
-            ارسال
-          </Button>
-        </form>
-      </Card>
+              <div className="flex-1 space-y-3 overflow-y-auto p-4">
+                {loadingMessages ? (
+                  <LoadingState message="در حال بارگذاری پیام‌ها..." />
+                ) : threadError ? (
+                  <ErrorState message={threadError} onRetry={() => void loadMessages(conversationId)} />
+                ) : messages.length === 0 ? (
+                  <p className="py-10 text-center text-xs text-[#4F6659]">
+                    هنوز پیامی در این گفت‌وگو ثبت نشده است. نخستین پیام را بنویسید.
+                  </p>
+                ) : (
+                  messages.map((msg) => {
+                    const isMe = msg.senderId === currentUser?.id;
+                    return (
+                      <div key={msg.id} className={`flex flex-col ${isMe ? "items-start" : "items-end"}`}>
+                        <div
+                          className={`max-w-[78%] rounded-2xl p-3 text-xs leading-relaxed ${
+                            isMe
+                              ? "rounded-br-none bg-[#214E3A] text-[#FFFCF5]"
+                              : "rounded-bl-none border border-[#214E3A]/20 bg-[#F3EBDD]/70 text-[#214031]"
+                          }`}
+                        >
+                          <p className="whitespace-pre-wrap">{msg.content}</p>
+                          <div
+                            className={`mt-1 flex items-center justify-end gap-1 text-[10px] ${
+                              isMe ? "text-[#F3EBDD]/80" : "text-[#4F6659]"
+                            }`}
+                          >
+                            <span>
+                              {new Date(msg.createdAt).toLocaleTimeString("fa-IR", {
+                                hour: "2-digit",
+                                minute: "2-digit",
+                              })}
+                            </span>
+                            {isMe && <CheckCheck className="h-3 w-3" />}
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })
+                )}
+                <div ref={messagesEndRef} />
+              </div>
+
+              <form onSubmit={(e) => void handleSendMessage(e)} className="flex gap-2 border-t border-[#214E3A]/15 bg-[#F3EBDD]/40 p-3">
+                <input
+                  aria-label="متن پیام"
+                  value={inputMessage}
+                  onChange={(e) => setInputMessage(e.target.value)}
+                  placeholder="پیام خود را بنویسید..."
+                  className="flex-1 rounded-xl border border-[#214E3A]/20 bg-[#FFFCF5] px-3.5 py-2.5 text-xs text-[#214031] placeholder:text-[#6B8073] focus:border-[#214E3A] focus:outline-none"
+                />
+                <Button
+                  type="submit"
+                  variant="primary"
+                  size="md"
+                  loading={sending}
+                  disabled={!inputMessage.trim() || sending}
+                  icon={<Send className="h-4 w-4 -scale-x-100" />}
+                >
+                  ارسال
+                </Button>
+              </form>
+            </Card>
+          )}
+        </div>
+      </div>
     </div>
   );
 };

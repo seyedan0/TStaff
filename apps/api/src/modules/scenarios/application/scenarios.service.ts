@@ -89,7 +89,14 @@ export class ScenariosService {
     await this.researchService.assertPrerequisitesApprovedForScenario(scenario.researchCaseId);
     const underReview = scenario.submitForReview(expectedVersion);
     await this.scenarioRepo.saveWithVersionCheck(underReview, expectedVersion);
-    await this.researchService.submitScenarioForReview(scenario.researchCaseId, actorId);
+    try {
+      await this.researchService.submitScenarioForReview(scenario.researchCaseId, actorId);
+    } catch (error) {
+      if (!this.transactions) {
+        await this.scenarioRepo.saveWithVersionCheck(underReview.requestChanges(underReview.version), underReview.version);
+      }
+      throw error;
+    }
     return underReview;
   }
 
@@ -198,6 +205,10 @@ export class ScenariosService {
 
   async getVersions(id: string) {
     return this.scenarioRepo.findVersions?.(id) ?? [];
+  }
+
+  async getDecisions(id: string) {
+    return this.scenarioRepo.findDecisions?.(id) ?? [];
   }
 
   async getScenariosByCaseId(caseId: string): Promise<Scenario[]> {

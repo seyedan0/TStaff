@@ -10,6 +10,7 @@ import {
   HttpCode,
   HttpStatus,
   Inject,
+  Req,
 } from "@nestjs/common";
 import { ApiTags, ApiOperation, ApiResponse, ApiHeader } from "@nestjs/swagger";
 import { CreateArchiveJobDtoSchema } from "@tstaff/contracts";
@@ -17,12 +18,14 @@ import { ArchivalService } from "../application/archival.service.js";
 import {
   StageGuard,
   RequireStage,
+  RequireRoles,
 } from "../../../platform/security/stage.guard.js";
 
 @ApiTags("Archival (آرشیو دائمی و انجماد داده‌ها FR-025, AT-14, AT-27)")
 @Controller("archives/jobs")
 @UseGuards(StageGuard)
 @RequireStage("INTERN")
+@RequireRoles("SYSTEM_ADMIN", "TRACKING_DIRECTOR")
 @ApiHeader({
   name: "x-user-stage",
   description: "سطح کاربری جهت اعتبارسنجی سطح دسترسی (INTERN)",
@@ -45,10 +48,12 @@ export class ArchivalController {
     description: "عملیات آرشیو با موفقیت ثبت و اجرا شد",
   })
   async createArchiveJob(
-    @Headers("x-user-id") actorId: string | undefined,
+    @Headers("x-user-id") headerActorId: string | undefined,
     @Body() body: unknown,
+    @Req() request?: any,
   ) {
     const dto = CreateArchiveJobDtoSchema.parse(body);
+    const actorId = request?.user?.id ?? headerActorId;
     const job = await this.archivalService.createAndProcessArchiveJob(
       dto,
       actorId,

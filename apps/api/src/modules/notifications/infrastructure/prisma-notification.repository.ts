@@ -1,4 +1,4 @@
-import { Injectable } from "@nestjs/common";
+import { Inject, Injectable } from "@nestjs/common";
 import { PrismaService } from "@tstaff/database";
 import { Notification } from "../domain/notification.entity.js";
 import type { NotificationRepositoryPort } from "../application/ports/notification.repository.port.js";
@@ -7,7 +7,7 @@ import type { Prisma } from "@tstaff/database";
 
 @Injectable()
 export class PrismaNotificationRepository implements NotificationRepositoryPort {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(@Inject(PrismaService) private readonly prisma: PrismaService) {}
 
   async save(notification: Notification): Promise<void> {
     await this.prisma.notification.upsert({

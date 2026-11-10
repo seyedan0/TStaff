@@ -18,6 +18,7 @@ import {
 } from "../domain/research-errors.js";
 import { AssignmentsService } from "../../assignments/application/assignments.service.js";
 import { ResourcesService } from "../../resources/application/resources.service.js";
+import { AuditService } from "../../audit/application/audit.service.js";
 import { IncompleteSourcesStageError } from "../../resources/domain/resource-errors.js";
 import type {
   ResearchRepositoryPort,
@@ -38,6 +39,7 @@ export class ResearchService {
     @Optional() @Inject(OrganizationService) private readonly organization?: OrganizationService,
     @Optional() @Inject(IdentityService) private readonly identity?: IdentityService,
     @Optional() @Inject(TRANSACTION_RUNNER) private readonly transactions?: TransactionRunner,
+    @Optional() @Inject(AuditService) private readonly audit?: AuditService,
   ) {}
 
   async createCase(dto: CreateResearchCaseDto, actorId?: string): Promise<ResearchCase> {
@@ -78,6 +80,7 @@ export class ResearchService {
   async rollbackStage(
     id: string,
     dto: RollbackStageDto,
+    actorId?: string,
   ): Promise<ResearchCase> {
     const rCase = await this.getCase(id);
 
@@ -88,6 +91,17 @@ export class ResearchService {
     );
 
     await this.researchRepo.saveWithVersionCheck(updated, dto.expectedVersion);
+    await this.audit?.recordEvent({
+      aggregateType: "ResearchCase",
+      aggregateId: id,
+      action: "STAGE_ROLLED_BACK",
+      ...(actorId ? { actorId } : {}),
+      payload: {
+        targetStage: dto.targetStage,
+        reason: dto.reason,
+        expectedVersion: dto.expectedVersion,
+      },
+    });
     return updated;
   }
 
@@ -155,6 +169,18 @@ export class ResearchService {
     );
 
     await this.researchRepo.saveWithVersionCheck(updated, dto.expectedVersion);
+    await this.audit?.recordEvent({
+      aggregateType: "ResearchCase",
+      aggregateId: id,
+      action: "STAGE_REVIEW_DECIDED",
+      actorId: supervisorUserId,
+      payload: {
+        stageType,
+        decision: dto.decision,
+        expectedVersion: dto.expectedVersion,
+        ...(dto.notes ? { notes: dto.notes } : {}),
+      },
+    });
     return updated;
   }
 

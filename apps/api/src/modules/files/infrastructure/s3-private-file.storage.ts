@@ -1,4 +1,4 @@
-import { Injectable, Optional } from "@nestjs/common";
+import { Inject, Injectable, Optional } from "@nestjs/common";
 import { DeleteObjectCommand, GetObjectCommand, PutObjectCommand, S3Client } from "@aws-sdk/client-s3";
 import { Readable } from "node:stream";
 import type { FileStorageLocation, PrivateFileStoragePort } from "../application/ports/files.ports.js";
@@ -8,7 +8,7 @@ import type { FileStorageLocation, PrivateFileStoragePort } from "../application
 export class S3PrivateFileStorage implements PrivateFileStoragePort {
   private client: S3Client | undefined;
 
-  constructor(@Optional() client?: S3Client) {
+  constructor(@Optional() @Inject(S3Client) client?: S3Client) {
     this.client = client;
   }
 

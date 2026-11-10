@@ -1,21 +1,25 @@
+import React, { useCallback, useEffect, useState } from "react";
+import { Building2, Clock, RefreshCw, Search, ShieldCheck, Trash2, UserPlus, Users } from "lucide-react";
+import { Link, useNavigate, useSearchParams } from "react-router-dom";
+import type {
+  AuditEventDto,
+  GeneralDirectorSummary,
+  TrackingDirectorBacklog,
+  WorkflowMetrics,
+} from "@tstaff/contracts";
+import { IRAN_PROVINCES, provinceNameFromId } from "@tstaff/contracts";
+import { getRoleLabel } from "../../app/navigation.js";
 import { usePortalSection } from "../../app/usePortalSection.js";
-import React, { useState, useEffect } from "react";
-import {
-  Compass,
-  UserPlus,
-  Users,
-  ShieldCheck,
-  Clock,
-  BarChart3,
-  Building2,
-} from "lucide-react";
-import { Card } from "../../shared/ui/Card.js";
-import { Button } from "../../shared/ui/Button.js";
-import { Badge } from "../../shared/ui/Badge.js";
-import { Modal } from "../../shared/ui/Modal.js";
-import { Input } from "../../shared/ui/Input.js";
-import { apiClient } from "../../shared/api-client.js";
 import { useAuth } from "../../features/auth/AuthContext.js";
+import { apiClient } from "../../shared/api-client.js";
+import { Badge } from "../../shared/ui/Badge.js";
+import { Button } from "../../shared/ui/Button.js";
+import { Card } from "../../shared/ui/Card.js";
+import { Input } from "../../shared/ui/Input.js";
+import { Modal } from "../../shared/ui/Modal.js";
+import { PageHeader } from "../../shared/ui/PageHeader.js";
+import { EmptyState, ErrorState, LoadingState } from "../../shared/ui/StateFeedback.js";
+import { TrackingAssignmentsTab } from "./TrackingAssignmentsTab.js";
 
 interface TrackingDirectorPortalProps {
   onNotify: (
@@ -35,466 +39,501 @@ interface ManagerRecord {
   createdAt?: string;
 }
 
-interface InternRecord { id: string; fullName: string | null; phoneNumber: string; stage: "APPRENTICE" | "INTERN" }
-interface SupervisorAssignment { id: string; supervisorId: string; supervisorName: string; phoneNumber: string; isPrimary: boolean; assignedAt: string }
+interface ProvincialScopeRow {
+  managerId: string;
+  provinceId: string;
+  assignedAt: string;
+  revokedAt?: string | null;
+}
 
-export const TrackingDirectorPortal: React.FC<TrackingDirectorPortalProps> = ({
-  onNotify,
-}) => {
+const STAGE_FA: Record<string, string> = {
+  SOURCES: "منابع و مصاحبه‌ها",
+  EXPLANATION: "تبیین مسئله",
+  PRESCRIPTION: "تجویز راهکار",
+  SCENARIO: "سناریو",
+};
+
+export const TrackingDirectorPortal: React.FC<TrackingDirectorPortalProps> = ({ onNotify }) => {
   const { currentUser } = useAuth();
-  const activeTab = usePortalSection<"pipeline" | "managers" | "assignments" | "audit">({ "/tracking/pipeline": "pipeline", "/tracking/managers": "managers", "/tracking/assignments": "assignments", "/tracking/audit": "audit" }, "pipeline");
+  const activeTab = usePortalSection<"pipeline" | "managers" | "assignments" | "audit">(
+    {
+      "/tracking/pipeline": "pipeline",
+      "/tracking/managers": "managers",
+      "/tracking/assignments": "assignments",
+      "/tracking/audit": "audit",
+    },
+    "pipeline",
+  );
+  const [query] = useSearchParams();
+  const navigate = useNavigate();
 
-  // Managers State
   const [managers, setManagers] = useState<ManagerRecord[]>([]);
+  const [scopes, setScopes] = useState<ProvincialScopeRow[]>([]);
+  const [summary, setSummary] = useState<GeneralDirectorSummary | null>(null);
+  const [backlog, setBacklog] = useState<TrackingDirectorBacklog | null>(null);
+  const [metrics, setMetrics] = useState<WorkflowMetrics | null>(null);
+  const [auditEvents, setAuditEvents] = useState<AuditEventDto[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [newMgrName, setNewMgrName] = useState("");
   const [newMgrPhone, setNewMgrPhone] = useState("");
   const [newMgrRole, setNewMgrRole] = useState("SCIENTIFIC_SUPERVISOR");
+  const [newMgrProvinceId, setNewMgrProvinceId] = useState("");
   const [newMgrPassword, setNewMgrPassword] = useState("");
-  const [isCreatingManager, setIsCreatingManager] = useState(false);
-  const [interns, setInterns] = useState<InternRecord[]>([]);
-  const [selectedInternId, setSelectedInternId] = useState("");
-  const [supervisorAssignments, setSupervisorAssignments] = useState<SupervisorAssignment[]>([]);
-  const [selectedSupervisorId, setSelectedSupervisorId] = useState("");
-  const [isSavingAssignment, setIsSavingAssignment] = useState(false);
+  const [busy, setBusy] = useState(false);
 
-  // Search Filter
-  const [searchQuery, setSearchQuery] = useState("");
+  const [scopePickByManager, setScopePickByManager] = useState<Record<string, string>>({});
+  const [suspendTarget, setSuspendTarget] = useState<ManagerRecord | null>(null);
+  const [suspendReason, setSuspendReason] = useState("");
 
-  const fetchManagers = async () => {
+  const searchTerm = query.get("q") ?? "";
+
+  const loadTabData = useCallback(async () => {
+    setLoading(true);
+    setError(null);
     try {
-      const data = await apiClient.get<ManagerRecord[]>("/users/managers");
-      setManagers(data);
-    } catch { setManagers([]); }
-  };
-
-  const fetchInterns = async () => {
-    try { setInterns(await apiClient.get<InternRecord[]>("/users/interns")); }
-    catch (error) { setInterns([]); onNotify("error", "فهرست کارورزان بارگذاری نشد", error instanceof Error ? error.message : undefined); }
-  };
-
-  const fetchAssignments = async (userId: string) => {
-    if (!userId) { setSupervisorAssignments([]); return; }
-    try { setSupervisorAssignments(await apiClient.get<SupervisorAssignment[]>(`/users/${userId}/scientific-supervisors`)); }
-    catch (error) { setSupervisorAssignments([]); onNotify("error", "انتساب‌های مدیران دریافت نشد", error instanceof Error ? error.message : undefined); }
-  };
-
-  const handleAssignSupervisor = async () => {
-    if (!selectedInternId || !selectedSupervisorId) return;
-    setIsSavingAssignment(true);
-    try {
-      await apiClient.post(`/users/${selectedInternId}/scientific-supervisors`, { supervisorId: selectedSupervisorId });
-      await fetchAssignments(selectedInternId);
-      setSelectedSupervisorId("");
-      onNotify("success", "مدیر علمی به کارورز منتسب شد", "انتساب برای همه پرونده‌های فعلی و بعدی کارورز اعمال شد.");
-    } catch (error) { onNotify("error", "انتساب مدیر علمی انجام نشد", error instanceof Error ? error.message : undefined); }
-    finally { setIsSavingAssignment(false); }
-  };
+      if (activeTab === "pipeline") {
+        const [sumRes, backRes, wfRes] = await Promise.all([
+          apiClient.get<GeneralDirectorSummary>("/reporting/general-director-summary"),
+          apiClient.get<TrackingDirectorBacklog>("/reporting/tracking-director-backlog"),
+          apiClient.get<WorkflowMetrics>("/reporting/workflow-metrics"),
+        ]);
+        setSummary(sumRes);
+        setBacklog(backRes);
+        setMetrics(wfRes);
+      } else if (activeTab === "managers") {
+        const [mgrRes, scopeRes] = await Promise.all([
+          apiClient.get<ManagerRecord[]>("/users/managers"),
+          apiClient.get<ProvincialScopeRow[]>("/organization/scopes"),
+        ]);
+        setManagers(mgrRes);
+        setScopes(scopeRes.filter((s) => !s.revokedAt));
+      } else if (activeTab === "assignments") {
+        setManagers(await apiClient.get<ManagerRecord[]>("/users/managers"));
+      } else if (activeTab === "audit") {
+        const qs = new URLSearchParams({ limit: "50" });
+        if (searchTerm.trim()) qs.set("q", searchTerm.trim());
+        setAuditEvents(await apiClient.get<AuditEventDto[]>(`/audit-events?${qs.toString()}`));
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "دریافت اطلاعات شبکه ناموفق بود.");
+    } finally {
+      setLoading(false);
+    }
+  }, [activeTab, searchTerm]);
 
   useEffect(() => {
-    fetchManagers();
-    fetchInterns();
-  }, []);
+    void loadTabData();
+  }, [loadTabData]);
 
-  const handleCreateManager = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!newMgrName.trim() || !newMgrPhone.trim()) return;
+  const setSearchQuery = (value: string) => {
+    const next = new URLSearchParams(query);
+    value ? next.set("q", value) : next.delete("q");
+    navigate({ search: next.toString() }, { replace: true });
+  };
 
-    if (!/^09\d{9}$/.test(newMgrPhone)) {
+  const handleCreateManager = async (event: React.FormEvent) => {
+    event.preventDefault();
+    if (!/^09\d{9}$/.test(newMgrPhone.trim())) {
       onNotify("error", "خطا در شماره همراه", "شماره همراه باید ۱۱ رقم بوده و با 09 آغاز شود.");
       return;
     }
-
-    setIsCreatingManager(true);
+    setBusy(true);
     try {
-      await apiClient.post("/users/managers", {
+      const created = await apiClient.post<{ id: string }>("/users/managers", {
         fullName: newMgrName.trim(),
         phoneNumber: newMgrPhone.trim(),
         role: newMgrRole,
         password: newMgrPassword,
       });
-
-      onNotify(
-        "success",
-        "مدیر جدید با موفقیت ایجاد شد",
-        `حساب کاربری برای «${newMgrName}» با نقش انتخاب‌شده فعال گردید.`,
-      );
-
+      if (newMgrRole === "PROVINCIAL_DIRECTOR" && newMgrProvinceId) {
+        await apiClient.post("/organization/provincial-scopes", {
+          managerId: created.id,
+          provinceId: newMgrProvinceId,
+        });
+      }
+      onNotify("success", "مدیر جدید ایجاد شد", `حساب «${newMgrName}» فعال گردید.`);
       setIsCreateModalOpen(false);
       setNewMgrName("");
       setNewMgrPhone("");
       setNewMgrPassword("");
-      fetchManagers();
-    } catch (err: unknown) {
-      onNotify(
-        "error",
-        "خطا در ایجاد مدیر",
-        err instanceof Error ? err.message : "امکان ثبت مدیر وجود ندارد",
-      );
+      setNewMgrProvinceId("");
+      await loadTabData();
+    } catch (err) {
+      onNotify("error", "ایجاد مدیر انجام نشد", err instanceof Error ? err.message : undefined);
     } finally {
-      setIsCreatingManager(false);
+      setBusy(false);
     }
   };
 
-  const filteredManagers = managers.filter(
-    (m) =>
-      m.fullName.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      m.phoneNumber.includes(searchQuery) ||
-      m.role.toLowerCase().includes(searchQuery.toLowerCase()),
-  );
+  const handleAssignProvinceScope = async (managerId: string) => {
+    const provinceId = scopePickByManager[managerId];
+    if (!provinceId) return;
+    setBusy(true);
+    try {
+      await apiClient.post("/organization/provincial-scopes", { managerId, provinceId });
+      setScopePickByManager((prev) => ({ ...prev, [managerId]: "" }));
+      onNotify("success", "قلمرو استان ثبت شد");
+      await loadTabData();
+    } catch (err) {
+      onNotify("error", "ثبت قلمرو استان انجام نشد", err instanceof Error ? err.message : undefined);
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const handleRevokeProvinceScope = async (managerId: string, provinceId: string) => {
+    setBusy(true);
+    try {
+      await apiClient.delete(`/organization/provincial-scopes/${encodeURIComponent(managerId)}/${encodeURIComponent(provinceId)}`);
+      onNotify("info", "قلمرو استان لغو شد");
+      await loadTabData();
+    } catch (err) {
+      onNotify("error", "لغو قلمرو انجام نشد", err instanceof Error ? err.message : undefined);
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const handleToggleManagerActive = async (event: React.FormEvent) => {
+    event.preventDefault();
+    if (!suspendTarget || suspendReason.trim().length < 5) return;
+    setBusy(true);
+    try {
+      if (suspendTarget.isActive) {
+        await apiClient.post(`/users/${encodeURIComponent(suspendTarget.id)}/suspend`, { reason: suspendReason.trim() });
+        onNotify("warning", "حساب مدیر تعلیق شد");
+      } else {
+        await apiClient.post(`/users/${encodeURIComponent(suspendTarget.id)}/reactivate`, { reason: suspendReason.trim() });
+        onNotify("success", "حساب مدیر فعال شد");
+      }
+      setSuspendTarget(null);
+      setSuspendReason("");
+      await loadTabData();
+    } catch (err) {
+      onNotify("error", "تغییر وضعیت حساب انجام نشد", err instanceof Error ? err.message : undefined);
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const filteredManagers = managers.filter((m) => {
+    const q = searchTerm.trim().toLowerCase();
+    return !q || `${m.fullName} ${m.phoneNumber} ${getRoleLabel(m.role as never)}`.toLowerCase().includes(q);
+  });
 
   return (
-    <div className="space-y-6">
-      {/* Top Header Card */}
-      <Card
-        variant="elevated"
-        className="p-6 border-white/10 relative overflow-hidden bg-gradient-to-br from-slate-900/90 via-slate-900/70 to-apple-blue/15"
-      >
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-          <div className="space-y-1.5">
-            <div className="flex items-center gap-2">
-              <Badge variant="warning" size="sm">
-                پنل مدیر پیگیری و معاونین
-              </Badge>
-              <span className="text-xs text-slate-400">
-                پایش ۳۱ استان و انتصاب مدیران علمی و استانی
-              </span>
-            </div>
-            <h2 className="text-xl font-bold text-slate-100 tracking-tight">
-              سامانه پایش کلان پرونده‌ها و انتصاب مدیران ({currentUser?.fullName || "مهندس علوی"})
-            </h2>
-            <p className="text-xs text-slate-300 max-w-2xl leading-relaxed">
-              مشاهده گلوگاه‌های چرخه ۴ مرحله‌ای، رصد پیشرفت استان‌ها، تعریف مدیران علمی، استانی و پشتیبانی جدید و ثبت و ممیزی رویدادهای حساس (D-04).
-            </p>
+    <div className="space-y-5">
+      <PageHeader
+        title={`پایش و راهبری شبکه · ${currentUser?.fullName || "مدیر پیگیری"}`}
+        subtitle="رصد زنده چرخه پژوهش، مدیریت قلمرو استان‌ها، انتساب مدیران علمی و تاریخچه نظارت (D-04)"
+        actions={
+          <div className="flex flex-wrap items-center gap-2">
+            <Button variant="secondary" size="sm" icon={<RefreshCw className="h-3.5 w-3.5" />} loading={loading} onClick={() => void loadTabData()}>
+              به‌روزرسانی
+            </Button>
+            {activeTab === "managers" && (
+              <Button variant="primary" size="sm" icon={<UserPlus className="h-3.5 w-3.5" />} onClick={() => setIsCreateModalOpen(true)}>
+                تعریف مدیر جدید
+              </Button>
+            )}
           </div>
-        </div>
-      </Card>
+        }
+      />
 
-      {/* Main Views */}
-      <div className="animate-fade-in">
-        {/* Tab 1: National Pipeline */}
-        {activeTab === "pipeline" && (
-          <div className="space-y-4">
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-              <Card variant="glass" className="p-4 border-white/10">
-                <span className="text-xs text-slate-400">کل پرونده‌های فعال کشور</span>
-                <div className="text-2xl font-bold text-slate-100 mt-1">۲۴ پرونده</div>
-                <div className="text-[11px] text-slate-500 mt-1">توزیع در ۸ استان برتر</div>
-              </Card>
+      {loading ? (
+        <LoadingState message="در حال دریافت داده‌های شبکه..." />
+      ) : error ? (
+        <ErrorState message={error} onRetry={() => void loadTabData()} />
+      ) : activeTab === "pipeline" && summary && backlog && metrics ? (
+        <div className="space-y-5">
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-5">
+            <Card variant="default" className="space-y-1">
+              <span className="text-xs text-[#4F6659]">کل پرونده‌های پژوهش</span>
+              <div className="text-2xl font-bold text-[#214031]">{summary.totalResearchCases}</div>
+              <span className="text-[11px] text-[#59675A]">{summary.totalUsers} کاربر و {summary.totalApplicants} متقاضی</span>
+            </Card>
+            <Card variant="default" className="space-y-1">
+              <span className="text-xs text-[#4F6659]">مدیران علمی فعال</span>
+              <div className="text-2xl font-bold text-[#214E3A]">{summary.activeSupervisorsCount}</div>
+              <span className="text-[11px] text-[#59675A]">دارای انتساب فعال</span>
+            </Card>
+            <Card variant="default" className="space-y-1">
+              <span className="text-xs text-[#4F6659]">سناریوهای مصوب</span>
+              <div className="text-2xl font-bold text-[#214E3A]">{summary.completedScenariosCount}</div>
+              <span className="text-[11px] text-[#59675A]">ثبت‌شده در پایگاه داخلی</span>
+            </Card>
+            <Card variant="default" className="space-y-1">
+              <span className="text-xs text-[#4F6659]">مراحل نیازمند بازبینی (D-05)</span>
+              <div className="text-2xl font-bold text-[#D94F3D]">{backlog.reviewRequiredCasesCount}</div>
+              <span className="text-[11px] text-[#59675A]">{backlog.unassignedCasesCount} پرونده بدون مدیر اصلی</span>
+            </Card>
+            <Card variant="default" className="space-y-1">
+              <span className="text-xs text-[#4F6659]">پرونده‌های دارای تأخیر</span>
+              <div className="text-2xl font-bold text-[#D94F3D]">{backlog.delayedCasesCount}</div>
+              <span className="text-[11px] text-[#59675A]">بیش از ۳۰ روز در یک مرحله</span>
+            </Card>
+          </div>
 
-              <Card variant="glass" className="p-4 border-white/10">
-                <span className="text-xs text-slate-400">مرحله منابع و مصاحبه‌ها (D-07)</span>
-                <div className="text-2xl font-bold text-apple-blue mt-1">۱۱ پرونده</div>
-                <div className="text-[11px] text-slate-500 mt-1">قاعده یکتایی مصاحبه فعال است</div>
-              </Card>
-
-              <Card variant="glass" className="p-4 border-white/10">
-                <span className="text-xs text-slate-400">مرحله تبیین و تجویز</span>
-                <div className="text-2xl font-bold text-apple-amber mt-1">۸ پرونده</div>
-                <div className="text-[11px] text-slate-500 mt-1">۲ پرونده در انتظار داوری مدیر علمی</div>
-              </Card>
-
-              <Card variant="glass" className="p-4 border-white/10">
-                <span className="text-xs text-slate-400">سناریوهای نهایی مصوب</span>
-                <div className="text-2xl font-bold text-apple-green mt-1">۵ سناریو</div>
-                <div className="text-[11px] text-slate-500 mt-1">نمایه‌شده در بانک سناریو</div>
-              </Card>
-            </div>
-
-            <Card variant="elevated" className="p-6 border-white/10">
-              <h3 className="text-sm font-bold text-slate-100 mb-3 flex items-center gap-2">
-                <Building2 className="w-4 h-4 text-apple-blue" />
-                وضعیت پیشرفت به تفکیک استان‌ها:
-              </h3>
-              <div className="space-y-3">
-                {[
-                  { province: "تهران", active: 8, done: 3, bottleneck: "منابع" },
-                  { province: "اصفهان", active: 5, done: 1, bottleneck: "تبیین" },
-                  { province: "خراسان رضوی", active: 4, done: 1, bottleneck: "تجویز" },
-                  { province: "فارس", active: 3, done: 0, bottleneck: "منابع" },
-                  { province: "آذربایجان شرقی", active: 2, done: 0, bottleneck: "منابع" },
-                  { province: "خوزستان", active: 2, done: 0, bottleneck: "تبیین" },
-                ].map((item) => (
-                  <div
-                    key={item.province}
-                    className="flex items-center justify-between p-3 rounded-apple-md bg-white/[0.02] border border-white/5 text-xs"
-                  >
-                    <span className="font-semibold text-slate-200 w-28">
-                      استان {item.province}
-                    </span>
-                    <span className="text-slate-400">
-                      پرونده‌های فعال: <strong className="text-slate-200">{item.active}</strong>
-                    </span>
-                    <span className="text-slate-400">
-                      سناریوهای تکمیل‌شده:{" "}
-                      <strong className="text-apple-green">{item.done}</strong>
-                    </span>
-                    <Badge variant="neutral" size="sm">
-                      بیشترین تراکم: {item.bottleneck}
-                    </Badge>
+          <div className="grid gap-4 lg:grid-cols-2">
+            <Card variant="default" title={<span className="flex items-center gap-2"><Building2 className="h-4 w-4 text-[#214E3A]" />توزیع مراحل فعال</span>}>
+              <div className="space-y-2.5 text-xs">
+                {Object.entries(summary.casesByStage).map(([stageKey, count]) => (
+                  <div key={stageKey} className="flex items-center justify-between rounded-xl border border-[#214E3A]/15 bg-[#F3EBDD]/45 px-3 py-2.5">
+                    <span className="font-semibold text-[#214031]">{STAGE_FA[stageKey] ?? stageKey}</span>
+                    <div className="flex items-center gap-3">
+                      <span className="text-[#4F6659]">بازگشت مرحله: {metrics.rollbackFrequencyByStage[stageKey] ?? 0}</span>
+                      <Badge variant="info" size="sm">{count} پرونده</Badge>
+                    </div>
                   </div>
                 ))}
               </div>
             </Card>
+
+            <Card variant="default" title="صف پرونده‌های نیازمند پیگیری">
+              {backlog.backlogItems.length === 0 ? (
+                <p className="text-xs text-[#4F6659]">در حال حاضر گلوگاه بازبینی در شبکه وجود ندارد.</p>
+              ) : (
+                <div className="space-y-2">
+                  {backlog.backlogItems.map((item) => (
+                    <Link
+                      key={`${item.caseId}-${item.currentStage}`}
+                      to={`/projects/${encodeURIComponent(item.caseId)}`}
+                      className="flex items-center justify-between gap-2 rounded-xl border border-[#D94F3D]/25 bg-[#D94F3D]/5 p-3 text-xs hover:border-[#D94F3D]/60"
+                    >
+                      <div>
+                        <div className="font-bold text-[#214031]">{item.caseCode} · {item.subject}</div>
+                        <div className="text-[#4F6659]">مرحله: {STAGE_FA[item.currentStage] ?? item.currentStage}</div>
+                      </div>
+                      <Badge variant="danger" size="sm">{item.daysInCurrentStage} روز</Badge>
+                    </Link>
+                  ))}
+                </div>
+              )}
+            </Card>
           </div>
-        )}
-
-        {/* Tab 2: Managers Appointment */}
-        {activeTab === "managers" && (
-          <div className="space-y-4">
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-              <div>
-                <h3 className="text-base font-bold text-slate-100 flex items-center gap-2">
-                  <Users className="w-5 h-5 text-apple-blue" />
-                  فهرست مدیران شبکه و امکان انتصاب مدیران جدید
-                </h3>
-                <p className="text-xs text-slate-400 mt-0.5">
-                  مدیر پیگیری اختیار ایجاد و انتصاب مدیران استانی، علمی، پشتیبانی و همکار را دارد:
-                </p>
-              </div>
-
-              <div className="flex items-center gap-2">
-                <input
-                  type="text"
-                  dir="rtl"
-                  placeholder="جست‌وجوی نام، شماره یا نقش..."
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  className="px-3 py-1.5 rounded-apple-md bg-white/[0.04] border border-white/10 text-xs text-slate-100 placeholder:text-slate-500 focus:outline-none focus:border-apple-blue/50 w-52"
-                />
-
-                <Button
-                  variant="primary"
-                  size="md"
-                  icon={<UserPlus className="w-4 h-4" />}
-                  onClick={() => setIsCreateModalOpen(true)}
-                >
-                  تعریف مدیر جدید
-                </Button>
-              </div>
+        </div>
+      ) : activeTab === "managers" ? (
+        <div className="space-y-4">
+          <Card variant="default" padding="sm">
+            <div className="relative">
+              <Search className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#6B8073]" />
+              <input
+                type="search"
+                aria-label="جست‌وجوی مدیران"
+                value={searchTerm}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder="جست‌وجوی نام، شماره همراه یا نقش..."
+                className="w-full rounded-xl border border-[#214E3A]/20 bg-[#FFFCF5] py-2 pr-9 pl-3 text-sm text-[#214031]"
+              />
             </div>
+          </Card>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-              {filteredManagers.map((m) => (
-                <Card
-                  key={m.id}
-                  variant="elevated"
-                  className="p-4 border-white/10 hover:border-white/20 transition-all space-y-3"
-                >
-                  <div className="flex items-start justify-between">
-                    <div>
-                      <h4 className="font-bold text-sm text-slate-100">
-                        {m.fullName}
-                      </h4>
-                      <div className="text-xs text-slate-400 font-mono mt-0.5">
-                        {m.phoneNumber}
+          {filteredManagers.length === 0 ? (
+            <EmptyState title="مدیری یافت نشد" description="عبارت جست‌وجو را تغییر دهید یا مدیر جدید بسازید." icon={<Users className="h-6 w-6" />} />
+          ) : (
+            <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+              {filteredManagers.map((m) => {
+                const mgrScopes = scopes.filter((s) => s.managerId === m.id);
+                return (
+                  <Card key={m.id} variant="default" className="space-y-3">
+                    <div className="flex items-start justify-between gap-2">
+                      <div>
+                        <h3 className="text-sm font-bold text-[#214031]">{m.fullName}</h3>
+                        <div dir="ltr" className="mt-0.5 text-right font-mono text-xs text-[#4F6659]">{m.phoneNumber}</div>
+                      </div>
+                      <div className="flex items-center gap-1.5">
+                        <Badge variant={m.isActive ? "success" : "danger"} size="sm">{m.isActive ? "فعال" : "معلق"}</Badge>
+                        <Badge variant="info" size="sm">{getRoleLabel(m.role as never)}</Badge>
                       </div>
                     </div>
-                    <Badge
-                      variant={
-                        m.role === "TRACKING_DIRECTOR"
-                          ? "warning"
-                          : m.role === "PROVINCIAL_DIRECTOR"
-                            ? "info"
-                            : m.role === "SCIENTIFIC_SUPERVISOR"
-                              ? "success"
-                              : "neutral"
-                      }
-                      size="sm"
-                    >
-                      {m.role === "TRACKING_DIRECTOR" && "مدیر پیگیری"}
-                      {m.role === "PROVINCIAL_DIRECTOR" && "مدیر استانی"}
-                      {m.role === "SCIENTIFIC_SUPERVISOR" && "مدیر علمی"}
-                      {m.role === "SUPPORT_DIRECTOR" && "مدیر پشتیبانی"}
-                      {m.role === "SYSTEM_ADMIN" && "مدیر کل و ادمین"}
-                    </Badge>
-                  </div>
 
-                  <div className="text-[11px] text-slate-400 pt-2 border-t border-white/5 flex items-center justify-between">
-                    <span>
-                      وضعیت حساب:{" "}
-                      <strong className={m.isActive ? "text-apple-green" : "text-apple-red"}>
-                        {m.isActive ? "فعال" : "معلق"}
-                      </strong>
-                    </span>
-                    <span className="text-slate-500">
-                      {m.createdAt ? `ثبت: ${m.createdAt}` : "سیستمی"}
-                    </span>
-                  </div>
-                </Card>
-              ))}
-            </div>
-          </div>
-        )}
-
-        {activeTab === "assignments" && (
-          <Card variant="elevated" className="space-y-5 p-6 border-white/10">
-            <div><h3 className="text-base font-bold text-slate-100">انتساب مدیر علمی در سطح کارورز</h3><p className="mt-1 text-xs text-slate-400">هر مدیر علمی منتسب به همه پرونده‌های کارورز دسترسی و اختیار داوری برابر دارد. نخستین انتساب مدیر اصلی محسوب می‌شود.</p></div>
-            <label className="block max-w-xl text-xs text-slate-300">کارورز<select value={selectedInternId} onChange={(event) => { setSelectedInternId(event.target.value); void fetchAssignments(event.target.value); }} className="mt-1 w-full rounded-apple-md border border-white/10 bg-slate-900 p-2.5 text-sm"> <option value="">انتخاب کارورز</option>{interns.filter((intern) => intern.stage === "INTERN").map((intern) => <option key={intern.id} value={intern.id}>{intern.fullName || intern.phoneNumber} · {intern.phoneNumber}</option>)}</select></label>
-            {selectedInternId && <div className="space-y-4">
-              <div className="flex flex-wrap items-end gap-3"><label className="min-w-64 flex-1 text-xs text-slate-300">مدیر علمی<select value={selectedSupervisorId} onChange={(event) => setSelectedSupervisorId(event.target.value)} className="mt-1 w-full rounded-apple-md border border-white/10 bg-slate-900 p-2.5 text-sm"><option value="">انتخاب مدیر علمی</option>{managers.filter((manager) => manager.role === "SCIENTIFIC_SUPERVISOR" && manager.isActive).map((manager) => <option key={manager.id} value={manager.id}>{manager.fullName} · {manager.phoneNumber}</option>)}</select></label><Button variant="primary" loading={isSavingAssignment} disabled={!selectedSupervisorId} onClick={() => void handleAssignSupervisor()}>افزودن مدیر علمی</Button></div>
-              {supervisorAssignments.length === 0 ? <p className="rounded-apple-sm border border-white/5 p-4 text-xs text-slate-400">هنوز مدیری برای این کارورز ثبت نشده است.</p> : <div className="space-y-2">{supervisorAssignments.map((assignment) => <div key={assignment.id} className="flex items-center justify-between rounded-apple-md border border-white/10 bg-white/[0.02] p-3 text-xs"><div><strong className="text-slate-100">{assignment.supervisorName}</strong><span className="mr-2 text-slate-400">{assignment.phoneNumber}</span></div><Badge variant={assignment.isPrimary ? "info" : "indigo"} size="sm">{assignment.isPrimary ? "مدیر اصلی" : "مدیر همکار"}</Badge></div>)}</div>}
-            </div>}
-          </Card>
-        )}
-
-        {/* Tab 3: Searchable Audit Trail */}
-        {activeTab === "audit" && (
-          <Card variant="elevated" className="p-6 border-white/10 space-y-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <h3 className="text-sm font-bold text-slate-100 flex items-center gap-2">
-                  <ShieldCheck className="w-4 h-4 text-apple-blue" />
-                  لاگ ممیزی و رویدادنگاری جست‌وجوپذیر (سیاست D-04)
-                </h3>
-                <p className="text-xs text-slate-400 mt-1">
-                  طبق تصمیم D-04، تمام رخدادها در لاگ ممیزی ثبت می‌شوند و اعلان فوری صرفاً برای رخدادهای حساس صادر می‌گردد.
-                </p>
-              </div>
-            </div>
-
-            <div className="space-y-2 text-xs">
-              {[
-                {
-                  event: "تعریف مدیر علمی جدید (دکتر مریم حسینی)",
-                  actor: "مهندس علوی (مدیر پیگیری)",
-                  time: "۱۰ دقیقه قبل",
-                  sensitive: true,
-                },
-                {
-                  event: "تایید صلاحیت و ارتقای کارآموز رضا میرزایی به کارورز",
-                  actor: "دکتر حسینی (مدیر علمی)",
-                  time: "۳۵ دقیقه قبل",
-                  sensitive: true,
-                },
-                {
-                  event: "ثبت مصاحبه تک‌باره منبع پژوهشی (D-07)",
-                  actor: "سارا ابراهیمی (کارورز)",
-                  time: "۲ ساعت قبل",
-                  sensitive: false,
-                },
-                {
-                  event: "پذیرش متقاضی جدید در استان تهران (D-01: سن ۲۸)",
-                  actor: "دکتر رضایی (مدیر استانی)",
-                  time: "۴ ساعت قبل",
-                  sensitive: false,
-                },
-                {
-                  event: "تعلیق حساب کاربری به دلیل عدم تحویل گزارش (FR-035)",
-                  actor: "مهندس محمدی (مدیر پشتیبانی)",
-                  time: "دیروز",
-                  sensitive: true,
-                },
-              ].map((log, idx) => (
-                <div
-                  key={idx}
-                  className="flex items-center justify-between p-3 rounded-apple-md bg-white/[0.02] border border-white/5"
-                >
-                  <div className="flex items-center gap-2">
-                    <Clock className="w-3.5 h-3.5 text-slate-400" />
-                    <span className="text-slate-200">{log.event}</span>
-                    {log.sensitive && (
-                      <Badge variant="warning" size="sm">
-                        رخداد حساس نظارتی
-                      </Badge>
+                    {m.role === "PROVINCIAL_DIRECTOR" && (
+                      <div className="space-y-2 border-t border-[#214E3A]/10 pt-2.5 text-xs">
+                        <div className="font-semibold text-[#214031]">قلمرو استان‌ها:</div>
+                        {mgrScopes.length === 0 ? (
+                          <p className="text-[#4F6659]">استانی منتسب نشده است.</p>
+                        ) : (
+                          <div className="flex flex-wrap gap-1.5">
+                            {mgrScopes.map((s) => (
+                              <span key={s.provinceId} className="inline-flex items-center gap-1 rounded-full border border-[#214E3A]/20 bg-[#F3EBDD] px-2.5 py-1 text-[11px] font-medium text-[#214031]">
+                                {provinceNameFromId(s.provinceId) ?? s.provinceId}
+                                <button
+                                  type="button"
+                                  aria-label={`لغو قلمرو ${provinceNameFromId(s.provinceId) ?? ""}`}
+                                  onClick={() => void handleRevokeProvinceScope(m.id, s.provinceId)}
+                                  className="text-[#D94F3D] hover:opacity-75"
+                                >
+                                  <Trash2 className="h-3 w-3" />
+                                </button>
+                              </span>
+                            ))}
+                          </div>
+                        )}
+                        <div className="flex items-center gap-2">
+                          <select
+                            aria-label={`افزودن استان برای ${m.fullName}`}
+                            value={scopePickByManager[m.id] ?? ""}
+                            onChange={(e) => setScopePickByManager((prev) => ({ ...prev, [m.id]: e.target.value }))}
+                            className="flex-1 rounded-xl border border-[#214E3A]/20 bg-[#FFFCF5] px-2.5 py-1.5 text-xs text-[#214031]"
+                          >
+                            <option value="">انتخاب استان...</option>
+                            {IRAN_PROVINCES.map((p) => (
+                              <option key={p.id} value={p.id}>{p.name}</option>
+                            ))}
+                          </select>
+                          <Button
+                            variant="secondary"
+                            size="sm"
+                            loading={busy}
+                            disabled={!scopePickByManager[m.id]}
+                            onClick={() => void handleAssignProvinceScope(m.id)}
+                          >
+                            افزودن قلمرو
+                          </Button>
+                        </div>
+                      </div>
                     )}
-                  </div>
-                  <div className="flex items-center gap-4 text-slate-400 text-[11px]">
-                    <span>اقدام‌کننده: {log.actor}</span>
-                    <span className="font-mono text-slate-500">{log.time}</span>
-                  </div>
-                </div>
-              ))}
+
+                    <div className="flex justify-end border-t border-[#214E3A]/10 pt-2">
+                      <Button
+                        variant={m.isActive ? "danger" : "primary"}
+                        size="sm"
+                        onClick={() => {
+                          setSuspendTarget(m);
+                          setSuspendReason("");
+                        }}
+                      >
+                        {m.isActive ? "تعلیق مدیر" : "فعال‌سازی مجدد"}
+                      </Button>
+                    </div>
+                  </Card>
+                );
+              })}
+            </div>
+          )}
+        </div>
+      ) : activeTab === "assignments" ? (
+        <TrackingAssignmentsTab managers={managers} onNotify={onNotify} />
+      ) : (
+        <div className="space-y-4">
+          <Card variant="default" padding="sm">
+            <div className="flex flex-wrap items-center gap-2">
+              <div className="relative flex-1 min-w-56">
+                <Search className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#6B8073]" />
+                <input
+                  type="search"
+                  aria-label="جست‌وجو در تاریخچه نظارت"
+                  value={searchTerm}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  placeholder="جست‌وجو بر اساس نوع رخداد یا شناسه..."
+                  className="w-full rounded-xl border border-[#214E3A]/20 bg-[#FFFCF5] py-2 pr-9 pl-3 text-sm text-[#214031]"
+                />
+              </div>
+              <Badge variant="info" size="sm">D-04 · ممیزی تغییرناپذیر</Badge>
             </div>
           </Card>
-        )}
-      </div>
 
-      {/* Modal: Create Manager */}
+          {auditEvents.length === 0 ? (
+            <EmptyState title="رخداد ممیزی یافت نشد" description="هنوز رخدادی مطابق فیلتر ثبت نشده است." icon={<ShieldCheck className="h-6 w-6" />} />
+          ) : (
+            <Card variant="default" padding="none">
+              <ul className="divide-y divide-[#214E3A]/10 text-xs">
+                {auditEvents.map((ev) => (
+                  <li key={ev.id} className="flex flex-col gap-1.5 p-4 sm:flex-row sm:items-center sm:justify-between">
+                    <div className="space-y-1">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <Badge variant="neutral" size="sm">{ev.action}</Badge>
+                        <span className="font-semibold text-[#214031]">{ev.aggregateType}</span>
+                        <span dir="ltr" className="font-mono text-[11px] text-[#4F6659]">{ev.aggregateId}</span>
+                      </div>
+                      {ev.payload != null && (
+                        <div dir="ltr" className="max-w-2xl truncate font-mono text-[11px] text-[#4F6659]">
+                          {JSON.stringify(ev.payload)}
+                        </div>
+                      )}
+                    </div>
+                    <div className="flex shrink-0 items-center gap-1 text-[11px] text-[#4F6659]">
+                      <Clock className="h-3.5 w-3.5" />
+                      <span>{new Date(ev.createdAt).toLocaleString("fa-IR")}</span>
+                    </div>
+                  </li>
+                ))}
+              </ul>
+            </Card>
+          )}
+        </div>
+      )}
+
       {isCreateModalOpen && (
-        <Modal
-          isOpen={true}
-          onClose={() => setIsCreateModalOpen(false)}
-          title="انتصاب و تعریف مدیر جدید در شبکه پژوهش"
-          maxWidth="md"
-        >
-          <form onSubmit={handleCreateManager} className="space-y-4 text-right">
-            <p className="text-xs text-slate-400 leading-relaxed">
-              مشخصات مدیر جدید را وارد نمایید. حساب کاربری بلافاصله با نقش و دسترسی‌های متناسب ایجاد می‌گردد:
-            </p>
-
-            <Input
-              label="نام و نام خانوادگی مدیر"
-              type="text"
-              dir="rtl"
-              required
-              placeholder="مثال: دکتر علیرضا سلیمانی"
-              value={newMgrName}
-              onChange={(e) => setNewMgrName(e.target.value)}
-            />
-
-            <Input
-              label="شماره تلفن همراه (جهت ورود)"
-              type="tel"
-              dir="ltr"
-              required
-              placeholder="09123456789"
-              value={newMgrPhone}
-              onChange={(e) => setNewMgrPhone(e.target.value)}
-            />
-
-            <div className="space-y-1.5">
-              <label className="block text-xs font-medium text-slate-300">
-                نقش و حیطه اختیارات سازمانی
-              </label>
+        <Modal isOpen onClose={() => setIsCreateModalOpen(false)} title="تعریف مدیر جدید در شبکه" maxWidth="md">
+          <form onSubmit={(e) => void handleCreateManager(e)} className="space-y-4 text-right">
+            <Input label="نام و نام خانوادگی" required value={newMgrName} onChange={(e) => setNewMgrName(e.target.value)} />
+            <Input label="شماره همراه" type="tel" dir="ltr" required value={newMgrPhone} onChange={(e) => setNewMgrPhone(e.target.value)} placeholder="09123456789" />
+            <label className="block space-y-1 text-xs font-medium text-[#214031]">
+              نقش سازمانی
               <select
-                dir="rtl"
                 value={newMgrRole}
                 onChange={(e) => setNewMgrRole(e.target.value)}
-                className="w-full px-3 py-2 rounded-apple-md bg-slate-900 border border-white/10 text-xs text-slate-100 focus:outline-none focus:border-apple-blue/50"
+                className="w-full rounded-xl border border-[#214E3A]/20 bg-[#FFFCF5] p-2.5 text-xs text-[#214031]"
               >
-                <option value="SCIENTIFIC_SUPERVISOR">
-                  مدیر علمی (داوری پرونده‌ها و ارزیابی شیوه‌نامه‌ها)
-                </option>
-                <option value="PROVINCIAL_DIRECTOR">
-                  مدیر استانی (میز پذیرش متقاضیان و مصاحبه علمی)
-                </option>
-                <option value="SUPPORT_DIRECTOR">
-                  مدیر پشتیبانی (رسیدگی به تیکت‌ها و تعلیق کاربران)
-                </option>
-                <option value="TRACKING_DIRECTOR">
-                  مدیر پیگیری و معاون شبکه
-                </option>
+                <option value="SCIENTIFIC_SUPERVISOR">مدیر علمی</option>
+                <option value="PROVINCIAL_DIRECTOR">مدیر استانی</option>
+                <option value="SUPPORT_DIRECTOR">مدیر پشتیبانی</option>
+                <option value="TRACKING_DIRECTOR">مدیر پیگیری</option>
               </select>
-            </div>
-
-            <Input
-              label="گذرواژه اولیه"
-              type="password"
-              dir="ltr"
-              required
-              minLength={8}
-              value={newMgrPassword}
-              onChange={(e) => setNewMgrPassword(e.target.value)}
-            />
-
-            <div className="flex items-center justify-end gap-2 pt-4 border-t border-white/10">
-              <Button
-                type="button"
-                variant="ghost"
-                size="md"
-                onClick={() => setIsCreateModalOpen(false)}
-              >
-                انصراف
+            </label>
+            {newMgrRole === "PROVINCIAL_DIRECTOR" && (
+              <label className="block space-y-1 text-xs font-medium text-[#214031]">
+                استان قلمرو اولیه (اختیاری)
+                <select
+                  value={newMgrProvinceId}
+                  onChange={(e) => setNewMgrProvinceId(e.target.value)}
+                  className="w-full rounded-xl border border-[#214E3A]/20 bg-[#FFFCF5] p-2.5 text-xs text-[#214031]"
+                >
+                  <option value="">انتخاب پس از ایجاد...</option>
+                  {IRAN_PROVINCES.map((p) => (
+                    <option key={p.id} value={p.id}>{p.name}</option>
+                  ))}
+                </select>
+              </label>
+            )}
+            <Input label="گذرواژه اولیه (حداقل ۸ کاراکتر)" type="password" dir="ltr" required minLength={8} value={newMgrPassword} onChange={(e) => setNewMgrPassword(e.target.value)} />
+            <div className="flex justify-end gap-2 border-t border-[#214E3A]/10 pt-3">
+              <Button type="button" variant="ghost" onClick={() => setIsCreateModalOpen(false)}>انصراف</Button>
+              <Button type="submit" variant="primary" loading={busy} icon={<UserPlus className="h-4 w-4" />}>
+                ایجاد و فعال‌سازی
               </Button>
-              <Button
-                type="submit"
-                variant="primary"
-                size="md"
-                loading={isCreatingManager}
-                icon={<UserPlus className="w-4 h-4" />}
-              >
-                ایجاد و فعال‌سازی مدیر
+            </div>
+          </form>
+        </Modal>
+      )}
+
+      {suspendTarget && (
+        <Modal
+          isOpen
+          onClose={() => setSuspendTarget(null)}
+          title={suspendTarget.isActive ? `تعلیق ${suspendTarget.fullName}` : `فعال‌سازی ${suspendTarget.fullName}`}
+          maxWidth="md"
+        >
+          <form onSubmit={(e) => void handleToggleManagerActive(e)} className="space-y-4 text-right">
+            <label className="block space-y-1.5 text-xs font-medium text-[#214031]">
+              دلیل اقدام (حداقل ۵ کاراکتر · D-04)
+              <textarea
+                required
+                minLength={5}
+                rows={3}
+                value={suspendReason}
+                onChange={(e) => setSuspendReason(e.target.value)}
+                className="w-full rounded-xl border border-[#214E3A]/20 bg-[#FFFCF5] p-3 text-sm text-[#214031]"
+              />
+            </label>
+            <div className="flex justify-end gap-2 border-t border-[#214E3A]/10 pt-3">
+              <Button type="button" variant="ghost" onClick={() => setSuspendTarget(null)}>انصراف</Button>
+              <Button type="submit" variant={suspendTarget.isActive ? "danger" : "primary"} loading={busy}>
+                تأیید و ثبت
               </Button>
             </div>
           </form>

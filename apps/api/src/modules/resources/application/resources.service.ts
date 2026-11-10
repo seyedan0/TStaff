@@ -1,11 +1,13 @@
-import { Injectable, Inject } from "@nestjs/common";
-import type {
-  CreateResourceDto,
-  CreateInterviewDto,
-  CreateInterviewReportDto,
-  UpdateResourceDto,
-  UpdateInterviewDto,
-  ResourceOrganizationDto,
+import { Injectable, Inject, BadRequestException } from "@nestjs/common";
+import {
+  provinceIdFromName,
+  provinceNameFromId,
+  type CreateResourceDto,
+  type CreateInterviewDto,
+  type CreateInterviewReportDto,
+  type UpdateResourceDto,
+  type UpdateInterviewDto,
+  type ResourceOrganizationDto,
 } from "@tstaff/contracts";
 import { Resource } from "../domain/resource.entity.js";
 import { Interview } from "../domain/interview.entity.js";
@@ -33,6 +35,11 @@ export class ResourcesService {
     caseId: string,
     dto: CreateResourceDto,
   ): Promise<Resource> {
+    if (dto.provinceId && !provinceNameFromId(dto.provinceId)) {
+      throw new BadRequestException("شناسه استان معتبر نیست");
+    }
+    const resolvedProvinceId = dto.provinceId ?? provinceIdFromName(dto.province);
+    const resolvedProvince = dto.province ?? provinceNameFromId(resolvedProvinceId);
     const resource = Resource.create({
       id: crypto.randomUUID(),
       researchCaseId: caseId,
@@ -42,7 +49,8 @@ export class ResourcesService {
       contactInfo: dto.contactInfo ?? null,
       personAge: dto.personAge ?? null,
       position: dto.position ?? null,
-      province: dto.province ?? null,
+      provinceId: resolvedProvinceId,
+      province: resolvedProvince,
       county: dto.county ?? null,
     });
 
@@ -98,7 +106,21 @@ export class ResourcesService {
   async updateResource(resourceId: string, dto: UpdateResourceDto): Promise<Resource> {
     const resource = await this.resourceRepo.findResourceById(resourceId);
     if (!resource) throw new ResourceNotFoundError(resourceId);
-    const updated = resource.updateInfo(dto);
+    let provinceIdUpdate: string | null | undefined;
+    let provinceUpdate = dto.province;
+    if (dto.provinceId !== undefined) {
+      const resolvedName = provinceNameFromId(dto.provinceId);
+      if (!resolvedName) throw new BadRequestException("شناسه استان معتبر نیست");
+      provinceIdUpdate = dto.provinceId;
+      provinceUpdate = dto.province ?? resolvedName;
+    } else if (dto.province !== undefined) {
+      provinceIdUpdate = provinceIdFromName(dto.province);
+    }
+    const updated = resource.updateInfo({
+      ...dto,
+      ...(provinceIdUpdate !== undefined ? { provinceId: provinceIdUpdate } : {}),
+      ...(provinceUpdate !== undefined ? { province: provinceUpdate } : {}),
+    });
     await this.resourceRepo.saveResource(updated);
     return updated;
   }

@@ -16,7 +16,7 @@ import { RESOURCE_BANK_REPOSITORY } from "./application/ports/resource-bank.repo
 import { PrismaResourceBankRepository } from "./infrastructure/prisma-resource-bank.repository.js";
 
 @Module({
-  imports: [FilesModule, forwardRef(() => ResearchModule), OrganizationModule, ApplicantsModule, AuditModule],
+  imports: [FilesModule, forwardRef(() => ResearchModule), OrganizationModule, forwardRef(() => ApplicantsModule), AuditModule],
   controllers: [ResourcesController, ResourceBankController],
   providers: [
     ResourceBankService,

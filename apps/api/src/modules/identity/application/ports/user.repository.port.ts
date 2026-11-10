@@ -1,5 +1,14 @@
 import { User } from "../../domain/user.entity.js";
-import type { StudyDocumentSnapshot } from "@tstaff/contracts";
+import type { DirectoryUserDto, StudyDocumentSnapshot } from "@tstaff/contracts";
+
+export interface UserApplicantDetailsRecord {
+  nationalId: string | null;
+  age: number | null;
+  provinceId: string | null;
+  provinceName: string | null;
+  education: string | null;
+  fieldOfStudy: string | null;
+}
 
 export interface StudyEvaluationRecord {
   id: string;
@@ -30,11 +39,13 @@ export interface SupportTicketRecord {
 
 export interface UserRepositoryPort {
   findProvinceIdByUserId?(userId: string): Promise<string | null>;
+  findApplicantDetailsByUserId?(userId: string): Promise<UserApplicantDetailsRecord | null>;
   findById(id: string): Promise<User | null>;
   findByPhoneNumber(phoneNumber: string): Promise<User | null>;
   findByApplicantId(applicantId: string): Promise<User | null>;
   findAllManagers(): Promise<User[]>;
   findAllInterns?(): Promise<User[]>;
+  findAllDirectoryUsers?(): Promise<DirectoryUserDto[]>;
   save(user: User): Promise<void>;
   createSession?(input: { userId: string; tokenHash: string; expiresAt: Date }): Promise<void>;
   revokeSession?(tokenHash: string): Promise<void>;

@@ -1,4 +1,4 @@
-import { Injectable } from "@nestjs/common";
+import { Inject, Injectable } from "@nestjs/common";
 import { PrismaService } from "@tstaff/database";
 import type { ResearchChangeRequestDto } from "@tstaff/contracts";
 import type { ChangeRequestRepositoryPort } from "../application/ports/change-request.repository.port.js";
@@ -6,7 +6,7 @@ import { StaleRevisionError } from "../domain/research-errors.js";
 
 @Injectable()
 export class PrismaChangeRequestRepository implements ChangeRequestRepositoryPort {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(@Inject(PrismaService) private readonly prisma: PrismaService) {}
   async create(item: ResearchChangeRequestDto) {
     await this.prisma.researchChangeRequest.create({ data: { ...item, createdAt: new Date(item.createdAt), decidedAt: null } });
   }

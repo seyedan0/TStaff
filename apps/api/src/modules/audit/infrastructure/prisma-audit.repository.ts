@@ -1,4 +1,4 @@
-import { Injectable } from "@nestjs/common";
+import { Inject, Injectable } from "@nestjs/common";
 import { PrismaService } from "@tstaff/database";
 import { AuditEvent } from "../domain/audit-event.entity.js";
 import type { AuditRepositoryPort } from "../application/ports/audit.repository.port.js";
@@ -7,7 +7,7 @@ import type { Prisma } from "@tstaff/database";
 
 @Injectable()
 export class PrismaAuditRepository implements AuditRepositoryPort {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(@Inject(PrismaService) private readonly prisma: PrismaService) {}
 
   async save(event: AuditEvent): Promise<void> {
     await this.prisma.auditEvent.upsert({
@@ -42,6 +42,15 @@ export class PrismaAuditRepository implements AuditRepositoryPort {
     if (filter.aggregateId) where.aggregateId = filter.aggregateId;
     if (filter.actorId) where.actorId = filter.actorId;
     if (filter.action) where.action = filter.action;
+    if (filter.q?.trim()) {
+      const q = filter.q.trim();
+      where.OR = [
+        { action: { contains: q, mode: "insensitive" } },
+        { aggregateType: { contains: q, mode: "insensitive" } },
+        { aggregateId: { contains: q, mode: "insensitive" } },
+        { actorId: { contains: q, mode: "insensitive" } },
+      ];
+    }
 
     const rows = await this.prisma.auditEvent.findMany({
       where,

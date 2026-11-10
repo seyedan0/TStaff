@@ -5,9 +5,11 @@ import {
   ASSIGNMENT_REPOSITORY,
 } from "./application/assignments.service.js";
 import { PrismaAssignmentRepository } from "./infrastructure/prisma-assignment.repository.js";
+import { AuditModule } from "../audit/audit.module.js";
+import { NotificationsModule } from "../notifications/notifications.module.js";
 
 @Module({
-  imports: [],
+  imports: [AuditModule, NotificationsModule],
   controllers: [ScientificAssignmentsController],
   providers: [
     AssignmentsService,

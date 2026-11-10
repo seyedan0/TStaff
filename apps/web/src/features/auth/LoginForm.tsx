@@ -78,28 +78,24 @@ export const LoginForm: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen flex flex-col items-center justify-center p-4 py-8 bg-[#0b0f17]">
+    <div className="min-h-screen flex flex-col items-center justify-center p-4 py-8 bg-[#F3EBDD]">
       <div className="w-full max-w-md space-y-6">
-        {/* Main Login Card */}
-        <Card
-          variant="elevated"
-          className="w-full animate-scale-up border-white/10 shadow-2xl backdrop-blur-2xl bg-slate-900/80"
-        >
+        <Card variant="elevated" className="w-full animate-scale-up">
           <div className="text-center mb-6">
-            <div className="w-14 h-14 mx-auto mb-4 rounded-apple-xl bg-apple-blue/15 border border-apple-blue/30 flex items-center justify-center text-apple-blue shadow-apple-glow">
+            <div className="w-14 h-14 mx-auto mb-4 rounded-2xl bg-[#214E3A] text-[#FFFCF5] flex items-center justify-center shadow-sm">
               <ShieldCheck className="w-8 h-8" />
             </div>
-            <h2 className="text-xl font-bold text-slate-100 tracking-tight">
+            <h1 className="text-xl font-bold text-[#214031] tracking-tight">
               {demoMode ? "بازبینی نسخه‌ی نمایشی TStaff" : "ورود به سامانه مدیریت پژوهش TStaff"}
-            </h2>
-            <p className="text-xs text-slate-400 mt-1.5 leading-relaxed">
+            </h1>
+            <p className="text-xs text-[#4F6659] mt-1.5 leading-relaxed">
               {demoMode ? "برای مشاهده‌ی پنل‌ها، یکی از حساب‌های ساختگی را انتخاب کنید." : "جهت ورود به پنل، اطلاعات حساب کاربری خود را وارد فرمایید"}
             </p>
           </div>
 
           {demoMode ? (
             <section className="space-y-3" aria-label="حساب‌های نمایشی">
-              <div className="rounded-apple-md border border-apple-blue/20 bg-apple-blue/[0.06] px-3 py-2.5 text-[11px] leading-relaxed text-slate-300">
+              <div className="rounded-xl border border-[#214E3A]/20 bg-[#214E3A]/[0.06] px-3 py-2.5 text-[11px] leading-relaxed text-[#214031]">
                 داده‌ها ساختگی‌اند. هر حساب فقط وضعیت نمایشی را باز می‌کند؛ تغییرات این مرورگر با seed محلی مشترک ذخیره می‌شوند.
               </div>
               <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
@@ -109,59 +105,61 @@ export const LoginForm: React.FC = () => {
                     type="button"
                     disabled={loading}
                     onClick={() => void handleDemoLogin(persona.id)}
-                    className="rounded-apple-md border border-white/10 bg-slate-900/70 px-3 py-3 text-right transition-colors hover:border-apple-blue/50 hover:bg-apple-blue/10 disabled:cursor-wait disabled:opacity-50"
+                    className="rounded-xl border border-[#214E3A]/20 bg-[#F3EBDD]/60 px-3 py-3 text-right transition-colors hover:border-[#214E3A] hover:bg-[#214E3A]/10 disabled:cursor-wait disabled:opacity-50"
                   >
-                    <span className="block text-xs font-semibold text-slate-100">{persona.label}</span>
-                    <span className="mt-1 block text-[10px] font-medium text-apple-blue">{persona.status}</span>
-                    <span className="mt-1 block text-[10px] leading-relaxed text-slate-400">{persona.summary}</span>
+                    <span className="block text-xs font-semibold text-[#214031]">{persona.label}</span>
+                    <span className="mt-1 block text-[10px] font-medium text-[#214E3A]">{persona.status}</span>
+                    <span className="mt-1 block text-[10px] leading-relaxed text-[#4F6659]">{persona.summary}</span>
                   </button>
                 ))}
               </div>
             </section>
-          ) : <form onSubmit={handleSubmit} className="space-y-4 text-right">
-            <Input
-              label="شماره تلفن همراه"
-              type="tel"
-              dir="ltr"
-              placeholder="09121111111"
-              value={phone}
-              onChange={(e) => setPhone(e.target.value)}
-              icon={<Phone className="w-4 h-4" />}
-              required
-            />
+          ) : (
+            <form onSubmit={handleSubmit} className="space-y-4 text-right">
+              <Input
+                label="شماره تلفن همراه"
+                type="tel"
+                dir="ltr"
+                placeholder="09121111111"
+                value={phone}
+                onChange={(e) => setPhone(e.target.value)}
+                icon={<Phone className="w-4 h-4" />}
+                required
+              />
 
-            <Input
-              label="رمز عبور"
-              type="password"
-              dir="ltr"
-              placeholder="••••••••"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              icon={<Lock className="w-4 h-4" />}
-              required
-            />
+              <Input
+                label="رمز عبور"
+                type="password"
+                dir="ltr"
+                placeholder="••••••••"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                icon={<Lock className="w-4 h-4" />}
+                required
+              />
 
-            {error && (
-              <div className="p-3 rounded-apple-md bg-apple-red/10 border border-apple-red/20 text-apple-red text-xs leading-relaxed">
-                {error}
-              </div>
-            )}
+              {error && (
+                <div role="alert" className="p-3 rounded-xl bg-[#D94F3D]/10 border border-[#D94F3D]/30 text-[#B83B2B] text-xs font-medium leading-relaxed">
+                  {error}
+                </div>
+              )}
 
-            <Button
-              type="submit"
-              variant="primary"
-              size="lg"
-              className="w-full mt-3 font-semibold"
-              loading={loading}
-              icon={<ArrowLeft className="w-4 h-4" />}
-            >
-              ورود به حساب کاربری
-            </Button>
-          </form>}
+              <Button
+                type="submit"
+                variant="primary"
+                size="lg"
+                className="w-full mt-3 font-semibold"
+                loading={loading}
+                icon={<ArrowLeft className="w-4 h-4" />}
+              >
+                ورود به حساب کاربری
+              </Button>
+            </form>
+          )}
 
           {!demoMode && quickLoginConfig && (
-            <section className="mt-5 border-t border-white/10 pt-4" aria-label="ورود سریع محلی">
-              <h3 className="mb-3 text-sm font-semibold text-slate-200">ورود سریع برای تست محلی</h3>
+            <section className="mt-5 border-t border-[#214E3A]/15 pt-4" aria-label="ورود سریع محلی">
+              <h2 className="mb-3 text-sm font-semibold text-[#214031]">ورود سریع برای تست محلی</h2>
               <div className="grid max-h-72 grid-cols-1 gap-2 overflow-y-auto sm:grid-cols-2">
                 {quickLoginConfig.users.map((user) => (
                   <button
@@ -169,23 +167,22 @@ export const LoginForm: React.FC = () => {
                     type="button"
                     disabled={loading}
                     onClick={() => void handleQuickLogin(user)}
-                    className="rounded-apple-md border border-white/10 bg-slate-900/70 px-3 py-2 text-right transition-colors hover:border-apple-blue/50 hover:bg-apple-blue/10 disabled:cursor-wait disabled:opacity-50"
+                    className="rounded-xl border border-[#214E3A]/15 bg-[#F3EBDD]/55 px-3 py-2 text-right transition-colors hover:border-[#214E3A] hover:bg-[#214E3A]/10 disabled:cursor-wait disabled:opacity-50"
                   >
-                    <span className="block text-xs font-medium text-slate-100">{user.label}</span>
-                    <span className="mt-1 block text-[10px] text-slate-400">{user.role} · {user.phoneNumber}</span>
+                    <span className="block text-xs font-semibold text-[#214031]">{user.label}</span>
+                    <span className="mt-1 block text-[10px] text-[#4F6659]">{user.role} · {user.phoneNumber}</span>
                   </button>
                 ))}
               </div>
             </section>
           )}
 
-          <div className="mt-4 pt-4 border-t border-white/5 text-center">
-            <p className="text-[11px] text-slate-500">
+          <div className="mt-4 pt-4 border-t border-[#214E3A]/10 text-center">
+            <p className="text-[11px] text-[#4F6659]">
               {demoMode ? "نسخه‌ی نمایشی به API و حساب واقعی متصل نیست." : "احراز هویت فاز ۱ مبتنی بر گذرواژه امن (بدون ارسال پیامک OTP)"}
             </p>
           </div>
         </Card>
-
       </div>
     </div>
   );

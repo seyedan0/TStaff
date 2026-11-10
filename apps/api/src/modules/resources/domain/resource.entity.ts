@@ -10,6 +10,7 @@ export interface ResourceProps {
   contactInfo: string | null;
   personAge?: number | null;
   position?: string | null;
+  provinceId?: string | null;
   province?: string | null;
   county?: string | null;
   status: ResourceStatus;
@@ -30,6 +31,7 @@ export class Resource {
     contactInfo?: string | null;
     personAge?: number | null;
     position?: string | null;
+    provinceId?: string | null;
     province?: string | null;
     county?: string | null;
   }): Resource {
@@ -43,6 +45,7 @@ export class Resource {
       contactInfo: params.contactInfo ?? null,
       personAge: params.personAge ?? null,
       position: params.position ?? null,
+      provinceId: params.provinceId ?? null,
       province: params.province ?? null,
       county: params.county ?? null,
       status: "IDENTIFIED",
@@ -75,6 +78,7 @@ export class Resource {
     contactInfo?: string | undefined;
     personAge?: number | undefined;
     position?: string | undefined;
+    provinceId?: string | null | undefined;
     province?: string | undefined;
     county?: string | undefined;
   }): Resource {
@@ -85,6 +89,7 @@ export class Resource {
       ...(params.contactInfo !== undefined ? { contactInfo: params.contactInfo || null } : {}),
       ...(params.personAge !== undefined ? { personAge: params.personAge } : {}),
       ...(params.position !== undefined ? { position: params.position || null } : {}),
+      ...(params.provinceId !== undefined ? { provinceId: params.provinceId } : {}),
       ...(params.province !== undefined ? { province: params.province || null } : {}),
       ...(params.county !== undefined ? { county: params.county || null } : {}),
       updatedAt: new Date(),
@@ -141,6 +146,7 @@ export class Resource {
       contactInfo: this.props.contactInfo,
       personAge: this.props.personAge ?? null,
       position: this.props.position ?? null,
+      provinceId: this.props.provinceId ?? null,
       province: this.props.province ?? null,
       county: this.props.county ?? null,
       status: this.props.status,

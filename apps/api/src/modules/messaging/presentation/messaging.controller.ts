@@ -11,6 +11,7 @@ import {
   HttpStatus,
   BadRequestException,
   Inject,
+  Req,
 } from "@nestjs/common";
 import { ApiTags, ApiOperation, ApiResponse, ApiHeader } from "@nestjs/swagger";
 import {
@@ -47,19 +48,38 @@ export class MessagingController {
   async createOrGetConversation(
     @Headers("x-user-id") headerUserId: string | undefined,
     @Body() body: unknown,
+    @Req() request: any,
   ) {
-    if (!headerUserId) {
-      throw new BadRequestException("شناسه کاربر الزامی است (x-user-id)");
+    const userId = request?.user?.id ?? headerUserId;
+    if (!userId) {
+      throw new BadRequestException("شناسه کاربر الزامی است");
     }
     const dto = CreateConversationDtoSchema.parse(body);
+    const roles: string[] = request?.user?.roles ?? (request?.user?.role ? [request.user.role] : []);
     const conversation =
       await this.messagingService.createOrGetDirectConversation(
-        headerUserId,
+        userId,
         dto.participantId,
         dto.type,
         dto.researchCaseId,
+        roles,
       );
     return conversation.toJSON();
+  }
+
+  @Get("contacts")
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: "دریافت فهرست مخاطبین مجاز گفت‌وگوی دونفره" })
+  async getContacts(
+    @Headers("x-user-id") headerUserId: string | undefined,
+    @Req() request: any,
+  ) {
+    const userId = request?.user?.id ?? headerUserId;
+    if (!userId) {
+      throw new BadRequestException("شناسه کاربر الزامی است");
+    }
+    const roles: string[] = request?.user?.roles ?? (request?.user?.role ? [request.user.role] : []);
+    return this.messagingService.getContacts(userId, roles);
   }
 
   @Get()
@@ -67,13 +87,15 @@ export class MessagingController {
   @ApiOperation({ summary: "دریافت فهرست گفت‌وگوهای کاربر جاری" })
   async getMyConversations(
     @Headers("x-user-id") headerUserId: string | undefined,
+    @Req() request: any,
   ) {
-    if (!headerUserId) {
-      throw new BadRequestException("شناسه کاربر الزامی است (x-user-id)");
+    const userId = request?.user?.id ?? headerUserId;
+    if (!userId) {
+      throw new BadRequestException("شناسه کاربر الزامی است");
     }
     const conversations =
-      await this.messagingService.getUserConversations(headerUserId);
-    return conversations.map((c) => c.toJSON());
+      await this.messagingService.getUserConversations(userId);
+    return this.messagingService.enrichConversations(userId, conversations);
   }
 
   @Get(":id")
@@ -82,13 +104,15 @@ export class MessagingController {
   async getConversationById(
     @Param("id") id: string,
     @Headers("x-user-id") headerUserId: string | undefined,
+    @Req() request: any,
   ) {
-    if (!headerUserId) {
-      throw new BadRequestException("شناسه کاربر الزامی است (x-user-id)");
+    const userId = request?.user?.id ?? headerUserId;
+    if (!userId) {
+      throw new BadRequestException("شناسه کاربر الزامی است");
     }
     const conversation = await this.messagingService.getConversationById(
       id,
-      headerUserId,
+      userId,
     );
     return conversation.toJSON();
   }
@@ -99,15 +123,17 @@ export class MessagingController {
   async getMessages(
     @Param("id") id: string,
     @Headers("x-user-id") headerUserId: string | undefined,
+    @Req() request: any,
     @Query("limit") limit?: string,
   ) {
-    if (!headerUserId) {
-      throw new BadRequestException("شناسه کاربر الزامی است (x-user-id)");
+    const userId = request?.user?.id ?? headerUserId;
+    if (!userId) {
+      throw new BadRequestException("شناسه کاربر الزامی است");
     }
     const parsedLimit = limit ? Number.parseInt(limit, 10) : 100;
     const messages = await this.messagingService.getConversationMessages(
       id,
-      headerUserId,
+      userId,
       parsedLimit,
     );
     return messages.map((m) => m.toJSON());
@@ -124,14 +150,16 @@ export class MessagingController {
     @Param("id") id: string,
     @Headers("x-user-id") headerUserId: string | undefined,
     @Body() body: unknown,
+    @Req() request: any,
   ) {
-    if (!headerUserId) {
-      throw new BadRequestException("شناسه فرستنده الزامی است (x-user-id)");
+    const userId = request?.user?.id ?? headerUserId;
+    if (!userId) {
+      throw new BadRequestException("شناسه فرستنده الزامی است");
     }
     const dto = SendMessageDtoSchema.parse(body);
     const message = await this.messagingService.sendMessage(
       id,
-      headerUserId,
+      userId,
       dto,
     );
     return message.toJSON();

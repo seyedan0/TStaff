@@ -1,11 +1,11 @@
-import { Injectable } from "@nestjs/common";
+import { Inject, Injectable } from "@nestjs/common";
 import { PrismaService } from "@tstaff/database";
 import { Applicant, ApplicantStatusType } from "../domain/applicant.entity.js";
 import type { ApplicantRepositoryPort } from "../application/ports/applicant.repository.port.js";
 
 @Injectable()
 export class PrismaApplicantRepository implements ApplicantRepositoryPort {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(@Inject(PrismaService) private readonly prisma: PrismaService) {}
 
   async findById(id: string): Promise<Applicant | null> {
     const raw = await this.prisma.applicant.findUnique({

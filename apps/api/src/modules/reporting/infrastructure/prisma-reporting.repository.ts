@@ -1,4 +1,4 @@
-import { Injectable } from "@nestjs/common";
+import { Inject, Injectable } from "@nestjs/common";
 import { PrismaService } from "@tstaff/database";
 import type { ReportingRepositoryPort } from "../application/ports/reporting.repository.port.js";
 import type {
@@ -12,7 +12,7 @@ import type {
 
 @Injectable()
 export class PrismaReportingRepository implements ReportingRepositoryPort {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(@Inject(PrismaService) private readonly prisma: PrismaService) {}
 
   async getProvincialDirectorMetrics(
     provinceId?: string,
@@ -40,7 +40,10 @@ export class PrismaReportingRepository implements ReportingRepositoryPort {
         where: { stage: "INTERN", isActive: true, ...userApplicantFilter },
       }),
       this.prisma.researchCase.count({
-        where: { status: { notIn: ["COMPLETED", "ARCHIVED"] } },
+        where: {
+          status: { notIn: ["COMPLETED", "ARCHIVED"] },
+          ...(provinceId ? { researcher: { applicant: { provinceId } } } : {}),
+        },
       }),
     ]);
 
@@ -211,6 +214,9 @@ export class PrismaReportingRepository implements ReportingRepositoryPort {
       }),
       this.prisma.stageInstance.groupBy({
         by: ["stageType"],
+        where: {
+          status: { in: ["IN_PROGRESS", "SUBMITTED", "REVISION_REQUESTED", "REVIEW_REQUIRED"] },
+        },
         _count: { stageType: true },
       }),
     ]);

@@ -5,3 +5,8 @@ export function provinceIdFromName(value: string | null | undefined): string | n
   const normalize = (text: string) => text.normalize("NFKC").replace(/ي/g, "ی").replace(/ك/g, "ک").replace(/[\s‌]+/g, "").replace(/^استان/, "");
   return IRAN_PROVINCES.find((province) => province.id === value || normalize(province.name) === normalize(value))?.id ?? null;
 }
+
+export function provinceNameFromId(id: string | null | undefined): string | null {
+  if (!id) return null;
+  return IRAN_PROVINCES.find((province) => province.id === id)?.name ?? null;
+}

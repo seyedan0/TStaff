@@ -1,4 +1,4 @@
-import { Injectable } from "@nestjs/common";
+import { Inject, Injectable } from "@nestjs/common";
 import { PrismaService } from "@tstaff/database";
 import {
   ArchiveJob,
@@ -10,7 +10,7 @@ import type { ArchiveJobStatus as PrismaArchiveStatus } from "@tstaff/database";
 
 @Injectable()
 export class PrismaArchivalRepository implements ArchiveJobRepositoryPort {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(@Inject(PrismaService) private readonly prisma: PrismaService) {}
 
   async save(job: ArchiveJob): Promise<void> {
     await this.prisma.archiveJob.upsert({

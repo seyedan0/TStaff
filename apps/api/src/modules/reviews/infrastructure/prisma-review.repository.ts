@@ -1,4 +1,4 @@
-import { Injectable } from "@nestjs/common";
+import { Inject, Injectable } from "@nestjs/common";
 import { PrismaService } from "@tstaff/database";
 import { StageSubmission } from "../domain/stage-submission.entity.js";
 import { ReviewDecision } from "../domain/review-decision.entity.js";
@@ -7,7 +7,7 @@ import type { ReviewRepositoryPort } from "../application/ports/review.repositor
 
 @Injectable()
 export class PrismaReviewRepository implements ReviewRepositoryPort {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(@Inject(PrismaService) private readonly prisma: PrismaService) {}
 
   async findStageIdsByFileId(fileId: string): Promise<string[]> {
     return (await this.prisma.stageSubmission.findMany({ where: { storedObjectId: fileId }, select: { stageInstanceId: true } })).map((row) => row.stageInstanceId);

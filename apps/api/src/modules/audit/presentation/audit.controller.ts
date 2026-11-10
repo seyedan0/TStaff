@@ -14,12 +14,14 @@ import { AuditService } from "../application/audit.service.js";
 import {
   StageGuard,
   RequireStage,
+  RequireRoles,
 } from "../../../platform/security/stage.guard.js";
 
 @ApiTags("Audit (لاگ ممیزی و نظارت)")
 @Controller("audit-events")
 @UseGuards(StageGuard)
 @RequireStage("INTERN")
+@RequireRoles("TRACKING_DIRECTOR", "SYSTEM_ADMIN")
 @ApiHeader({
   name: "x-user-stage",
   description: "سطح کاربری جهت اعتبارسنجی سطح دسترسی (INTERN)",

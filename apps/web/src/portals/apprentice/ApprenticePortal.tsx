@@ -45,7 +45,7 @@ export const ApprenticePortal: React.FC<ApprenticePortalProps> = ({ onNotify }) 
 
   return (
     <div className="space-y-5">
-      <div className="flex justify-end border-b border-white/10 pb-3">
+      <div className="flex justify-end border-b border-[#214E3A]/15 pb-3">
         <Button
           variant="secondary"
           size="sm"
@@ -62,17 +62,17 @@ export const ApprenticePortal: React.FC<ApprenticePortalProps> = ({ onNotify }) 
       {showSupportModal && (
         <Modal isOpen onClose={() => setShowSupportModal(false)} title="ارسال تیکت به مدیر پشتیبانی" maxWidth="md">
           <form onSubmit={(event) => void handleCreateSupportTicket(event)} className="space-y-4 text-right">
-            <label className="block space-y-1.5 text-xs text-slate-300">
+            <label className="block space-y-1.5 text-xs font-medium text-[#214031]">
               موضوع
               <input
                 required
                 minLength={3}
                 value={ticketSubject}
                 onChange={(event) => setTicketSubject(event.target.value)}
-                className="w-full rounded-apple-md border border-white/10 bg-white/[0.04] px-3 py-2 text-slate-100"
+                className="w-full rounded-xl border border-[#214E3A]/20 bg-[#FFFCF5] px-3 py-2 text-sm text-[#214031]"
               />
             </label>
-            <label className="block space-y-1.5 text-xs text-slate-300">
+            <label className="block space-y-1.5 text-xs font-medium text-[#214031]">
               شرح درخواست
               <textarea
                 required
@@ -80,10 +80,10 @@ export const ApprenticePortal: React.FC<ApprenticePortalProps> = ({ onNotify }) 
                 rows={4}
                 value={ticketDescription}
                 onChange={(event) => setTicketDescription(event.target.value)}
-                className="w-full rounded-apple-md border border-white/10 bg-white/[0.04] px-3 py-2 text-slate-100"
+                className="w-full rounded-xl border border-[#214E3A]/20 bg-[#FFFCF5] px-3 py-2 text-sm text-[#214031]"
               />
             </label>
-            <div className="flex justify-end gap-2 border-t border-white/10 pt-3">
+            <div className="flex justify-end gap-2 border-t border-[#214E3A]/10 pt-3">
               <Button type="button" variant="ghost" onClick={() => setShowSupportModal(false)}>انصراف</Button>
               <Button type="submit" variant="primary" loading={isSubmittingTicket} icon={<Send className="h-4 w-4" />}>
                 ارسال

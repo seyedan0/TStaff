@@ -39,11 +39,13 @@ export interface ApplicantItem {
   phoneNumber: string;
   age: number;
   provinceId: string;
-  education: string;
+  initialSupervisorId?: string | null;
+  education?: string;
+  educationLevel?: string | null;
   fieldOfStudy: string;
   status: ApplicantStatus;
-  rejectionReason?: string;
-  notes?: string;
+  rejectionReason?: string | null;
+  notes?: string | null;
   createdAt?: string;
   updatedAt?: string;
 }
@@ -72,6 +74,7 @@ export interface ResearchCaseItem {
   version: number;
   stages: StageInstanceItem[];
   supervisors?: SupervisorItem[];
+  canReview?: boolean;
   createdAt?: string;
   updatedAt?: string;
 }
@@ -100,6 +103,7 @@ export interface ResourceItem {
   contactInfo?: string | null;
   personAge?: number | null;
   position?: string | null;
+  provinceId?: string | null;
   province?: string | null;
   county?: string | null;
   organization?: { name: string; educationLevel?: string | null; organizationType?: string | null; description?: string | null } | null;

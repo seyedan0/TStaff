@@ -1,12 +1,13 @@
-import { Injectable } from "@nestjs/common";
+import { Inject, Injectable } from "@nestjs/common";
 import { PrismaService } from "@tstaff/database";
+import type { ScenarioDecisionDto, ScenarioVersionDto } from "@tstaff/contracts";
 import { Scenario } from "../domain/scenario.entity.js";
 import { StaleScenarioRevisionError } from "../domain/scenarios-errors.js";
 import type { ScenarioRepositoryPort } from "../application/ports/scenario.repository.port.js";
 
 @Injectable()
 export class PrismaScenarioRepository implements ScenarioRepositoryPort {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(@Inject(PrismaService) private readonly prisma: PrismaService) {}
 
   async create(scenario: Scenario): Promise<void> {
     await this.prisma.$transaction(async () => {
@@ -74,9 +75,47 @@ export class PrismaScenarioRepository implements ScenarioRepositoryPort {
     });
   }
 
-  async findVersions(scenarioId: string) {
+  async findVersions(scenarioId: string): Promise<ScenarioVersionDto[]> {
     const rows = await this.prisma.scenarioVersion.findMany({ where: { scenarioId }, orderBy: { version: "desc" } });
-    return rows.map((row) => ({ version: row.version, title: row.title, summary: row.summary, content: row.content, status: row.status, createdAt: row.createdAt.toISOString() }));
+    return rows.map((row) => ({
+      version: row.version,
+      title: row.title,
+      summary: row.summary,
+      content: row.content,
+      status: row.status as ScenarioVersionDto["status"],
+      createdById: row.createdById ?? null,
+      createdAt: row.createdAt.toISOString(),
+    }));
+  }
+
+  async findDecisions(scenarioId: string): Promise<ScenarioDecisionDto[]> {
+    const rows = await this.prisma.reviewDecision.findMany({
+      where: { scenarioId },
+      orderBy: { decidedAt: "desc" },
+    });
+    const reviewerIds = [...new Set(rows.map((r) => r.reviewerId))];
+    const reviewers = reviewerIds.length
+      ? await this.prisma.user.findMany({
+          where: { id: { in: reviewerIds } },
+          include: { profile: true },
+        })
+      : [];
+    const nameById = new Map(
+      reviewers.map((u) => [
+        u.id,
+        u.profile ? `${u.profile.firstName} ${u.profile.lastName}`.trim() : null,
+      ]),
+    );
+    return rows.map((row) => ({
+      id: row.id,
+      reviewerId: row.reviewerId,
+      reviewerName: nameById.get(row.reviewerId) ?? null,
+      decision: row.decision as "APPROVED" | "CHANGES_REQUESTED",
+      expectedVersion: row.expectedVersion,
+      actualVersion: row.actualVersion,
+      reason: row.reason,
+      decidedAt: row.decidedAt.toISOString(),
+    }));
   }
 
   private async saveSnapshot(scenario: Scenario) {

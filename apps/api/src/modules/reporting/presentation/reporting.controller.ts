@@ -7,14 +7,19 @@ import {
   HttpCode,
   HttpStatus,
   BadRequestException,
+  ForbiddenException,
   Inject,
+  Optional,
+  Req,
 } from "@nestjs/common";
 import { ApiTags, ApiOperation, ApiResponse, ApiHeader } from "@nestjs/swagger";
 import { ReportingService } from "../application/reporting.service.js";
 import {
   StageGuard,
   RequireStage,
+  RequireRoles,
 } from "../../../platform/security/stage.guard.js";
+import { OrganizationService } from "../../organization/application/organization.service.js";
 
 @ApiTags("Reporting (داشبوردهای گزارش‌گیری و نظارت مدیریتی)")
 @Controller("reporting")
@@ -29,9 +34,12 @@ export class ReportingController {
   constructor(
     @Inject(ReportingService)
     private readonly reportingService: ReportingService,
+    @Optional() @Inject(OrganizationService)
+    private readonly organization?: OrganizationService,
   ) {}
 
   @Get("provincial-director")
+  @RequireRoles("PROVINCIAL_DIRECTOR", "TRACKING_DIRECTOR", "SYSTEM_ADMIN")
   @HttpCode(HttpStatus.OK)
   @ApiOperation({
     summary:
@@ -41,11 +49,29 @@ export class ReportingController {
     status: 200,
     description: "شاخص‌های مدیر استانی با موفقیت بازگردانده شد",
   })
-  async getProvincialDirectorMetrics(@Query("provinceId") provinceId?: string) {
+  async getProvincialDirectorMetrics(@Query("provinceId") provinceId: string | undefined, @Req() request: any) {
+    const roles: string[] = request.user?.roles ?? (request.user?.role ? [request.user.role] : []);
+    if (roles.includes("PROVINCIAL_DIRECTOR") && !roles.includes("TRACKING_DIRECTOR") && !roles.includes("SYSTEM_ADMIN") && this.organization) {
+      const allowed = await this.organization.provinceIds(request.user.id);
+      if (provinceId && !allowed.includes(provinceId)) {
+        throw new ForbiddenException("دسترسی به آمار استان انتخاب‌شده مجاز نیست");
+      }
+      if (!provinceId && allowed.length === 0) {
+        return {
+          totalApplicants: 0,
+          approvedApplicants: 0,
+          totalApprentices: 0,
+          totalInterns: 0,
+          activeResearchCases: 0,
+        };
+      }
+      return this.reportingService.getProvincialDirectorMetrics(provinceId ?? allowed[0]);
+    }
     return this.reportingService.getProvincialDirectorMetrics(provinceId);
   }
 
   @Get("supervisor-worklist")
+  @RequireRoles("SCIENTIFIC_SUPERVISOR", "TRACKING_DIRECTOR", "SYSTEM_ADMIN")
   @HttpCode(HttpStatus.OK)
   @ApiOperation({
     summary:
@@ -58,8 +84,19 @@ export class ReportingController {
   async getSupervisorWorklist(
     @Headers("x-user-id") headerUserId: string | undefined,
     @Query("supervisorId") querySupervisorId: string | undefined,
+    @Req() request: any,
   ) {
-    const supervisorId = querySupervisorId || headerUserId;
+    const roles: string[] = request.user?.roles ?? (request.user?.role ? [request.user.role] : []);
+    if (
+      roles.includes("SCIENTIFIC_SUPERVISOR") &&
+      !roles.includes("TRACKING_DIRECTOR") &&
+      !roles.includes("SYSTEM_ADMIN") &&
+      querySupervisorId &&
+      querySupervisorId !== request.user?.id
+    ) {
+      throw new ForbiddenException("مشاهده کارتابل سایر مدیران علمی مجاز نیست");
+    }
+    const supervisorId = querySupervisorId || request?.user?.id || headerUserId;
     if (!supervisorId) {
       throw new BadRequestException("شناسه مدیر علمی الزامی است");
     }
@@ -67,6 +104,7 @@ export class ReportingController {
   }
 
   @Get("tracking-director-backlog")
+  @RequireRoles("TRACKING_DIRECTOR", "SYSTEM_ADMIN")
   @HttpCode(HttpStatus.OK)
   @ApiOperation({
     summary:
@@ -81,6 +119,7 @@ export class ReportingController {
   }
 
   @Get("general-director-summary")
+  @RequireRoles("TRACKING_DIRECTOR", "SYSTEM_ADMIN")
   @HttpCode(HttpStatus.OK)
   @ApiOperation({
     summary:
@@ -95,6 +134,7 @@ export class ReportingController {
   }
 
   @Get("workflow-metrics")
+  @RequireRoles("TRACKING_DIRECTOR", "SYSTEM_ADMIN")
   @HttpCode(HttpStatus.OK)
   @ApiOperation({
     summary: "تحلیل شاخص‌های موتور فرایند و بازگشت مراحل (D-05, AT-33)",

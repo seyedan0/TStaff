@@ -1,4 +1,4 @@
-import { Injectable } from "@nestjs/common";
+import { Inject, Injectable } from "@nestjs/common";
 import { ModuleRef } from "@nestjs/core";
 import { ResearchService } from "../../research/application/research.service.js";
 import { ResourcesService } from "../../resources/application/resources.service.js";
@@ -8,7 +8,7 @@ import type { FileAccessPort } from "../application/ports/files.ports.js";
 /** Resolve public feature services lazily because those features also use FilesService. */
 @Injectable()
 export class AttachedFileAccessPolicy implements FileAccessPort {
-  constructor(private readonly modules: ModuleRef) {}
+  constructor(@Inject(ModuleRef) private readonly modules: ModuleRef) {}
 
   async canDownload(fileId: string, userId: string, roles: string[]): Promise<boolean> {
     const resources = this.modules.get(ResourcesService, { strict: false });

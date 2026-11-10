@@ -9,7 +9,7 @@ import { IdentityService } from "../../identity/application/identity.service.js"
 @UseGuards(StageGuard)
 @RequireRoles("TRACKING_DIRECTOR", "PROVINCIAL_DIRECTOR")
 export class ResourceBankController {
-  constructor(@Inject(ResourceBankService) private readonly bank: ResourceBankService, private readonly modules: ModuleRef) {}
+  constructor(@Inject(ResourceBankService) private readonly bank: ResourceBankService, @Inject(ModuleRef) private readonly modules: ModuleRef) {}
   @Get() list(@Query() query: unknown, @Req() request: any) { return this.bank.list(this.actor(request), ResourceBankQuerySchema.parse(query)); }
   @Get(":id") get(@Param("id") id: string, @Req() request: any) { return this.bank.get(z.string().uuid().parse(id), this.actor(request)); }
   @Post(":id/referrals") @RequireRoles("TRACKING_DIRECTOR")

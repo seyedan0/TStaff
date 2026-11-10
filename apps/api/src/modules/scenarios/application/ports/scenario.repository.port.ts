@@ -1,4 +1,5 @@
 import { Scenario } from "../../domain/scenario.entity.js";
+import type { ScenarioDecisionDto, ScenarioVersionDto } from "@tstaff/contracts";
 
 export interface ScenarioReviewDecisionRecord {
   id: string;
@@ -13,7 +14,8 @@ export interface ScenarioReviewDecisionRecord {
 }
 
 export interface ScenarioRepositoryPort {
-  findVersions?(scenarioId: string): Promise<Array<{ version: number; title: string; summary: string; content: string; status: string; createdAt: string }>>;
+  findVersions?(scenarioId: string): Promise<ScenarioVersionDto[]>;
+  findDecisions?(scenarioId: string): Promise<ScenarioDecisionDto[]>;
   create(scenario: Scenario): Promise<void>;
   findById(id: string): Promise<Scenario | null>;
   findByCaseId(caseId: string): Promise<Scenario[]>;

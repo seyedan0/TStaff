@@ -1,10 +1,10 @@
-import { Injectable } from "@nestjs/common";
+import { Inject, Injectable } from "@nestjs/common";
 import { PrismaService } from "@tstaff/database";
 import type { OrganizationRepositoryPort } from "../application/ports/organization.repository.port.js";
 
 @Injectable()
 export class PrismaOrganizationRepository implements OrganizationRepositoryPort {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(@Inject(PrismaService) private readonly prisma: PrismaService) {}
   provinces() { return this.prisma.province.findMany({ orderBy: { name: "asc" } }); }
   async provinceIds(managerId: string) {
     return (await this.prisma.provincialScope.findMany({ where: { managerId, revokedAt: null }, select: { provinceId: true } })).map((row) => row.provinceId);
@@ -28,5 +28,11 @@ export class PrismaOrganizationRepository implements OrganizationRepositoryPort 
   }
   scopes(managerId?: string) {
     return this.prisma.provincialScope.findMany({ where: managerId ? { managerId } : {}, orderBy: { assignedAt: "desc" } });
+  }
+  userGrants(managerId?: string) {
+    return this.prisma.userManagerGrant.findMany({
+      where: { ...(managerId ? { managerId } : {}), revokedAt: null },
+      orderBy: { assignedAt: "desc" },
+    });
   }
 }

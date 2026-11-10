@@ -8,7 +8,7 @@ import { IdentityService } from "../../identity/application/identity.service.js"
 @Controller("organization")
 @UseGuards(StageGuard)
 export class OrganizationController {
-  constructor(@Inject(OrganizationService) private readonly organization: OrganizationService, private readonly modules: ModuleRef) {}
+  constructor(@Inject(OrganizationService) private readonly organization: OrganizationService, @Inject(ModuleRef) private readonly modules: ModuleRef) {}
   @Get("provinces") provinces() { return this.organization.provinces(); }
   @Get("scopes") @RequireRoles("TRACKING_DIRECTOR", "PROVINCIAL_DIRECTOR")
   scopes(@Req() request: any) {
@@ -26,6 +26,10 @@ export class OrganizationController {
     const dto = ProvinceScopeDtoSchema.parse(params);
     await this.organization.setProvinceScope(dto.managerId, dto.provinceId, request.user.id, false);
     return { status: "REVOKED" };
+  }
+  @Get("user-grants") @RequireRoles("TRACKING_DIRECTOR", "SYSTEM_ADMIN")
+  userGrants() {
+    return this.organization.userGrants();
   }
   @Post("user-grants") @RequireRoles("TRACKING_DIRECTOR")
   async grantUser(@Body() body: unknown, @Req() request: any) {

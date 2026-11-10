@@ -18,17 +18,17 @@ export const Button: React.FC<ButtonProps> = ({
   ...props
 }) => {
   const baseClasses =
-    "apple-btn rounded-apple-md font-medium inline-flex items-center justify-center gap-2 transition-all duration-150 focus:outline-none focus:ring-2 focus:ring-apple-blue/40 disabled:opacity-50 disabled:pointer-events-none active:scale-[0.97]";
+    "apple-btn rounded-apple-md font-medium inline-flex items-center justify-center gap-2 transition-all duration-150 focus:outline-none focus:ring-2 focus:ring-[#214E3A]/35 disabled:opacity-50 disabled:pointer-events-none active:scale-[0.98]";
 
   const variantClasses = {
     primary:
-      "bg-apple-blue hover:bg-apple-blue-hover text-white shadow-sm border border-blue-400/20",
+      "bg-[#214E3A] hover:bg-[#183B2D] text-white shadow-sm border border-[#183B2D]",
     secondary:
-      "bg-slate-800/80 hover:bg-slate-700/80 text-slate-100 border border-white/10 hover:border-white/20",
+      "bg-[#EAE5D7] hover:bg-[#DDD5C3] text-[#214031] border border-[#214E3A]/15 hover:border-[#214E3A]/30",
     danger:
-      "bg-apple-red/90 hover:bg-apple-red text-white shadow-sm border border-red-400/20",
+      "bg-[#D94F3D] hover:bg-[#C03F2E] text-white shadow-sm border border-[#B53727]",
     ghost:
-      "bg-transparent hover:bg-white/5 text-slate-300 hover:text-white",
+      "bg-transparent hover:bg-[#214E3A]/10 text-[#214031] hover:text-[#183B2D] border border-transparent",
   }[variant];
 
   const sizeClasses = {
@@ -45,7 +45,7 @@ export const Button: React.FC<ButtonProps> = ({
     >
       {loading ? (
         <svg
-          className="animate-spin -ml-1 mr-2 h-4 w-4 text-current"
+          className="animate-spin -ml-1 mr-1 h-4 w-4 text-current"
           fill="none"
           viewBox="0 0 24 24"
         >
@@ -70,4 +70,3 @@ export const Button: React.FC<ButtonProps> = ({
     </button>
   );
 };
-

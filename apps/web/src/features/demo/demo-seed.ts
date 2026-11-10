@@ -1,17 +1,33 @@
-import type {
-  ApplicantStatus,
-  LibraryDocumentDto,
-  PublishedLibraryDocumentDto,
-  StudyDocumentSnapshot,
-  StudyEvaluationStatus,
-  SystemRole,
-  UserStage,
+import {
+  IRAN_PROVINCES,
+  type ApplicantStatus,
+  type AuditEventDto,
+  type ArchiveJobDto,
+  type ConversationContactDto,
+  type DirectoryUserDto,
+  type LibraryDocumentDto,
+  type MessageDto,
+  type PublishedLibraryDocumentDto,
+  type ResearchChangeRequestDto,
+  type ResourceBankItem,
+  type ScenarioDecisionDto,
+  type ScenarioVersionDto,
+  type StudyDocumentSnapshot,
+  type StudyEvaluationStatus,
+  type SupervisorHistoryEvent,
+  type SystemRole,
+  type SystemSetting,
+  type UserStage,
 } from "@tstaff/contracts";
 import type { ApplicantItem, CurrentUser, ResearchCaseItem, ResourceItem } from "../../shared/types.js";
 
 const createdAt = "2026-11-01T09:00:00.000Z";
 const publishedAt = "2026-10-25T09:00:00.000Z";
-const supervisorId = "10000000-0000-4000-8000-000000000001";
+const markaziProvinceId = IRAN_PROVINCES[27]!.id; // مرکزی
+const tehranProvinceId = IRAN_PROVINCES[7]!.id; // تهران
+export const DEMO_SUPERVISOR_ID = "10000000-0000-4000-8000-000000000001";
+export const DEMO_COLLAB_SUPERVISOR_ID = "10000000-0000-4000-8000-000000000002";
+export const DEMO_PROVINCIAL_ID = "20000000-0000-4000-8000-000000000005";
 
 export interface DemoPersona {
   id: string;
@@ -45,37 +61,58 @@ export const DEMO_PERSONAS: readonly DemoPersona[] = [
   {
     id: "apprentice-reading",
     label: "نیلوفر احمدی",
-    status: "کارآموز · مطالعه‌ی منابع",
+    status: "کارآموز · مطالعه منابع",
     summary: "یک سند الزامی را خوانده و برای تکمیل منابع به کتابخانه می‌رود.",
-    user: makeUser("20000000-0000-4000-8000-000000000001", "نیلوفر احمدی", "09000000001", "APPRENTICE", "APPRENTICE"),
+    user: makeUser("20000000-0000-4000-8000-000000000001", "نیلوفر احمدی", "09000000001", "APPRENTICE", "APPRENTICE", markaziProvinceId),
   },
   {
     id: "apprentice-pending",
     label: "آرمان رضایی",
     status: "کارآموز · در انتظار ارزیابی",
     summary: "نسخه‌های الزامی را خوانده؛ درخواستش در کارتابل مدیر علمی است.",
-    user: makeUser("20000000-0000-4000-8000-000000000002", "آرمان رضایی", "09000000002", "APPRENTICE", "APPRENTICE"),
+    user: makeUser("20000000-0000-4000-8000-000000000002", "آرمان رضایی", "09000000002", "APPRENTICE", "APPRENTICE", markaziProvinceId),
   },
   {
     id: "intern-active",
     label: "سارا کریمی",
     status: "کارورز · فعال",
-    summary: "پس از تأیید مدیر علمی ارتقا گرفته و منابع همچنان برایش در دسترس است.",
-    user: makeUser("20000000-0000-4000-8000-000000000003", "سارا کریمی", "09000000003", "INTERN", "INTERN"),
+    summary: "پس از تأیید مدیر علمی ارتقا گرفته و پرونده پژوهشی فعال دارد.",
+    user: makeUser("20000000-0000-4000-8000-000000000003", "سارا کریمی", "09000000003", "INTERN", "INTERN", markaziProvinceId),
   },
   {
     id: "scientific-supervisor",
     label: "دکتر مریم موسوی",
-    status: "مدیر علمی · کارتابل ارزیابی",
-    summary: "می‌تواند درخواست ارزیابی آرمان و نسخه‌های مطالعه‌شده را بررسی کند.",
-    user: makeUser(supervisorId, "دکتر مریم موسوی", "09000000004", "SCIENTIFIC_SUPERVISOR", "INTERN"),
+    status: "مدیر علمی · کارتابل پژوهشگران",
+    summary: "می‌تواند درخواست‌های ارزیابی، مراحل پژوهش و سناریوها را بررسی کند.",
+    user: makeUser(DEMO_SUPERVISOR_ID, "دکتر مریم موسوی", "09000000004", "SCIENTIFIC_SUPERVISOR", "INTERN", tehranProvinceId),
   },
   {
     id: "provincial-director",
     label: "دکتر علی رضایی",
-    status: "مدیر استانی · پذیرش",
-    summary: "چند پرونده‌ی نمونه در وضعیت‌های مختلف پذیرش را می‌بیند.",
-    user: makeUser("20000000-0000-4000-8000-000000000005", "دکتر علی رضایی", "09000000005", "PROVINCIAL_DIRECTOR", "INTERN", "30000000-0000-4000-8000-000000000001"),
+    status: "مدیر استانی · پذیرش و بانک منابع",
+    summary: "پرونده‌های پذیرش و منابع استان مرکزی را مدیریت می‌کند.",
+    user: makeUser(DEMO_PROVINCIAL_ID, "دکتر علی رضایی", "09000000005", "PROVINCIAL_DIRECTOR", "INTERN", markaziProvinceId),
+  },
+  {
+    id: "tracking-director",
+    label: "مهندس محمد علوی",
+    status: "مدیر پیگیری · نظارت و انتساب",
+    summary: "پایش شبکه، بانک منابع کشوری، انتساب‌ها و قلمرو استان‌ها.",
+    user: makeUser("20000000-0000-4000-8000-000000000006", "مهندس محمد علوی", "09000000006", "TRACKING_DIRECTOR", "INTERN"),
+  },
+  {
+    id: "support-director",
+    label: "مهسا نوری",
+    status: "مدیر پشتیبانی · تیکت و کاربران",
+    summary: "رسیدگی به تیکت‌ها و وضعیت فعال/تعلیق حساب کاربران.",
+    user: makeUser("20000000-0000-4000-8000-000000000007", "مهسا نوری", "09000000007", "SUPPORT_DIRECTOR", "INTERN"),
+  },
+  {
+    id: "system-admin",
+    label: "دکتر علیرضا راد",
+    status: "مدیر سامانه · تنظیمات و سلامت",
+    summary: "مهلت مراحل، بایگانی، مدیران و وضعیت سرویس.",
+    user: makeUser("20000000-0000-4000-8000-000000000008", "دکتر علیرضا راد", "09000000008", "SYSTEM_ADMIN", "INTERN"),
   },
 ];
 
@@ -85,7 +122,7 @@ const versionRows = [
     versionId: "41000000-0000-4000-8000-000000000001",
     storedObjectId: "42000000-0000-4000-8000-000000000001",
     title: "راهنمای مطالعه و انتخاب موضوع پژوهش",
-    description: "گام‌های مطالعه‌ی منابع، محدودکردن مسئله و ثبت پرسش اولیه‌ی پژوهش.",
+    description: "گام‌های مطالعه منابع، محدودکردن مسئله و ثبت پرسش اولیه پژوهش.",
     category: "راهنمای پژوهش",
     fileName: "research-topic-guide.md",
     assetPath: "/demo-documents/research-topic-guide.md",
@@ -95,7 +132,7 @@ const versionRows = [
     documentId: "40000000-0000-4000-8000-000000000002",
     versionId: "41000000-0000-4000-8000-000000000002",
     storedObjectId: "42000000-0000-4000-8000-000000000002",
-    title: "شیوه‌نامه‌ی نگارش گزارش پژوهشی",
+    title: "شیوه‌نامه نگارش گزارش پژوهشی",
     description: "ساختار پیشنهادی گزارش، ثبت شواهد و اصول ارجاع‌دهی.",
     category: "شیوه‌نامه",
     fileName: "research-report-guide.md",
@@ -148,17 +185,11 @@ export const DEMO_MANAGED_DOCUMENTS: LibraryDocumentDto[] = versionRows.map((ite
     isRead: false,
     fileName: item.fileName,
     scanStatus: "AVAILABLE" as const,
-    uploadedById: supervisorId,
+    uploadedById: DEMO_SUPERVISOR_ID,
     storedObjectId: item.storedObjectId,
   };
   return { id: item.documentId, archivedAt: null, createdAt, currentVersion, versions: [currentVersion] };
 });
-
-export const DEMO_READ_VERSIONS: Record<string, string[]> = {
-  "20000000-0000-4000-8000-000000000001": ["41000000-0000-4000-8000-000000000001"],
-  "20000000-0000-4000-8000-000000000002": DEMO_DOCUMENT_SEEDS.map((document) => document.versionId),
-  "20000000-0000-4000-8000-000000000003": [],
-};
 
 function snapshotFor(seed: DemoDocumentSeed, readAt = createdAt): StudyDocumentSnapshot {
   return {
@@ -176,10 +207,10 @@ export const DEMO_PENDING_EVALUATION: StudyEvaluationStatus = {
   id: "50000000-0000-4000-8000-000000000001",
   userId: "20000000-0000-4000-8000-000000000002",
   status: "PENDING",
-  notes: "مطالعه‌ی منابع الزامی را به پایان رسانده‌ام.",
+  notes: "مطالعه منابع الزامی را به پایان رسانده‌ام.",
   completedDocuments: DEMO_DOCUMENT_SEEDS.map((seed) => snapshotFor(seed)),
-  createdAt,
-  updatedAt: createdAt,
+  createdAt: "2026-11-02T09:00:00.000Z",
+  updatedAt: "2026-11-02T09:00:00.000Z",
 };
 
 function applicant(
@@ -197,8 +228,9 @@ function applicant(
     nationalId,
     phoneNumber,
     age: 24,
-    provinceId: "30000000-0000-4000-8000-000000000001",
+    provinceId: markaziProvinceId,
     education: "کارشناسی ارشد",
+    educationLevel: "کارشناسی ارشد",
     fieldOfStudy: "علوم اجتماعی",
     status,
     notes,
@@ -209,10 +241,10 @@ function applicant(
 }
 
 export const DEMO_APPLICANTS: ApplicantItem[] = [
-  applicant("60000000-0000-4000-8000-000000000001", "نیلوفر احمدی", "09000000001", "APPROVED", "0000000001", "حساب نمونه‌ی کارآموز پس از تأیید علمی فعال شده است."),
-  applicant("60000000-0000-4000-8000-000000000002", "پارسا محمدی", "09000000006", "IN_REVIEW", "0000000002", "پرونده در انتظار تصمیم علمی است."),
-  applicant("60000000-0000-4000-8000-000000000003", "هستی مرادی", "09000000007", "PENDING", "0000000003", "پیش‌نویس نمونه‌ی مدیر استانی."),
-  applicant("60000000-0000-4000-8000-000000000004", "کیان رستگار", "09000000008", "REJECTED", "0000000004", "پرونده‌ی ردشده حساب کاربری ندارد.", { rejectionReason: "تکمیل پیش‌نیازهای علمی توصیه می‌شود." }),
+  applicant("60000000-0000-4000-8000-000000000001", "نیلوفر احمدی", "09000000001", "APPROVED", "0000000001", "حساب نمونه کارآموز پس از تأیید علمی فعال شده است."),
+  applicant("60000000-0000-4000-8000-000000000002", "پارسا محمدی", "09000000016", "IN_REVIEW", "0000000002", "پرونده در انتظار تصمیم علمی است."),
+  applicant("60000000-0000-4000-8000-000000000003", "هستی مرادی", "09000000017", "PENDING", "0000000003", "پیش‌نویس نمونه مدیر استانی."),
+  applicant("60000000-0000-4000-8000-000000000004", "کیان رستگار", "09000000018", "REJECTED", "0000000004", "پرونده ردشده حساب کاربری ندارد.", { rejectionReason: "تکمیل پیش‌نیازهای علمی توصیه می‌شود." }),
 ];
 
 const demoCaseId = "80000000-0000-4000-8000-000000000001";
@@ -227,15 +259,16 @@ export const DEMO_RESEARCH_CASES: ResearchCaseItem[] = [{
   title: "تقویت مشارکت دانش‌آموزان در فعالیت‌های مدرسه",
   subject: "شناسایی راهکارهای افزایش مشارکت دانش‌آموزان در برنامه‌های داوطلبانه",
   researcherId: "20000000-0000-4000-8000-000000000003",
-  status: "IN_PROGRESS",
+  status: "SCENARIO_STAGE",
   version: 4,
+  canReview: true,
   stages: [
     { id: sourcesStageId, stageType: "SOURCES", status: "APPROVED", version: 1 },
     { id: explanationStageId, stageType: "EXPLANATION", status: "APPROVED", version: 1 },
     { id: prescriptionStageId, stageType: "PRESCRIPTION", status: "APPROVED", version: 1 },
     { id: scenarioStageId, stageType: "SCENARIO", status: "SUBMITTED", version: 1 },
   ],
-  supervisors: [{ id: "83000000-0000-4000-8000-000000000001", userId: supervisorId, role: "MAIN_SUPERVISOR", isActive: true }],
+  supervisors: [{ id: "83000000-0000-4000-8000-000000000001", userId: DEMO_SUPERVISOR_ID, role: "MAIN_SUPERVISOR", isActive: true }],
   createdAt,
   updatedAt: "2026-11-07T11:30:00.000Z",
 }];
@@ -245,11 +278,14 @@ export const DEMO_CASE_RESOURCES: ResourceItem[] = [{
   researchCaseId: demoCaseId,
   type: "INDIVIDUAL",
   title: "آموزگار پایه ششم (نمونه)",
-  description: "گفت‌وگوی نمونه درباره‌ی تجربه‌ی دانش‌آموزان در برنامه‌های گروهی مدرسه.",
+  description: "گفت‌وگوی نمونه درباره تجربه دانش‌آموزان در برنامه‌های گروهی مدرسه.",
   personAge: 38,
   position: "آموزگار",
+  contactInfo: "09180001122",
+  provinceId: markaziProvinceId,
   province: "مرکزی",
   county: "اراک",
+  organization: { name: "دبستان شهید بهشتی", educationLevel: "دوره دوم ابتدایی", organizationType: "دولتی" },
   hasInterview: true,
   interview: {
     id: "85000000-0000-4000-8000-000000000001",
@@ -262,7 +298,7 @@ export const DEMO_CASE_RESOURCES: ResourceItem[] = [{
     durationMinutes: 45,
     mode: "حضوری",
     location: "اراک",
-    notes: "داده‌ی ساختگی برای نمایش پرونده در دمو.",
+    notes: "داده ساختگی برای نمایش پرونده در دمو.",
     latestReport: { id: "86000000-0000-4000-8000-000000000001", title: "گزارش گفت‌وگوی نمونه", version: 1 },
   },
 }];
@@ -277,7 +313,7 @@ export const DEMO_STAGE_SUBMISSIONS: Record<string, Array<{
   [explanationStageId]: [{
     id: "87000000-0000-4000-8000-000000000001",
     version: 1,
-    content: "پرسش پژوهش بر تجربه‌ی دانش‌آموزان از مشارکت داوطلبانه و عوامل تقویت‌کننده‌ی آن متمرکز است. این متن نمونه است و داده‌ی واقعی ندارد.",
+    content: "پرسش پژوهش بر تجربه دانش‌آموزان از مشارکت داوطلبانه و عوامل تقویت‌کننده آن متمرکز است.",
     status: "APPROVED",
     submittedAt: "2026-11-04T10:00:00.000Z",
   }],
@@ -290,25 +326,173 @@ export const DEMO_STAGE_SUBMISSIONS: Record<string, Array<{
   }],
 };
 
-export const DEMO_CASE_SCENARIOS = [{
+const demoScenarioContent = JSON.stringify({
+  audience: "STUDENT",
+  province: "مرکزی",
+  category: "مشارکت مدرسه‌ای",
+  keywords: ["مشارکت", "فعالیت گروهی", "بازخورد"],
+  implementationSteps: ["جمع‌آوری ایده‌ها", "تشکیل گروه‌های کوچک", "اجرای فعالیت", "ثبت بازخورد"],
+});
+
+export const DEMO_CASE_SCENARIOS: Array<{
+  id: string;
+  researchCaseId: string;
+  version: number;
+  title: string;
+  summary: string;
+  content: string;
+  status: string;
+  createdById: string;
+  versions: ScenarioVersionDto[];
+  decisions: ScenarioDecisionDto[];
+}> = [{
   id: "88000000-0000-4000-8000-000000000001",
   researchCaseId: demoCaseId,
   version: 1,
   title: "باشگاه ایده‌های دانش‌آموزی",
-  summary: "یک مدرسه برای هر ماه یک نشست کوتاه برگزار می‌کند تا دانش‌آموزان فعالیت داوطلبانه پیشنهاد دهند، گروه تشکیل دهند و نتیجه را به هم‌کلاسی‌ها گزارش کنند.",
-  content: JSON.stringify({
-    audience: "STUDENT",
-    province: "مرکزی",
-    category: "مشارکت مدرسه‌ای",
-    keywords: ["مشارکت", "فعالیت گروهی", "بازخورد"],
-    implementationSteps: ["جمع‌آوری ایده‌ها", "تشکیل گروه‌های کوچک", "اجرای فعالیت", "ثبت بازخورد"],
-  }),
+  summary: "یک مدرسه برای هر ماه یک نشست کوتاه برگزار می‌کند تا دانش‌آموزان فعالیت داوطلبانه پیشنهاد دهند و نتیجه را گزارش کنند.",
+  content: demoScenarioContent,
   status: "UNDER_REVIEW",
+  createdById: "20000000-0000-4000-8000-000000000003",
+  versions: [{
+    version: 1,
+    title: "باشگاه ایده‌های دانش‌آموزی",
+    summary: "یک مدرسه برای هر ماه یک نشست کوتاه برگزار می‌کند تا دانش‌آموزان فعالیت داوطلبانه پیشنهاد دهند.",
+    content: demoScenarioContent,
+    status: "UNDER_REVIEW",
+    createdById: "20000000-0000-4000-8000-000000000003",
+    createdAt: "2026-11-07T11:30:00.000Z",
+  }],
+  decisions: [],
 }];
 
-export const DEMO_STAGE_IDS = {
-  sources: sourcesStageId,
-  explanation: explanationStageId,
-  prescription: prescriptionStageId,
-  scenario: scenarioStageId,
-} as const;
+export const DEMO_CHANGE_REQUESTS: ResearchChangeRequestDto[] = [];
+
+export const DEMO_RESOURCE_BANK: ResourceBankItem[] = [
+  {
+    id: "84000000-0000-4000-8000-000000000001",
+    fullName: "آموزگار پایه ششم (نمونه)",
+    age: 38,
+    position: "آموزگار",
+    contactInfo: "09180001122",
+    provinceId: markaziProvinceId,
+    province: "مرکزی",
+    county: "اراک",
+    organization: { name: "دبستان شهید بهشتی", educationLevel: "ابتدایی", organizationType: "دولتی" },
+    referrals: [],
+    createdAt,
+  },
+  {
+    id: "84000000-0000-4000-8000-000000000002",
+    fullName: "حسین طاهری (نمونه)",
+    age: 41,
+    position: "مشاور تربیتی",
+    contactInfo: "09123334455",
+    provinceId: tehranProvinceId,
+    province: "تهران",
+    county: "تهران",
+    organization: { name: "دبیرستان فرزانگان", educationLevel: "متوسطه", organizationType: "استعدادهای درخشان" },
+    referrals: [{
+      id: "89000000-0000-4000-8000-000000000001",
+      recipientId: DEMO_PROVINCIAL_ID,
+      status: "REFERRED",
+      applicantId: null,
+      createdAt: "2026-11-06T09:00:00.000Z",
+    }],
+    createdAt: "2026-11-03T10:00:00.000Z",
+  },
+];
+
+export const DEMO_DIRECTORY_USERS: DirectoryUserDto[] = DEMO_PERSONAS.map((p) => ({
+  id: p.user.id,
+  fullName: p.user.fullName,
+  phoneNumber: p.user.phoneNumber,
+  stage: p.user.stage,
+  role: p.user.role,
+  roles: p.user.roles ?? [p.user.role],
+  isActive: !p.user.isSuspended,
+  provinceId: p.user.provinceId ?? null,
+  createdAt,
+}));
+
+export const DEMO_SUPPORT_TICKETS = [
+  {
+    id: "71000000-0000-4000-8000-000000000001",
+    userId: "20000000-0000-4000-8000-000000000001",
+    subject: "سؤال درباره تکمیل مطالعه منابع",
+    description: "پس از خواندن دومین سند، چه زمانی دکمه درخواست ارزیابی فعال می‌شود؟",
+    status: "OPEN" as const,
+    createdAt: "2026-11-05T10:00:00.000Z",
+    updatedAt: "2026-11-05T10:00:00.000Z",
+    userFullName: "نیلوفر احمدی",
+    userPhone: "09000000001",
+  },
+];
+
+export const DEMO_CONVERSATIONS = [
+  {
+    id: "72000000-0000-4000-8000-000000000001",
+    type: "DIRECT_SUPERVISOR_TRAINEE",
+    researchCaseId: demoCaseId,
+    updatedAt: "2026-11-07T10:00:00.000Z",
+    participantIds: [DEMO_SUPERVISOR_ID, "20000000-0000-4000-8000-000000000003"],
+  },
+];
+
+export const DEMO_MESSAGES: MessageDto[] = [
+  {
+    id: "73000000-0000-4000-8000-000000000001",
+    conversationId: "72000000-0000-4000-8000-000000000001",
+    senderId: DEMO_SUPERVISOR_ID,
+    content: "سلام سارا جان، نسخه پیش‌نویس سناریو را بررسی می‌کنم و تا عصر نتیجه را اعلام می‌کنم.",
+    attachmentId: null,
+    createdAt: "2026-11-07T10:00:00.000Z",
+  },
+];
+
+export const DEMO_CONTACTS: ConversationContactDto[] = DEMO_PERSONAS
+  .filter((p) => ["APPRENTICE", "INTERN", "SCIENTIFIC_SUPERVISOR"].includes(p.user.role))
+  .map((p) => ({
+    id: p.user.id,
+    fullName: p.user.fullName,
+    phoneNumber: p.user.phoneNumber,
+    stage: p.user.stage,
+    role: p.user.role,
+  }));
+
+export const DEMO_SETTINGS: SystemSetting[] = [
+  { key: "deadline_days.SOURCES", value: "14", description: "مهلت مرحله ۱: منابع و مصاحبه‌ها (روز)", updatedAt: createdAt },
+  { key: "deadline_days.EXPLANATION", value: "21", description: "مهلت مرحله ۲: تبیین مسئله (روز)", updatedAt: createdAt },
+  { key: "deadline_days.PRESCRIPTION", value: "21", description: "مهلت مرحله ۳: تجویز راهکار (روز)", updatedAt: createdAt },
+  { key: "deadline_days.SCENARIO", value: "14", description: "مهلت مرحله ۴: سناریونویسی (روز)", updatedAt: createdAt },
+];
+
+export const DEMO_ARCHIVE_JOBS: ArchiveJobDto[] = [];
+
+export const DEMO_AUDIT_EVENTS: AuditEventDto[] = [
+  {
+    id: "74000000-0000-4000-8000-000000000001",
+    aggregateType: "ResearchCase",
+    aggregateId: demoCaseId,
+    action: "SCENARIO_SUBMITTED",
+    actorId: "20000000-0000-4000-8000-000000000003",
+    payload: { code: "TS-DEMO-001", version: 4 },
+    createdAt: "2026-11-07T11:30:00.000Z",
+  },
+];
+
+export const DEMO_SUPERVISOR_HISTORY: SupervisorHistoryEvent[] = [
+  {
+    id: "74000000-0000-4000-8000-000000000001",
+    aggregateType: "ResearchCase",
+    aggregateId: demoCaseId,
+    action: "REVIEW_DECISION_RECORDED",
+    actorId: DEMO_SUPERVISOR_ID,
+    actorName: "دکتر مریم موسوی",
+    createdAt: "2026-11-06T12:30:00.000Z",
+  },
+];
+
+export const DEMO_SCOPES = [
+  { managerId: DEMO_PROVINCIAL_ID, provinceId: markaziProvinceId, assignedAt: createdAt, revokedAt: null as string | null },
+];

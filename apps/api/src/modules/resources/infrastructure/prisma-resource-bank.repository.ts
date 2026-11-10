@@ -1,4 +1,4 @@
-import { Injectable } from "@nestjs/common";
+import { Inject, Injectable } from "@nestjs/common";
 import { PrismaService, type Prisma } from "@tstaff/database";
 import type { ResourceBankItem, ResourceBankQuery } from "@tstaff/contracts";
 import type { BankScope, ResourceBankRepositoryPort } from "../application/ports/resource-bank.repository.port.js";
@@ -13,7 +13,7 @@ type BankRow = Prisma.ResourceGetPayload<{ select: typeof selection }>;
 
 @Injectable()
 export class PrismaResourceBankRepository implements ResourceBankRepositoryPort {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(@Inject(PrismaService) private readonly prisma: PrismaService) {}
   async list(scope: BankScope, query: ResourceBankQuery) {
     const where: Prisma.ResourceWhereInput = { AND: [this.access(scope),
       ...(query.provinceId ? [{ provinceId: query.provinceId }] : []),
@@ -35,6 +35,20 @@ export class PrismaResourceBankRepository implements ResourceBankRepositoryPort 
       create: { resourceId, recipientId, referredById: actorId, snapshot: JSON.parse(JSON.stringify({ ...snapshot, referrals: [] })), ...(notes ? { notes } : {}) },
       update: {},
     });
+  }
+  findReferral(resourceId: string, recipientId: string) {
+    return this.prisma.resourceReferral.findUnique({ where: { resourceId_recipientId: { resourceId, recipientId } } });
+  }
+  async hasActiveConversion(resourceId: string) {
+    const existing = await this.prisma.resourceReferral.findFirst({
+      where: {
+        resourceId,
+        revokedAt: null,
+        OR: [{ applicantId: { not: null } }, { status: { in: ["CONVERTING", "CONVERTED"] } }],
+      },
+      select: { id: true, applicantId: true },
+    });
+    return existing ? { referralId: existing.id, applicantId: existing.applicantId } : null;
   }
   referral(id: string) { return this.prisma.resourceReferral.findUnique({ where: { id } }); }
   async claimConversion(id: string) {

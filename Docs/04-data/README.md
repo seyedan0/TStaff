@@ -24,4 +24,11 @@
    ```
 5. **جدول ممیزی غیرقابل ویرایش (Append-only Audit Log):**
    هیچ عملیات `UPDATE` یا `DELETE` روی جدول `audit_events` مجاز نیست.
+6. **مهاجرت ساختاری `20261110_workspace_bank_versions`:**
+   - جدول استان‌های مرجع `provinces` (۳۱ استان با شناسه‌های ثابت `@tstaff/contracts`) و ستون `resources.province_id`.
+   - جدول قلمرو مدیران استانی `provincial_scopes` (`@@unique([manager_id, province_id])`) و جدول مجوز مشاهده پروفایل کاربری `user_manager_grants`.
+   - جدول `resource_referrals` با محدودیت یکتایی `(resource_id, recipient_id)` و `applicant_id` برای جلوگیری از ارجاع و تبدیل تکراری.
+   - جدول تاریخچه نسخه‌های سناریو `scenario_versions` (`@@unique([scenario_id, version])`) و ستون `scenarios.created_by_id`.
+   - جدول `research_change_requests` برای درخواست‌های بازگشایی مرحله تأییدشده همراه با `expected_version` و `version`.
+   - ستون `stored_objects.storage_provider` (`LOCAL` / `S3`) جهت حفظ دسترسی به فایل‌های پیشین هنگام تغییر ارائه‌دهنده ذخیره‌سازی.
 

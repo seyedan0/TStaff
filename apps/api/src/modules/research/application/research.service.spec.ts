@@ -58,6 +58,8 @@ describe("ResearchService reviewer-controlled workflow (D-02, D-03, D-05, D-07, 
 
     const assignments = {
       isSupervisorAssignedToUser: async (userId: string, supervisorId: string) => userId === "intern-1" && authorizedSupervisors.has(supervisorId),
+      isSupervisorAssignedToCase: async (_caseId: string, supervisorId: string) => authorizedSupervisors.has(supervisorId),
+      assignSupervisorToCase: async () => {},
     } as any;
     const resources = {
       assertSourcesStageCompleteness: async () => {
