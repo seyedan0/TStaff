@@ -13,6 +13,7 @@ export interface ScenarioReviewDecisionRecord {
 }
 
 export interface ScenarioRepositoryPort {
+  findVersions?(scenarioId: string): Promise<Array<{ version: number; title: string; summary: string; content: string; status: string; createdAt: string }>>;
   create(scenario: Scenario): Promise<void>;
   findById(id: string): Promise<Scenario | null>;
   findByCaseId(caseId: string): Promise<Scenario[]>;

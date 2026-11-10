@@ -35,6 +35,10 @@ function mapStudyEvaluation(raw: StudyEvaluationWithUser): StudyEvaluationRecord
 
 @Injectable()
 export class PrismaUserRepository implements UserRepositoryPort {
+  async findProvinceIdByUserId(userId: string): Promise<string | null> {
+    const user = await this.prisma.user.findUnique({ where: { id: userId }, select: { applicant: { select: { provinceId: true } } } });
+    return user?.applicant?.provinceId ?? null;
+  }
   constructor(private readonly prisma: PrismaService) {}
 
   async createSession(input: { userId: string; tokenHash: string; expiresAt: Date }): Promise<void> {

@@ -1,3 +1,4 @@
+import { usePortalSection } from "../../app/usePortalSection.js";
 import React, { useState } from "react";
 import { Users, BarChart3, ShieldAlert } from "lucide-react";
 import { ApplicantsView } from "../../features/applicants/ApplicantsView.js";
@@ -17,9 +18,7 @@ export const ProvincialDirectorPortal: React.FC<
   ProvincialDirectorPortalProps
 > = ({ onNotify }) => {
   const { currentUser } = useAuth();
-  const [activeTab, setActiveTab] = useState<"applicants" | "kpis">(
-    "applicants",
-  );
+  const activeTab = usePortalSection<"applicants" | "kpis">({ "/admissions": "applicants", "/province/metrics": "kpis" }, "applicants");
 
   return (
     <div className="space-y-6">
@@ -44,31 +43,6 @@ export const ProvincialDirectorPortal: React.FC<
             <p className="text-xs text-slate-300 max-w-2xl leading-relaxed">
               ثبت‌نام متقاضیان، هدایت مصاحبه‌های علمی و غربالگری، نظارت بر استانداردهای ورود به دوره کارآموزی و نظارت بر کارایی پژوهشگران استان.
             </p>
-          </div>
-
-          <div className="flex items-center gap-2 p-1 rounded-apple-lg bg-white/[0.03] border border-white/5">
-            <button
-              onClick={() => setActiveTab("applicants")}
-              className={`flex items-center gap-2 px-4 py-2 rounded-apple-md text-xs font-semibold transition-all ${
-                activeTab === "applicants"
-                  ? "bg-apple-blue text-white shadow-apple-glow"
-                  : "text-slate-400 hover:text-slate-200"
-              }`}
-            >
-              <Users className="w-4 h-4" />
-              میز پذیرش و متقاضیان استانی
-            </button>
-            <button
-              onClick={() => setActiveTab("kpis")}
-              className={`flex items-center gap-2 px-4 py-2 rounded-apple-md text-xs font-semibold transition-all ${
-                activeTab === "kpis"
-                  ? "bg-apple-blue text-white shadow-apple-glow"
-                  : "text-slate-400 hover:text-slate-200"
-              }`}
-            >
-              <BarChart3 className="w-4 h-4" />
-              شاخص‌های عملکرد استان
-            </button>
           </div>
         </div>
       </Card>

@@ -17,4 +17,5 @@ export interface ResourceRepositoryPort {
 
   createReport(report: InterviewReport): Promise<void>;
   findReportsByInterviewId(interviewId: string): Promise<InterviewReport[]>;
+  findFileCaseIds?(fileId: string): Promise<string[]>;
 }

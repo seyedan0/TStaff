@@ -1,9 +1,15 @@
 import { Global, Module, OnModuleDestroy, OnModuleInit } from "@nestjs/common";
 import { PrismaService } from "@tstaff/database";
+import { TRANSACTION_RUNNER } from "../transactions/transaction-runner.js";
 
 @Global()
 @Module({
   providers: [
+    {
+      provide: TRANSACTION_RUNNER,
+      inject: [PrismaService],
+      useFactory: (prisma: PrismaService) => ({ run: <T>(operation: () => Promise<T>) => prisma.runInTransaction(operation) }),
+    },
     {
       provide: PrismaService,
       useFactory: () => {
@@ -11,7 +17,7 @@ import { PrismaService } from "@tstaff/database";
       },
     },
   ],
-  exports: [PrismaService],
+  exports: [PrismaService, TRANSACTION_RUNNER],
 })
 export class PrismaModule implements OnModuleInit, OnModuleDestroy {
   constructor(private readonly prisma: PrismaService) {}

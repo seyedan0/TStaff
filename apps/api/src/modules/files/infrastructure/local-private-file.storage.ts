@@ -7,6 +7,9 @@ import type { PrivateFileStoragePort } from "../application/ports/files.ports.js
 
 @Injectable()
 export class LocalPrivateFileStorage implements PrivateFileStoragePort {
+  getUploadLocation() {
+    return { storageProvider: "LOCAL" as const, bucket: "private-research" };
+  }
   async write(objectKey: string, contents: Buffer): Promise<void> {
     const filePath = this.filePath(objectKey);
     await mkdir(resolve(filePath, ".."), { recursive: true });

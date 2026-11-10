@@ -1,3 +1,4 @@
+import { usePortalSection } from "../../app/usePortalSection.js";
 import React, { useState, useEffect } from "react";
 import {
   Compass,
@@ -41,9 +42,7 @@ export const TrackingDirectorPortal: React.FC<TrackingDirectorPortalProps> = ({
   onNotify,
 }) => {
   const { currentUser } = useAuth();
-  const [activeTab, setActiveTab] = useState<"pipeline" | "managers" | "assignments" | "audit">(
-    "pipeline",
-  );
+  const activeTab = usePortalSection<"pipeline" | "managers" | "assignments" | "audit">({ "/tracking/pipeline": "pipeline", "/tracking/managers": "managers", "/tracking/assignments": "assignments", "/tracking/audit": "audit" }, "pipeline");
 
   // Managers State
   const [managers, setManagers] = useState<ManagerRecord[]>([]);
@@ -167,48 +166,6 @@ export const TrackingDirectorPortal: React.FC<TrackingDirectorPortalProps> = ({
             <p className="text-xs text-slate-300 max-w-2xl leading-relaxed">
               مشاهده گلوگاه‌های چرخه ۴ مرحله‌ای، رصد پیشرفت استان‌ها، تعریف مدیران علمی، استانی و پشتیبانی جدید و ثبت و ممیزی رویدادهای حساس (D-04).
             </p>
-          </div>
-
-          <div className="flex items-center gap-2 p-1 rounded-apple-lg bg-white/[0.03] border border-white/5">
-            <button
-              onClick={() => setActiveTab("pipeline")}
-              className={`flex items-center gap-2 px-4 py-2 rounded-apple-md text-xs font-semibold transition-all ${
-                activeTab === "pipeline"
-                  ? "bg-apple-blue text-white shadow-apple-glow"
-                  : "text-slate-400 hover:text-slate-200"
-              }`}
-            >
-              <BarChart3 className="w-4 h-4" />
-              پایش کشوری ۳۱ استان
-            </button>
-            <button
-              onClick={() => setActiveTab("managers")}
-              className={`flex items-center gap-2 px-4 py-2 rounded-apple-md text-xs font-semibold transition-all ${
-                activeTab === "managers"
-                  ? "bg-apple-blue text-white shadow-apple-glow"
-                  : "text-slate-400 hover:text-slate-200"
-              }`}
-            >
-              <Users className="w-4 h-4" />
-              انتصاب و مدیریت مدیران ({managers.length})
-            </button>
-            <button
-              onClick={() => setActiveTab("assignments")}
-              className={`flex items-center gap-2 px-4 py-2 rounded-apple-md text-xs font-semibold transition-all ${activeTab === "assignments" ? "bg-apple-blue text-white shadow-apple-glow" : "text-slate-400 hover:text-slate-200"}`}
-            >
-              <ShieldCheck className="w-4 h-4" />انتساب مدیران به کارورزان
-            </button>
-            <button
-              onClick={() => setActiveTab("audit")}
-              className={`flex items-center gap-2 px-4 py-2 rounded-apple-md text-xs font-semibold transition-all ${
-                activeTab === "audit"
-                  ? "bg-apple-blue text-white shadow-apple-glow"
-                  : "text-slate-400 hover:text-slate-200"
-              }`}
-            >
-              <Compass className="w-4 h-4" />
-              لاگ ممیزی (D-04)
-            </button>
           </div>
         </div>
       </Card>

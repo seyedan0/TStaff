@@ -1,4 +1,7 @@
-import { Injectable, Inject, forwardRef } from "@nestjs/common";
+import { Injectable, Inject, Optional, forwardRef } from "@nestjs/common";
+import { OrganizationService } from "../../organization/application/organization.service.js";
+import { IdentityService } from "../../identity/application/identity.service.js";
+import { TRANSACTION_RUNNER, type TransactionRunner } from "../../../platform/transactions/transaction-runner.js";
 import type {
   CreateResearchCaseDto,
   RollbackStageDto,
@@ -32,9 +35,12 @@ export class ResearchService {
     private readonly assignmentsService: AssignmentsService,
     @Inject(forwardRef(() => ResourcesService))
     private readonly resourcesService: ResourcesService,
+    @Optional() @Inject(OrganizationService) private readonly organization?: OrganizationService,
+    @Optional() @Inject(IdentityService) private readonly identity?: IdentityService,
+    @Optional() @Inject(TRANSACTION_RUNNER) private readonly transactions?: TransactionRunner,
   ) {}
 
-  async createCase(dto: CreateResearchCaseDto): Promise<ResearchCase> {
+  async createCase(dto: CreateResearchCaseDto, actorId?: string): Promise<ResearchCase> {
     const rCase = ResearchCase.create({
       id: crypto.randomUUID(),
       title: dto.title,
@@ -43,7 +49,11 @@ export class ResearchService {
       ...(dto.researcherId ? { researcherId: dto.researcherId } : {}),
     });
 
-    await this.researchRepo.create(rCase);
+    const save = async () => {
+      await this.researchRepo.create(rCase);
+      if (actorId) await this.assignmentsService.assignSupervisorToCase(rCase.id, actorId, "MAIN_SUPERVISOR");
+    };
+    if (this.transactions) await this.transactions.run(save); else await save();
     return rCase;
   }
 
@@ -161,8 +171,8 @@ export class ResearchService {
   }
 
   async isSupervisorAssignedToCase(caseId: string, supervisorId: string): Promise<boolean> {
-    const researchCase = await this.getCase(caseId);
-    return !!researchCase.researcherId && this.isSupervisorAssignedToUser(researchCase.researcherId, supervisorId);
+    await this.getCase(caseId);
+    return this.assignmentsService.isSupervisorAssignedToCase(caseId, supervisorId);
   }
 
   async assertOwnerCanEditStage(caseId: string, stageType: StageType, userId: string): Promise<void> {
@@ -175,14 +185,29 @@ export class ResearchService {
   }
 
   async canUserAccessCase(caseId: string, userId: string, roles: string[] = []): Promise<boolean> {
-    if (roles.some((role) => ["SYSTEM_ADMIN", "TRACKING_DIRECTOR", "PROVINCIAL_DIRECTOR"].includes(role))) return true;
     const researchCase = await this.getCase(caseId);
     if (researchCase.researcherId === userId) return true;
-    return !!researchCase.researcherId && this.isSupervisorAssignedToUser(researchCase.researcherId, userId);
+    if (await this.isSupervisorAssignedToCase(caseId, userId)) return true;
+    if (!researchCase.researcherId) return false;
+    if (await this.isSupervisorAssignedToUser(researchCase.researcherId, userId)) return true;
+    if (this.organization && await this.organization.hasUserGrant(userId, researchCase.researcherId)) return true;
+    if (roles.includes("PROVINCIAL_DIRECTOR") && this.organization && this.identity) {
+      return this.organization.canAccessProvince(userId, await this.identity.getUserProvinceId(researchCase.researcherId));
+    }
+    return false;
   }
 
   async getAssignedUserIds(supervisorId: string): Promise<string[]> {
-    return (await this.assignmentsService.getUsersForSupervisor(supervisorId)).map((user) => user.id);
+    const personal = (await this.assignmentsService.getUsersForSupervisor(supervisorId)).map((user) => user.id);
+    const caseIds = new Set(await this.assignmentsService.getCaseIdsForSupervisor(supervisorId));
+    const caseUsers = (await this.listCases()).filter((item) => caseIds.has(item.id)).map((item) => item.researcherId).filter((id): id is string => !!id);
+    return [...new Set([...personal, ...caseUsers])];
+  }
+
+  async listAccessibleCases(userId: string, roles: string[] = [], researcherId?: string): Promise<ResearchCase[]> {
+    const cases = (await this.listCases()).filter((item) => !researcherId || item.researcherId === researcherId);
+    const allowed = await Promise.all(cases.map(async (item) => await this.canUserAccessCase(item.id, userId, roles) ? item : null));
+    return allowed.filter((item): item is ResearchCase => item !== null);
   }
 
   async getStageInstance(stageId: string): Promise<StageInstanceDto> {

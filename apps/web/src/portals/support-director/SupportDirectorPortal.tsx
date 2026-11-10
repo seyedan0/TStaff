@@ -1,3 +1,4 @@
+import { usePortalSection } from "../../app/usePortalSection.js";
 import React, { useState, useEffect } from "react";
 import {
   LifeBuoy,
@@ -51,7 +52,7 @@ interface ManagedUserItem {
 export const SupportDirectorPortal: React.FC<SupportDirectorPortalProps> = ({
   onNotify,
 }) => {
-  const [activeTab, setActiveTab] = useState<"tickets" | "users">("tickets");
+  const activeTab = usePortalSection<"tickets" | "users">({ "/support/tickets": "tickets", "/support/users": "users" }, "tickets");
 
   // Tickets State
   const [tickets, setTickets] = useState<SupportTicketItem[]>([]);
@@ -246,31 +247,6 @@ export const SupportDirectorPortal: React.FC<SupportDirectorPortalProps> = ({
             <p className="text-xs text-slate-300 max-w-2xl leading-relaxed">
               پاسخگویی به درخواست‌ها و سوالات کارآموزان و کارورزان، بررسی اشکالات گزارش‌شده و اعمال تعلیق‌های انضباطی یا رفع تعلیق حساب‌های کاربری.
             </p>
-          </div>
-
-          <div className="flex items-center gap-2 p-1 rounded-apple-lg bg-white/[0.03] border border-white/5">
-            <button
-              onClick={() => setActiveTab("tickets")}
-              className={`flex items-center gap-2 px-4 py-2 rounded-apple-md text-xs font-semibold transition-all ${
-                activeTab === "tickets"
-                  ? "bg-apple-blue text-white shadow-apple-glow"
-                  : "text-slate-400 hover:text-slate-200"
-              }`}
-            >
-              <LifeBuoy className="w-4 h-4" />
-              تیکت‌های پشتیبانی ({tickets.filter((t) => t.status === "OPEN").length} جدید)
-            </button>
-            <button
-              onClick={() => setActiveTab("users")}
-              className={`flex items-center gap-2 px-4 py-2 rounded-apple-md text-xs font-semibold transition-all ${
-                activeTab === "users"
-                  ? "bg-apple-blue text-white shadow-apple-glow"
-                  : "text-slate-400 hover:text-slate-200"
-              }`}
-            >
-              <UserX className="w-4 h-4" />
-              مدیریت تعلیق کاربران (FR-035)
-            </button>
           </div>
         </div>
       </Card>

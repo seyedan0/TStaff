@@ -1,4 +1,7 @@
-import React, { useCallback, useEffect, useState } from "react";
+import { useNavigate, useParams, useSearchParams, Link } from "react-router-dom";
+import { useUnsavedChanges } from "../../shared/useUnsavedChanges.js";
+import { UnsavedChangesDialog } from "../../shared/ui/UnsavedChangesDialog.js";
+import React, { useCallback, useEffect, useState, useRef } from "react";
 import { Building2, FileCheck2, FileText, Mic, Plus, UserRound } from "lucide-react";
 import { apiClient } from "../../shared/api-client.js";
 import type { ResourceItem } from "../../shared/types.js";
@@ -44,8 +47,18 @@ export const ResourcesManager: React.FC<ResourcesManagerProps> = ({
 }) => {
   const [resources, setResources] = useState<ResourceItem[]>([]);
   const [loading, setLoading] = useState(true);
-  const [wizardOpen, setWizardOpen] = useState(false);
-  const [wizardStep, setWizardStep] = useState<WizardStep>(1);
+  const { resourceId } = useParams();
+  const navigate = useNavigate();
+  const [query, setQuery] = useSearchParams();
+  const wizardOpen = !!resourceId;
+  const wizardStep = Math.min(4, Math.max(1, Number(query.get("step")) || 1)) as WizardStep;
+  const setWizardStep = (step: WizardStep) => { const next = new URLSearchParams(query); next.set("step", String(step)); setQuery(next); };
+  const resourcePath = (id: string, step = 1) => `/projects/${caseId}/resources/${id}?${new URLSearchParams({ ...(query.get("researcherId") ? { researcherId: query.get("researcherId")! } : {}), step: String(step) })}`;
+  const sourcePath = `/projects/${caseId}/stages/SOURCES${query.get("researcherId") ? `?researcherId=${query.get("researcherId")}` : ""}`;
+  const loadedResource = useRef<string | null>(null);
+  const [dirty, setDirty] = useState(false);
+  const busyRef = useRef(false);
+  const blocker = useUnsavedChanges(dirty && !busyRef.current);
   const [selectedResource, setSelectedResource] = useState<ResourceItem | null>(null);
   const [busy, setBusy] = useState(false);
   const [personName, setPersonName] = useState("");
@@ -96,16 +109,16 @@ export const ResourcesManager: React.FC<ResourcesManagerProps> = ({
 
   const resetPersonForm = () => {
     setSelectedResource(null);
-    setWizardStep(1);
+
     setPersonName(""); setPersonAge(""); setPosition(""); setProvince(""); setCounty(""); setContactInfo(""); setPersonDescription("");
     setOrganizationName(""); setOrganizationEducation(""); setOrganizationType(""); setOrganizationDescription("");
     setInterviewMode("حضوری"); setInterviewLocation(""); setInterviewDate(new Date().toISOString().slice(0, 16)); setInterviewDuration("60"); setInterviewNotes("");
     setReportTitle(""); setReportFile(null); setUploadedFile(null);
   };
 
-  const startNew = () => { resetPersonForm(); setWizardOpen(true); };
+  const startNew = () => navigate(resourcePath("new"));
 
-  const resume = (resource: ResourceItem) => {
+  const populate = (resource: ResourceItem) => {
     resetPersonForm();
     setSelectedResource(resource);
     setPersonName(resource.title);
@@ -121,9 +134,16 @@ export const ResourcesManager: React.FC<ResourcesManagerProps> = ({
     setInterviewNotes(resource.interview?.notes ?? "");
     setInterviewDate(resource.interview?.conductedAt ? new Date(resource.interview.conductedAt).toISOString().slice(0, 16) : new Date().toISOString().slice(0, 16));
     setInterviewDuration(String(resource.interview?.durationMinutes ?? 60));
-    setWizardStep(!resource.organization ? 2 : !resource.interview ? 3 : 4);
-    setWizardOpen(true);
+
   };
+
+  const resume = (resource: ResourceItem) => navigate(resourcePath(resource.id, !resource.organization ? 1 : !resource.interview ? 3 : 4));
+  useEffect(() => {
+    if (!resourceId) { loadedResource.current = null; return; }
+    if (loading || loadedResource.current === resourceId) return;
+    if (resourceId === "new") { resetPersonForm(); loadedResource.current = resourceId; setDirty(false); }
+    else { const resource = resources.find(item => item.id === resourceId); if (resource) { populate(resource); loadedResource.current = resourceId; setDirty(false); } }
+  }, [resourceId, loading, resources]);
 
   const savePerson = async (event: React.FormEvent) => {
     event.preventDefault();
@@ -140,7 +160,7 @@ export const ResourcesManager: React.FC<ResourcesManagerProps> = ({
         ? await apiClient.patch<ResourceItem>(`/resources/${selectedResource.id}`, data)
         : await apiClient.post<ResourceItem>(`/research-cases/${caseId}/resources`, data);
       setSelectedResource((current) => current ? { ...current, ...resource } : resource);
-      setWizardStep(2);
+      setDirty(false); busyRef.current = true; navigate(resourcePath(resource.id, 2), { replace: resourceId === "new" });
       await loadResources();
       await onWorkflowChanged();
       onNotify("success", "اطلاعات فرد ذخیره شد", "منبع همین حالا به فهرست منابع اضافه شد؛ ادامه فرم را می‌توانید بعداً تکمیل کنید.");
@@ -159,7 +179,7 @@ export const ResourcesManager: React.FC<ResourcesManagerProps> = ({
           name: organizationName.trim(), educationLevel: organizationEducation.trim(), organizationType: organizationType.trim(), description: organizationDescription.trim(),
         });
       }
-      setWizardStep(3);
+      setDirty(false); setWizardStep(3);
       await loadResources();
       await onWorkflowChanged();
       onNotify("success", organizationName.trim() ? "مجموعه ذخیره شد" : "از ثبت مجموعه عبور شد");
@@ -180,7 +200,7 @@ export const ResourcesManager: React.FC<ResourcesManagerProps> = ({
         ? await apiClient.patch<NonNullable<ResourceItem["interview"]>>(`/interviews/${selectedResource.interview.id}`, interviewData)
         : await apiClient.post<NonNullable<ResourceItem["interview"]>>(`/resources/${selectedResource.id}/interview`, interviewData);
       setSelectedResource((current) => current ? { ...current, interview: { ...interview, hasReport: current.interview?.hasReport ?? false, reportsCount: current.interview?.reportsCount ?? 0, latestReport: current.interview?.latestReport ?? null } } : current);
-      setWizardStep(4);
+      setDirty(false); setWizardStep(4);
       await loadResources();
       await onWorkflowChanged();
       onNotify("success", "اطلاعات مصاحبه ذخیره شد", "برای این منبع فقط یک مصاحبه ثبت می‌شود.");
@@ -207,7 +227,7 @@ export const ResourcesManager: React.FC<ResourcesManagerProps> = ({
       });
       await loadResources();
       await onWorkflowChanged();
-      setWizardOpen(false);
+      setDirty(false); busyRef.current = true; navigate(sourcePath);
       onNotify("success", "گزارش مکتوب ثبت شد", "گزارش نسخه‌دار و به‌صورت خصوصی به مصاحبه پیوست شد.");
     } catch (error) {
       onNotify("error", "بارگذاری گزارش انجام نشد", error instanceof Error ? error.message : undefined);
@@ -220,7 +240,7 @@ export const ResourcesManager: React.FC<ResourcesManagerProps> = ({
     <div className="space-y-5">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
-          <button onClick={onBack} className="mb-2 text-xs text-apple-blue hover:underline">← بازگشت به روند پژوهش</button>
+          <button onClick={wizardOpen ? () => navigate(sourcePath) : onBack} className="mb-2 text-xs text-apple-blue hover:underline">← بازگشت به روند پژوهش</button>
           <h2 className="flex items-center gap-2 text-xl font-bold text-slate-100"><FileText className="h-5 w-5 text-apple-blue" />منابع و مصاحبه‌ها</h2>
           <p className="mt-1 text-xs text-slate-400">{caseTitle} · ثبت مرحله‌ای و ذخیره‌شونده (D-07 / AT-04 / AT-18 / AT-30)</p>
         </div>
@@ -228,7 +248,7 @@ export const ResourcesManager: React.FC<ResourcesManagerProps> = ({
       </div>
 
       {!canEdit && <div className="rounded-apple-md border border-white/10 bg-white/[0.03] p-3 text-xs text-slate-300">{stageStatus === "SUBMITTED" ? "منابع برای داوری ارسال شده و در کارتابل مدیر علمی قرار دارد." : stageStatus === "APPROVED" ? "مرحله منابع تأیید شده است و برای مشاهده سابقه فقط خواندنی است." : "این مرحله فعلاً فقط برای مشاهده در دسترس است."}</div>}
-      {loading ? <div className="p-10 text-center text-sm text-slate-400">در حال بارگذاری منابع…</div> : resources.length === 0 ? (
+      {!wizardOpen && (loading ? <div className="p-10 text-center text-sm text-slate-400">در حال بارگذاری منابع…</div> : resources.length === 0 ? (
         <Card variant="glass" className="p-10 text-center text-sm text-slate-400">هنوز منبعی ثبت نشده است.</Card>
       ) : <div className="grid gap-3 md:grid-cols-2">
         {resources.map((resource) => <Card key={resource.id} variant="glass" className="space-y-3">
@@ -240,12 +260,18 @@ export const ResourcesManager: React.FC<ResourcesManagerProps> = ({
           {resource.interview && <div className="flex items-center gap-2 text-xs text-slate-300"><Mic className="h-3.5 w-3.5 text-apple-blue" />مصاحبه {resource.interview.hasReport ? "و گزارش ثبت شده" : "ثبت شده؛ گزارش در انتظار"}{resource.interview.latestReport ? ` · نسخه ${resource.interview.latestReport.version}` : ""}</div>}
           <div className="flex justify-end gap-2 border-t border-white/5 pt-2">
             {resource.interview?.latestReport?.storedObjectId && <Button variant="ghost" size="sm" icon={<FileCheck2 className="h-3.5 w-3.5" />} onClick={() => void apiClient.download(`/files/${resource.interview!.latestReport!.storedObjectId}/download`, resource.interview!.latestReport!.title)}>دانلود گزارش</Button>}
-            <Button variant="secondary" size="sm" disabled={!canEdit} onClick={() => resume(resource)}>{resource.interview?.hasReport ? "ویرایش / نسخه جدید" : "ادامه فرم"}</Button>
+            <Button variant="secondary" size="sm" onClick={() => resume(resource)}>{!canEdit ? "مشاهده منبع" : resource.interview?.hasReport ? "ویرایش / نسخه جدید" : "ادامه فرم"}</Button>
           </div>
         </Card>)}
-      </div>}
+      </div>)}
 
-      <Modal isOpen={wizardOpen} onClose={() => setWizardOpen(false)} title={selectedResource ? "ادامه ثبت منبع" : "ثبت منبع پژوهشی"} subtitle={`${steps[wizardStep - 1]} · گام ${wizardStep} از ۴`} maxWidth="lg">
+      <UnsavedChangesDialog blocker={blocker} />
+      {wizardOpen && <section className="apple-glass-card rounded-3xl p-5 md:p-8" onChange={() => setDirty(true)}>
+        <Link to={sourcePath} className="mb-3 inline-block text-xs text-apple-blue underline">بازگشت به منابع پژوهش</Link>
+        <h3 className="mb-2 text-xl font-bold">{selectedResource?.title ?? "ثبت منبع پژوهشی"}</h3>
+        <p className="mb-5 text-sm text-slate-400">{steps[wizardStep - 1]} · گام {wizardStep} از ۴</p>
+        {!loading && resourceId !== "new" && !selectedResource && <p role="alert">منبع پیدا نشد یا دسترسی به آن مجاز نیست.</p>}
+        {!canEdit && selectedResource && <dl className="mb-5 grid gap-3 rounded-2xl bg-apple-blue/5 p-5 text-sm sm:grid-cols-2"><div><dt className="text-slate-400">سن</dt><dd>{selectedResource.personAge ?? "ثبت نشده"}</dd></div><div><dt className="text-slate-400">سمت</dt><dd>{selectedResource.position || "ثبت نشده"}</dd></div><div><dt className="text-slate-400">استان / شهرستان</dt><dd>{selectedResource.province} / {selectedResource.county}</dd></div><div><dt className="text-slate-400">تماس</dt><dd>{selectedResource.contactInfo || "ثبت نشده"}</dd></div><div><dt className="text-slate-400">مجموعه</dt><dd>{selectedResource.organization?.name || "ثبت نشده"}</dd></div><div><dt className="text-slate-400">مصاحبه</dt><dd>{selectedResource.interview ? new Date(selectedResource.interview.conductedAt).toLocaleString("fa-IR") : "ثبت نشده"}</dd></div><div className="sm:col-span-2"><dt className="text-slate-400">یادداشت مصاحبه</dt><dd>{selectedResource.interview?.notes || "ثبت نشده"}</dd></div>{selectedResource.interview?.latestReport?.storedObjectId && <Button variant="secondary" onClick={() => void apiClient.download(`/files/${selectedResource.interview!.latestReport!.storedObjectId}/download`, selectedResource.interview!.latestReport!.title)}>دریافت گزارش</Button>}</dl>}
         <div className="mb-5 grid grid-cols-4 gap-2">{steps.map((step, index) => { const target = (index + 1) as WizardStep; const available = canEdit && (target === 1 || !!selectedResource) && (target < 4 || !!selectedResource?.interview?.id); return <button type="button" key={step} disabled={!available} onClick={() => setWizardStep(target)} className={`rounded-apple-sm px-2 py-2 text-center text-[10px] disabled:opacity-40 ${target === wizardStep ? "bg-apple-blue/20 text-apple-blue" : target < wizardStep ? "bg-apple-green/10 text-apple-green" : "bg-white/[0.03] text-slate-500"}`}>{index + 1}. {step}</button>; })}</div>
         {wizardStep === 1 && canContinue && <form onSubmit={savePerson} className="grid gap-3 text-right md:grid-cols-2">
           <Input label="نام و نام خانوادگی" required value={personName} onChange={(event) => setPersonName(event.target.value)} />
@@ -278,7 +304,7 @@ export const ResourcesManager: React.FC<ResourcesManagerProps> = ({
           {uploadedFile?.scanStatus === "QUARANTINED" && <p className="text-xs text-apple-amber">فایل در انتظار اسکن است؛ پس از تأیید مدیر سامانه دوباره فرم را ادامه دهید.</p>}
           <div className="flex justify-between"><Button type="button" variant="ghost" onClick={() => setWizardStep(3)}>بازگشت</Button><Button type="submit" variant="primary" loading={busy} disabled={!reportFile}>بارگذاری و ثبت گزارش</Button></div>
         </form>}
-      </Modal>
+      </section>}
     </div>
   );
 };

@@ -1,3 +1,4 @@
+import { useNavigate, useParams, useSearchParams, Link } from "react-router-dom";
 import React, { useCallback, useEffect, useState } from "react";
 import { ArrowLeft, FolderGit2, Plus, RotateCcw } from "lucide-react";
 import type { StageStatus, StageType } from "@tstaff/contracts";
@@ -34,12 +35,22 @@ export interface ResearchCasesViewProps {
 
 export const ResearchCasesView: React.FC<ResearchCasesViewProps> = ({ onNotify, researcherId, canManage = false }) => {
   const { currentUser } = useAuth();
+  const { caseId, stageType, resourceId } = useParams();
+  const navigate = useNavigate();
+  const [query] = useSearchParams();
+  const context = researcherId ? `?researcherId=${encodeURIComponent(researcherId)}` : "";
+  const casePath = (id: string) => `/projects/${encodeURIComponent(id)}${context}`;
   const demoMode = isDemoMode();
   const ownerId = researcherId ?? currentUser?.id;
-  const [cases, setCases] = useState<ResearchCaseItem[]>([]);
+  const [cases, setCases] = useState<Array<ResearchCaseItem & { canReview?: boolean }>>([]);
   const [loading, setLoading] = useState(true);
-  const [selectedCase, setSelectedCase] = useState<ResearchCaseItem | null>(null);
-  const [selectedStage, setSelectedStage] = useState<StageInstanceItem | null>(null);
+  const selectedCase = cases.find(item => item.id === caseId) ?? null;
+  const selectedStage = selectedCase?.stages.find(item => item.stageType === (resourceId ? "SOURCES" : stageType)) ?? null;
+  const canReview = canManage && selectedCase?.canReview === true;
+  const parentPath = researcherId ? `/supervision/users/${encodeURIComponent(researcherId)}` : "/projects";
+  const [changeOpen, setChangeOpen] = useState(false);
+  const [changeReason, setChangeReason] = useState("");
+  const [changeTarget, setChangeTarget] = useState<StageType>("SOURCES");
   const [createOpen, setCreateOpen] = useState(false);
   const [rollbackOpen, setRollbackOpen] = useState(false);
   const [rollbackTarget, setRollbackTarget] = useState<StageType>("SOURCES");
@@ -47,24 +58,20 @@ export const ResearchCasesView: React.FC<ResearchCasesViewProps> = ({ onNotify, 
   const [busy, setBusy] = useState(false);
 
   const loadCases = useCallback(async () => {
-    if (!ownerId) { setCases([]); setLoading(false); return; }
+    if (!ownerId && !caseId) { setCases([]); setLoading(false); return; }
     setLoading(true);
     try {
-      const updatedCases = await apiClient.get<ResearchCaseItem[]>(`/research-cases?researcherId=${encodeURIComponent(ownerId)}`);
+      const updatedCases = caseId
+        ? [await apiClient.get<ResearchCaseItem & { canReview?: boolean }>(`/research-cases/${encodeURIComponent(caseId)}`)]
+        : await apiClient.get<Array<ResearchCaseItem & { canReview?: boolean }>>(`/research-cases?researcherId=${encodeURIComponent(ownerId!)}`);
       setCases(updatedCases);
-      setSelectedCase((current) => current ? updatedCases.find((item) => item.id === current.id) ?? current : null);
     } catch (error) {
       setCases([]);
       onNotify("error", "پرونده‌ها بارگذاری نشدند", error instanceof Error ? error.message : undefined);
     } finally { setLoading(false); }
-  }, [onNotify, ownerId]);
+  }, [onNotify, ownerId, caseId]);
   useEffect(() => { void loadCases(); }, [loadCases]);
-  useEffect(() => {
-    if (!selectedCase || !selectedStage) return;
-    const currentCase = cases.find((item) => item.id === selectedCase.id);
-    const updatedStage = currentCase?.stages.find((item) => item.stageType === selectedStage.stageType);
-    if (updatedStage) setSelectedStage(updatedStage);
-  }, [cases, selectedCase?.id]);
+
 
   const submitRollback = async (event: React.FormEvent) => {
     event.preventDefault();
@@ -73,16 +80,16 @@ export const ResearchCasesView: React.FC<ResearchCasesViewProps> = ({ onNotify, 
     try {
       await apiClient.post(`/research-cases/${selectedCase.id}/rollback-stage`, { targetStage: rollbackTarget, reason: rollbackReason, expectedVersion: selectedCase.version });
       onNotify("success", "بازگشت مرحله ثبت شد", "نسخه‌های گذشته حفظ شدند و مراحل وابسته برای بازبینی علامت خوردند (D-05 / AT-33).");
-      setRollbackOpen(false); setRollbackReason(""); setSelectedCase(null); setSelectedStage(null); await loadCases();
+      setRollbackOpen(false); setRollbackReason(""); navigate(casePath(selectedCase.id)); await loadCases();
     } catch (error) { onNotify("error", "بازگشت مرحله انجام نشد", error instanceof Error ? error.message : undefined); }
     finally { setBusy(false); }
   };
 
   if (selectedCase && selectedStage) {
-    const canEdit = !demoMode && !canManage && ["IN_PROGRESS", "REVIEW_REQUIRED", "REVISION_REQUESTED"].includes(selectedStage.status);
-    const back = () => setSelectedStage(null);
+    const canEdit = !demoMode && selectedCase.researcherId === currentUser?.id && ["IN_PROGRESS", "REVIEW_REQUIRED", "REVISION_REQUESTED"].includes(selectedStage.status);
+    const back = () => navigate(casePath(selectedCase.id));
     return <div className="space-y-5">
-      <div className="flex flex-wrap items-center justify-between gap-3"><div><button onClick={back} className="mb-2 flex items-center gap-1 text-xs text-apple-blue hover:underline"><ArrowLeft className="h-3 w-3" />بازگشت به مراحل پرونده</button><h2 className="text-lg font-bold text-slate-100">{stages.find((stage) => stage.type === selectedStage.stageType)?.label}</h2><p className="mt-1 text-xs text-slate-400">{selectedCase.code} · {selectedCase.title} · {statusLabel[selectedStage.status]}</p></div>{canManage && !demoMode && <Button variant="secondary" size="sm" icon={<RotateCcw className="h-3.5 w-3.5" />} onClick={() => setRollbackOpen(true)}>بازگشت به مرحله قبلی</Button>}</div>
+      <div className="flex flex-wrap items-center justify-between gap-3"><div><button onClick={back} className="mb-2 flex items-center gap-1 text-xs text-apple-blue hover:underline"><ArrowLeft className="h-3 w-3" />بازگشت به مراحل پرونده</button><h2 className="text-lg font-bold text-slate-100">{stages.find((stage) => stage.type === selectedStage.stageType)?.label}</h2><p className="mt-1 text-xs text-slate-400">{selectedCase.code} · {selectedCase.title} · {statusLabel[selectedStage.status]}</p></div>{canReview && !demoMode && <Button variant="secondary" size="sm" icon={<RotateCcw className="h-3.5 w-3.5" />} onClick={() => setRollbackOpen(true)}>بازگشت به مرحله قبلی</Button>}</div>
       {selectedStage.stageType === "SOURCES" && <ResourcesManager caseId={selectedCase.id} caseTitle={selectedCase.title} caseVersion={selectedCase.version} canEdit={canEdit} stageStatus={selectedStage.status} onWorkflowChanged={loadCases} onBack={back} onNotify={onNotify} />}
       {(selectedStage.stageType === "EXPLANATION" || selectedStage.stageType === "PRESCRIPTION") && <StageSubmissionWorkspace caseTitle={selectedCase.title} caseVersion={selectedCase.version} stageId={selectedStage.id} stageType={selectedStage.stageType} stageStatus={selectedStage.status} canEdit={canEdit} onWorkflowChanged={loadCases} onNotify={onNotify} />}
       {selectedStage.stageType === "SCENARIO" && <ScenarioWorkspace caseId={selectedCase.id} caseTitle={selectedCase.title} stageStatus={selectedStage.status} canEdit={canEdit} onNotify={onNotify} />}
@@ -97,19 +104,26 @@ export const ResearchCasesView: React.FC<ResearchCasesViewProps> = ({ onNotify, 
   }
 
   if (selectedCase) return <div className="space-y-5">
-    <button onClick={() => setSelectedCase(null)} className="flex items-center gap-1 text-xs text-apple-blue hover:underline"><ArrowLeft className="h-3 w-3" />بازگشت به پرونده‌ها</button>
+    <button onClick={() => navigate(parentPath)} className="flex items-center gap-1 text-xs text-apple-blue hover:underline"><ArrowLeft className="h-3 w-3" />بازگشت به پرونده‌ها</button>
     <Card variant="glass" className="space-y-4 p-5">
       <div className="flex flex-wrap items-start justify-between gap-3"><div><Badge variant="info" size="sm">{selectedCase.code}</Badge><h2 className="mt-2 text-lg font-bold text-slate-100">{selectedCase.title}</h2><p className="mt-1 text-xs text-slate-400">موضوع: {selectedCase.subject}</p></div><span className="text-xs text-slate-400">نسخه {selectedCase.version}</span></div>
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">{stages.map(({ type, label }) => {
         const stage = selectedCase.stages.find((item) => item.stageType === type);
         if (!stage) return null;
-        return <button type="button" key={stage.id} onClick={() => setSelectedStage(stage)} className={`rounded-apple-md border p-4 text-right transition hover:-translate-y-0.5 hover:border-apple-blue/40 ${stage.status === "APPROVED" ? "border-apple-green/30 bg-apple-green/5" : stage.status === "IN_PROGRESS" ? "border-apple-blue/40 bg-apple-blue/10" : stage.status === "SUBMITTED" || stage.status === "REVIEW_REQUIRED" || stage.status === "REVISION_REQUESTED" ? "border-apple-amber/30 bg-apple-amber/5" : "border-white/10 bg-white/[0.02]"}`}>
+        return <button type="button" key={stage.id} onClick={() => navigate(`/projects/${selectedCase.id}/stages/${stage.stageType}${context}`)} className={`rounded-apple-md border p-4 text-right transition hover:-translate-y-0.5 hover:border-apple-blue/40 ${stage.status === "APPROVED" ? "border-apple-green/30 bg-apple-green/5" : stage.status === "IN_PROGRESS" ? "border-apple-blue/40 bg-apple-blue/10" : stage.status === "SUBMITTED" || stage.status === "REVIEW_REQUIRED" || stage.status === "REVISION_REQUESTED" ? "border-apple-amber/30 bg-apple-amber/5" : "border-white/10 bg-white/[0.02]"}`}>
           <div className="text-xs font-semibold text-slate-100">{label}</div><div className="mt-2 text-[11px] text-slate-400">{statusLabel[stage.status]}</div><div className="mt-1 text-[10px] text-slate-500">نسخه {stage.version}</div>
         </button>;
       })}</div>
       <p className="border-t border-white/5 pt-3 text-xs text-slate-400">{demoMode ? "این پرونده‌ی نمونه در نسخه‌ی نمایشی فقط برای مشاهده در دسترس است." : "برای بازکردن هر مرحله روی کارت آن بزنید. مرحله جاری قابل ویرایش است؛ تأیید مدیر علمی، مرحله بعد را باز می‌کند. مراحل تأییدشده برای مشاهده تاریخچه در دسترس‌اند."}</p>
-      {canManage && !demoMode && <div className="flex justify-end"><Button variant="secondary" size="sm" icon={<RotateCcw className="h-3.5 w-3.5" />} onClick={() => setRollbackOpen(true)}>بازگشت به مرحله قبلی</Button></div>}
+      {canReview && !demoMode && <div className="flex justify-end"><Button variant="secondary" size="sm" icon={<RotateCcw className="h-3.5 w-3.5" />} onClick={() => setRollbackOpen(true)}>بازگشت به مرحله قبلی</Button></div>}
     </Card>
+    {selectedCase.researcherId === currentUser?.id && !demoMode && selectedCase.stages.some(stage => stage.status === "APPROVED") && <Button variant="secondary" onClick={() => { setChangeTarget(selectedCase.stages.find(stage => stage.status === "APPROVED")!.stageType); setChangeOpen(true); }}>درخواست بازبینی مرحله تأییدشده</Button>}
+    <Modal isOpen={changeOpen} onClose={() => setChangeOpen(false)} title="درخواست بازبینی پژوهش">
+      <form className="space-y-4" onSubmit={async event => { event.preventDefault(); setBusy(true); try { await apiClient.post(`/research-cases/${selectedCase.id}/change-requests`, { targetStage: changeTarget, reason: changeReason.trim(), expectedVersion: selectedCase.version }); setChangeOpen(false); setChangeReason(""); onNotify("success", "درخواست بازبینی ثبت شد", "پس از تصمیم مدیر علمی امکان اصلاح مرحله فراهم می‌شود."); await loadCases(); } catch (error) { onNotify("error", "درخواست ثبت نشد", error instanceof Error ? error.message : undefined); } finally { setBusy(false); } }}>
+        <label className="block text-sm">مرحله<select className="mt-2 w-full rounded-xl border p-3" value={changeTarget} onChange={event => setChangeTarget(event.target.value as StageType)}>{selectedCase.stages.filter(stage => stage.status === "APPROVED").map(stage => <option key={stage.id} value={stage.stageType}>{stages.find(item => item.type === stage.stageType)?.label}</option>)}</select></label>
+        <label className="block text-sm">دلیل درخواست<textarea required minLength={5} maxLength={2000} rows={4} className="mt-2 w-full rounded-xl border p-3" value={changeReason} onChange={event => setChangeReason(event.target.value)} /></label><Button type="submit" loading={busy}>ارسال برای مدیر علمی</Button>
+      </form>
+    </Modal>
     <Modal isOpen={rollbackOpen} onClose={() => setRollbackOpen(false)} title="بازگردانی مرحله و بازبینی خروجی‌های وابسته" subtitle="تاریخچه نسخه‌ها حذف نمی‌شود (D-05 / FR-061 / AT-33).">
       <form onSubmit={submitRollback} className="space-y-4 text-right">
         <label className="block text-xs text-slate-300">مرحله مقصد<select value={rollbackTarget} onChange={(event) => setRollbackTarget(event.target.value as StageType)} className="mt-1 w-full rounded-apple-md border border-white/10 bg-slate-900 p-2.5 text-sm">{stages.slice(0, 3).map((stage) => <option key={stage.type} value={stage.type}>{stage.label}</option>)}</select></label>
@@ -119,11 +133,14 @@ export const ResearchCasesView: React.FC<ResearchCasesViewProps> = ({ onNotify, 
     </Modal>
   </div>;
 
+  if (caseId && loading) return <p role="status" className="p-10 text-center">در حال دریافت پرونده…</p>;
+  if (caseId && !selectedCase) return <section role="alert" className="apple-glass-card rounded-2xl p-8"><h2 className="font-bold">پرونده در دسترس نیست</h2><p className="mt-2 text-sm text-slate-400">پرونده پیدا نشد یا اجازه مشاهده آن را ندارید.</p><Link className="mt-4 inline-block text-apple-blue underline" to={parentPath}>بازگشت به فهرست</Link></section>;
   return <div className="space-y-5">
     <div className="flex flex-wrap items-center justify-between gap-3"><div><h2 className="flex items-center gap-2 text-xl font-bold text-slate-100"><FolderGit2 className="h-5 w-5 text-apple-blue" />پرونده‌های پژوهش</h2><p className="mt-1 text-xs text-slate-400">چرخه منابع، تبیین، تجویز و سناریو · حرکت بین مراحل با تأیید مدیر علمی</p></div>{canManage && ownerId && !demoMode && <Button variant="primary" icon={<Plus className="h-4 w-4" />} onClick={() => setCreateOpen(true)}>ایجاد پرونده برای کارورز</Button>}</div>
-    {!ownerId && canManage ? <Card variant="glass" className="p-8 text-center text-sm text-slate-400">ابتدا یک کارورز منتسب‌شده را انتخاب کنید.</Card> : loading ? <div className="p-10 text-center text-sm text-slate-400">در حال بارگذاری پرونده‌ها…</div> : cases.length === 0 ? <Card variant="glass" className="p-10 text-center text-sm text-slate-400">برای این کارورز هنوز پرونده‌ای ثبت نشده است.</Card> : <div className="grid gap-3 md:grid-cols-2">{cases.map((item) => <Card key={item.id} variant="glass" className="flex flex-col justify-between gap-4 p-5">
+    <label className="block text-xs text-slate-400">جست‌وجوی پژوهش<input type="search" value={query.get("q") ?? ""} onChange={event => { const next = new URLSearchParams(query); event.target.value ? next.set("q", event.target.value) : next.delete("q"); navigate({ search: next.toString() }, { replace: true }); }} className="mt-2 w-full rounded-xl border border-apple-blue/15 bg-white p-3 text-sm" /></label>
+    {!ownerId && canManage ? <Card variant="glass" className="p-8 text-center text-sm text-slate-400">ابتدا یک کارورز منتسب‌شده را انتخاب کنید.</Card> : loading ? <div className="p-10 text-center text-sm text-slate-400">در حال بارگذاری پرونده‌ها…</div> : cases.length === 0 ? <Card variant="glass" className="p-10 text-center text-sm text-slate-400">برای این کارورز هنوز پرونده‌ای ثبت نشده است.</Card> : <div className="grid gap-3 md:grid-cols-2">{cases.filter(item => `${item.title} ${item.code} ${item.subject}`.includes(query.get("q") ?? "")).map((item) => <Card key={item.id} variant="glass" className="flex flex-col justify-between gap-4 p-5">
       <div><div className="flex items-center justify-between gap-2"><Badge variant="info" size="sm">{item.code}</Badge><span className="text-xs text-slate-500">v{item.version}</span></div><h3 className="mt-3 font-bold text-slate-100">{item.title}</h3><p className="mt-1 text-xs text-slate-400">{item.subject}</p><div className="mt-4 flex flex-wrap gap-1.5">{item.stages.map((stage) => <span key={stage.id} title={statusLabel[stage.status]} className={`h-2 w-8 rounded-full ${stage.status === "APPROVED" ? "bg-apple-green" : stage.status === "IN_PROGRESS" ? "bg-apple-blue" : stage.status === "SUBMITTED" || stage.status === "REVIEW_REQUIRED" || stage.status === "REVISION_REQUESTED" ? "bg-apple-amber" : "bg-white/10"}`} />)}</div></div>
-      <Button variant="secondary" size="sm" onClick={() => { setSelectedCase(item); setSelectedStage(null); }}>مشاهده چهار مرحله</Button>
+      <Button variant="secondary" size="sm" onClick={() => navigate(casePath(item.id))}>مشاهده چهار مرحله</Button>
     </Card>)}</div>}
     {canManage && ownerId && !demoMode && <CreateResearchCaseModal isOpen={createOpen} onClose={() => setCreateOpen(false)} researcherId={ownerId} onSuccess={() => void loadCases()} onNotify={onNotify} />}
   </div>;

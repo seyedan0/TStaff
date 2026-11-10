@@ -1,3 +1,5 @@
+import { useUnsavedChanges } from "../../shared/useUnsavedChanges.js";
+import { UnsavedChangesDialog } from "../../shared/ui/UnsavedChangesDialog.js";
 import React, { useCallback, useEffect, useState } from "react";
 import { apiClient } from "../../shared/api-client.js";
 import { Button } from "../../shared/ui/Button.js";
@@ -39,6 +41,7 @@ export const ScenarioWorkspace: React.FC<{
   const [fields, setFields] = useState<ScenarioFields>(empty);
   const [loading, setLoading] = useState(false);
   const [busy, setBusy] = useState(false);
+  const blocker = useUnsavedChanges(canEdit && !busy && !loading && (title !== (scenario?.title ?? "") || summary !== (scenario?.summary ?? "") || JSON.stringify(fields) !== JSON.stringify(parseContent(scenario?.content))));
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -72,7 +75,7 @@ export const ScenarioWorkspace: React.FC<{
 
   const field = (key: keyof ScenarioFields, label: string, rows = 3) => <label className="block text-xs text-slate-300">{label}<textarea rows={rows} value={fields[key]} onChange={(event) => setFields((current) => ({ ...current, [key]: event.target.value }))} className="mt-1 w-full rounded-apple-md border border-white/10 bg-slate-900/70 p-3 text-sm text-slate-100" /></label>;
 
-  return <div className="space-y-4">
+  return <div className="space-y-4"><UnsavedChangesDialog blocker={blocker} />
     <div><h3 className="text-lg font-bold text-slate-100">سناریونویسی</h3><p className="mt-1 text-xs text-slate-400">{caseTitle} · عنوان، شرح، مخاطب، استان، دسته‌بندی، کلیدواژه و مراحل اجرا (FR-021 / AT-08)</p></div>
     {loading ? <p className="p-6 text-center text-xs text-slate-400">در حال دریافت سناریو…</p> : scenario && !canEdit ? <Card variant="glass" className="space-y-3 p-5"><div className="flex justify-between"><h4 className="font-semibold">{scenario.title}</h4><span className="text-xs text-slate-400">{scenario.status} · نسخه {scenario.version}</span></div><p className="text-sm text-slate-300">{scenario.summary}</p><pre className="whitespace-pre-wrap text-xs text-slate-300">{JSON.stringify(parseContent(scenario.content), null, 2)}</pre></Card> : null}
     {!loading && canEdit && <Card variant="glass" className="p-4"><div className="space-y-3 text-right">

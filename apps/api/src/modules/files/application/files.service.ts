@@ -1,7 +1,6 @@
-import { Inject, Injectable } from "@nestjs/common";
+import { Inject, Injectable, Logger } from "@nestjs/common";
 import { basename, extname } from "node:path";
 import { randomUUID } from "node:crypto";
-import { AssignmentsService } from "../../assignments/application/assignments.service.js";
 import {
   FileAccessDeniedError,
   FileNotReadyError,
@@ -14,6 +13,9 @@ import {
   PRIVATE_FILE_STORAGE,
   STORED_OBJECT_REPOSITORY,
   VIRUS_SCANNER,
+  FILE_ACCESS,
+  type FileAccessPort,
+  type FileStorageLocation,
   type FileScanStatus,
   type PrivateFileStoragePort,
   type StoredObjectRecord,
@@ -29,11 +31,12 @@ const FILE_TYPES = new Map([
 
 @Injectable()
 export class FilesService {
+  private readonly logger = new Logger(FilesService.name);
   constructor(
     @Inject(STORED_OBJECT_REPOSITORY) private readonly objects: StoredObjectRepositoryPort,
     @Inject(PRIVATE_FILE_STORAGE) private readonly storage: PrivateFileStoragePort,
     @Inject(VIRUS_SCANNER) private readonly scanner: VirusScannerPort,
-    private readonly assignments: AssignmentsService,
+    @Inject(FILE_ACCESS) private readonly access: FileAccessPort,
   ) {}
 
   get maxBytes(): number {
@@ -43,6 +46,7 @@ export class FilesService {
 
   async upload(file: { originalname: string; mimetype: string; size: number; buffer: Buffer }, uploadedById: string) {
     if (!file?.buffer || !file.size) throw new InvalidFileError("فایل خالی است");
+    if (file.size !== file.buffer.length) throw new InvalidFileError("اندازه فایل با محتوای آن سازگار نیست");
     if (file.size > this.maxBytes) throw new FileTooLargeError(this.maxBytes);
     const extension = extname(file.originalname).toLowerCase();
     const type = FILE_TYPES.get(extension);
@@ -53,11 +57,12 @@ export class FilesService {
 
     const id = randomUUID();
     const objectKey = `${id}${extension}`;
-    await this.storage.write(objectKey, file.buffer);
+    const location = this.storage.getUploadLocation();
     try {
+      await this.storage.write(objectKey, file.buffer, location);
       await this.objects.create({
         id,
-        bucket: "private-research",
+        ...location,
         objectKey,
         originalName: basename(file.originalname).slice(0, 255),
         mimeType: type.mime,
@@ -68,7 +73,9 @@ export class FilesService {
         isPrivate: true,
       });
     } catch (error) {
-      await this.storage.remove(objectKey);
+      await this.storage.remove(objectKey, location).catch(() => {
+        this.logger.error(JSON.stringify({ event: "file_cleanup_failed", objectId: id }));
+      });
       throw error;
     }
 
@@ -78,7 +85,7 @@ export class FilesService {
     }
     if (scan === "INFECTED") {
       await this.objects.updateScanStatus(id, "REJECTED", true);
-      await this.storage.remove(objectKey);
+      await this.storage.remove(objectKey, location);
       throw new InvalidFileError("فایل توسط اسکن امنیتی رد شد");
     }
     await this.objects.updateScanStatus(id, "AVAILABLE", true);
@@ -89,11 +96,11 @@ export class FilesService {
     const stored = await this.getStoredObject(id);
     if (stored.uploadedById !== requesterId) throw new FileAccessDeniedError("فقط بارگذار فایل می‌تواند اسکن را دوباره اجرا کند");
     if (stored.scanStatus !== "QUARANTINED") return this.toUploadResult(stored);
-    const scan = await this.scanner.scan(await this.storage.read(stored.objectKey));
+    const scan = await this.scanner.scan(await this.storage.read(stored.objectKey, this.location(stored)));
     if (scan === "UNAVAILABLE") throw new FileScannerUnavailableError();
     const scanStatus: FileScanStatus = scan === "CLEAN" ? "AVAILABLE" : "REJECTED";
     await this.objects.updateScanStatus(id, scanStatus, true);
-    if (scan === "INFECTED") await this.storage.remove(stored.objectKey);
+    if (scan === "INFECTED") await this.storage.remove(stored.objectKey, this.location(stored));
     return { id, originalName: stored.originalName, size: Number(stored.fileSizeBytes), scanStatus };
   }
 
@@ -115,10 +122,9 @@ export class FilesService {
     if (stored.scanStatus !== "AVAILABLE" || !stored.isVirusScanned) {
       throw new FileAccessDeniedError("فایل هنوز تأیید امنیتی نشده است");
     }
-    const allowed = roles.includes("SYSTEM_ADMIN") || stored.uploadedById === userId ||
-      await this.assignments.isSupervisorAssignedToUser(stored.uploadedById, userId);
+    const allowed = stored.uploadedById === userId || await this.access.canDownload(id, userId, roles);
     if (!allowed) throw new FileAccessDeniedError("دسترسی به این فایل مجاز نیست");
-    return { stream: this.storage.open(stored.objectKey), name: stored.originalName, mimeType: stored.mimeType };
+    return { stream: await this.storage.open(stored.objectKey, this.location(stored)), name: stored.originalName, mimeType: stored.mimeType };
   }
 
   /**
@@ -132,7 +138,7 @@ export class FilesService {
       throw new FileAccessDeniedError("فایل هنوز تأیید امنیتی نشده است");
     }
     return {
-      stream: this.storage.open(stored.objectKey),
+      stream: await this.storage.open(stored.objectKey, this.location(stored)),
       name: stored.originalName,
       mimeType: stored.mimeType,
     };
@@ -146,5 +152,9 @@ export class FilesService {
 
   private toUploadResult(stored: StoredObjectRecord) {
     return { id: stored.id, originalName: stored.originalName, size: Number(stored.fileSizeBytes), scanStatus: stored.scanStatus };
+  }
+
+  private location(stored: StoredObjectRecord): FileStorageLocation {
+    return { storageProvider: stored.storageProvider, bucket: stored.bucket };
   }
 }

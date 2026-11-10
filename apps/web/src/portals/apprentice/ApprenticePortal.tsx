@@ -1,6 +1,7 @@
+import { usePortalSection } from "../../app/usePortalSection.js";
 import React, { useState } from "react";
 import { HelpCircle, Send } from "lucide-react";
-import { UserNavigation, type UserNavigationTab } from "../../app/UserNavigation.js";
+import type { UserNavigationTab } from "../../app/UserNavigation.js";
 import { DirectChatView } from "../../features/messaging/DirectChatView.js";
 import { LibraryDocumentsView } from "../../features/documents/LibraryDocumentsView.js";
 import { apiClient } from "../../shared/api-client.js";
@@ -16,7 +17,7 @@ interface ApprenticePortalProps {
 }
 
 export const ApprenticePortal: React.FC<ApprenticePortalProps> = ({ onNotify }) => {
-  const [activeTab, setActiveTab] = useState<UserNavigationTab>("resources");
+  const activeTab = usePortalSection<UserNavigationTab>({ "/library": "resources", "/messages": "chat" }, "resources");
   const [showSupportModal, setShowSupportModal] = useState(false);
   const [ticketSubject, setTicketSubject] = useState("");
   const [ticketDescription, setTicketDescription] = useState("");
@@ -44,7 +45,6 @@ export const ApprenticePortal: React.FC<ApprenticePortalProps> = ({ onNotify }) 
 
   return (
     <div className="space-y-5">
-      <UserNavigation active={activeTab} isApprentice onChange={setActiveTab} />
       <div className="flex justify-end border-b border-white/10 pb-3">
         <Button
           variant="secondary"

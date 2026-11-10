@@ -29,6 +29,7 @@ export interface SupportTicketRecord {
 }
 
 export interface UserRepositoryPort {
+  findProvinceIdByUserId?(userId: string): Promise<string | null>;
   findById(id: string): Promise<User | null>;
   findByPhoneNumber(phoneNumber: string): Promise<User | null>;
   findByApplicantId(applicantId: string): Promise<User | null>;

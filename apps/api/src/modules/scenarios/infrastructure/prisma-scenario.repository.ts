@@ -9,16 +9,20 @@ export class PrismaScenarioRepository implements ScenarioRepositoryPort {
   constructor(private readonly prisma: PrismaService) {}
 
   async create(scenario: Scenario): Promise<void> {
+    await this.prisma.$transaction(async () => {
     await this.prisma.scenario.create({
       data: {
         id: scenario.id,
         researchCaseId: scenario.researchCaseId,
+        createdById: scenario.createdById,
         title: scenario.title,
         summary: scenario.summary,
         content: scenario.content,
         version: scenario.version,
         status: scenario.status as any,
       },
+    });
+    await this.saveSnapshot(scenario);
     });
   }
 
@@ -42,6 +46,7 @@ export class PrismaScenarioRepository implements ScenarioRepositoryPort {
     scenario: Scenario,
     expectedVersion: number,
   ): Promise<void> {
+    await this.prisma.$transaction(async () => {
     const result = await this.prisma.scenario.updateMany({
       where: {
         id: scenario.id,
@@ -65,6 +70,18 @@ export class PrismaScenarioRepository implements ScenarioRepositoryPort {
         expectedVersion,
       );
     }
+    await this.saveSnapshot(scenario);
+    });
+  }
+
+  async findVersions(scenarioId: string) {
+    const rows = await this.prisma.scenarioVersion.findMany({ where: { scenarioId }, orderBy: { version: "desc" } });
+    return rows.map((row) => ({ version: row.version, title: row.title, summary: row.summary, content: row.content, status: row.status, createdAt: row.createdAt.toISOString() }));
+  }
+
+  private async saveSnapshot(scenario: Scenario) {
+    await this.prisma.scenarioVersion.create({ data: { id: crypto.randomUUID(), scenarioId: scenario.id, version: scenario.version,
+      title: scenario.title, summary: scenario.summary, content: scenario.content, status: scenario.status, createdById: scenario.createdById } });
   }
 
   /**
@@ -164,10 +181,12 @@ export class PrismaScenarioRepository implements ScenarioRepositoryPort {
     status: any;
     createdAt: Date;
     updatedAt: Date;
+    createdById?: string | null;
   }): Scenario {
     return Scenario.reconstruct({
       id: raw.id,
       researchCaseId: raw.researchCaseId,
+      createdById: raw.createdById ?? null,
       title: raw.title,
       summary: raw.summary,
       content: raw.content,

@@ -33,4 +33,25 @@ export class AssignmentsService {
   async isIntern(userId: string): Promise<boolean> {
     return this.assignmentRepo.isIntern(userId);
   }
+
+  async isSupervisorAssignedToCase(caseId: string, supervisorId: string): Promise<boolean> {
+    return this.assignmentRepo.isSupervisorAssignedToCase?.(caseId, supervisorId) ?? false;
+  }
+
+  async getCaseIdsForSupervisor(supervisorId: string): Promise<string[]> {
+    return this.assignmentRepo.getCaseIdsForSupervisor?.(supervisorId) ?? [];
+  }
+
+  async assignSupervisorToCase(caseId: string, supervisorId: string, role: "MAIN_SUPERVISOR" | "COLLABORATOR_SUPERVISOR"): Promise<void> {
+    if (!this.assignmentRepo.assignToCase) throw new Error("Case assignments are unavailable");
+    await this.assignmentRepo.assignToCase({ researchCaseId: caseId, userId: supervisorId, role });
+  }
+
+  async revokeSupervisorFromUser(userId: string, supervisorId: string): Promise<void> {
+    await this.assignmentRepo.revokeFromUser?.(userId, supervisorId);
+  }
+
+  async revokeSupervisorFromCase(caseId: string, supervisorId: string): Promise<void> {
+    await this.assignmentRepo.revokeFromCase?.(caseId, supervisorId);
+  }
 }

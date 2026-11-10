@@ -2,6 +2,7 @@ import { StageSubmission } from "../../domain/stage-submission.entity.js";
 import { ReviewDecision } from "../../domain/review-decision.entity.js";
 
 export interface ReviewRepositoryPort {
+  findStageIdsByFileId?(fileId: string): Promise<string[]>;
   saveSubmission(submission: StageSubmission): Promise<void>;
   findSubmissionById(id: string): Promise<StageSubmission | null>;
   findSubmissionsByStageInstanceId(

@@ -18,6 +18,9 @@ export const PASSWORD_HASHER = Symbol("PASSWORD_HASHER");
 
 @Injectable()
 export class IdentityService {
+  async getUserProvinceId(userId: string): Promise<string | null> {
+    return this.userRepo.findProvinceIdByUserId?.(userId) ?? null;
+  }
   constructor(
     @Inject(USER_REPOSITORY)
     private readonly userRepo: UserRepositoryPort,

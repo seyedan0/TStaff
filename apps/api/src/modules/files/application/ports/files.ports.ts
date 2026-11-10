@@ -2,8 +2,14 @@ import type { Readable } from "node:stream";
 
 export type FileScanStatus = "QUARANTINED" | "AVAILABLE" | "REJECTED";
 export type VirusScanResult = "CLEAN" | "INFECTED" | "UNAVAILABLE";
+export type StorageProvider = "LOCAL" | "S3";
 
-export interface StoredObjectRecord {
+export interface FileStorageLocation {
+  storageProvider: StorageProvider;
+  bucket: string;
+}
+
+export interface StoredObjectRecord extends FileStorageLocation {
   id: string;
   objectKey: string;
   originalName: string;
@@ -26,10 +32,16 @@ export interface StoredObjectRepositoryPort {
 }
 
 export interface PrivateFileStoragePort {
-  write(objectKey: string, contents: Buffer): Promise<void>;
-  read(objectKey: string): Promise<Buffer>;
-  open(objectKey: string): Readable;
-  remove(objectKey: string): Promise<void>;
+  getUploadLocation(): FileStorageLocation;
+  write(objectKey: string, contents: Buffer, location?: FileStorageLocation): Promise<void>;
+  read(objectKey: string, location?: FileStorageLocation): Promise<Buffer>;
+  open(objectKey: string, location?: FileStorageLocation): Readable | Promise<Readable>;
+  remove(objectKey: string, location?: FileStorageLocation): Promise<void>;
+}
+
+/** The owning feature authorizes the actual attached record, never a bank entry. */
+export interface FileAccessPort {
+  canDownload(fileId: string, userId: string, roles: string[]): Promise<boolean>;
 }
 
 export interface VirusScannerPort {
@@ -39,3 +51,4 @@ export interface VirusScannerPort {
 export const STORED_OBJECT_REPOSITORY = Symbol("STORED_OBJECT_REPOSITORY");
 export const PRIVATE_FILE_STORAGE = Symbol("PRIVATE_FILE_STORAGE");
 export const VIRUS_SCANNER = Symbol("VIRUS_SCANNER");
+export const FILE_ACCESS = Symbol("FILE_ACCESS");

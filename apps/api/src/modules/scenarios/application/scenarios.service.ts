@@ -1,4 +1,6 @@
-import { Injectable, Inject } from "@nestjs/common";
+import { Injectable, Inject, Optional } from "@nestjs/common";
+import { TRANSACTION_RUNNER, type TransactionRunner } from "../../../platform/transactions/transaction-runner.js";
+import { AuditService } from "../../audit/application/audit.service.js";
 import type {
   CreateScenarioDto,
   UpdateScenarioDto,
@@ -30,6 +32,8 @@ export class ScenariosService {
     private readonly researchService: ResearchService,
     @Inject(AssignmentsService)
     private readonly assignmentsService: AssignmentsService,
+    @Optional() @Inject(TRANSACTION_RUNNER) private readonly transactions?: TransactionRunner,
+    @Optional() @Inject(AuditService) private readonly audit?: AuditService,
   ) {}
 
   /**
@@ -48,6 +52,7 @@ export class ScenariosService {
     const scenario = Scenario.create({
       id: crypto.randomUUID(),
       researchCaseId: caseId,
+      createdById: authorId,
       title: dto.title,
       summary: dto.summary,
       content: dto.content,
@@ -64,7 +69,7 @@ export class ScenariosService {
   ): Promise<Scenario> {
     const scenario = await this.getScenarioById(id);
     await this.researchService.assertOwnerCanEditStage(scenario.researchCaseId, "SCENARIO", actorId);
-    const updated = scenario.update(dto, dto.expectedVersion);
+    const updated = scenario.status === "APPROVED_INTERNAL" ? scenario.startRevision(dto, dto.expectedVersion) : scenario.update(dto, dto.expectedVersion);
     await this.scenarioRepo.saveWithVersionCheck(updated, dto.expectedVersion);
     return updated;
   }
@@ -74,18 +79,17 @@ export class ScenariosService {
     actorId: string,
     expectedVersion: number,
   ): Promise<Scenario> {
+    const execute = () => this.submitScenarioWithinTransaction(id, actorId, expectedVersion);
+    return this.transactions ? this.transactions.run(execute) : execute();
+  }
+
+  private async submitScenarioWithinTransaction(id: string, actorId: string, expectedVersion: number): Promise<Scenario> {
     const scenario = await this.getScenarioById(id);
     await this.researchService.assertOwnerCanEditStage(scenario.researchCaseId, "SCENARIO", actorId);
     await this.researchService.assertPrerequisitesApprovedForScenario(scenario.researchCaseId);
     const underReview = scenario.submitForReview(expectedVersion);
     await this.scenarioRepo.saveWithVersionCheck(underReview, expectedVersion);
-    try {
-      await this.researchService.submitScenarioForReview(scenario.researchCaseId, actorId);
-    } catch (error) {
-      const restoredDraft = underReview.requestChanges(underReview.version);
-      await this.scenarioRepo.saveWithVersionCheck(restoredDraft, underReview.version);
-      throw error;
-    }
+    await this.researchService.submitScenarioForReview(scenario.researchCaseId, actorId);
     return underReview;
   }
 
@@ -99,6 +103,11 @@ export class ScenariosService {
     reviewerId: string,
     dto: ReviewScenarioDto,
   ): Promise<Scenario> {
+    const execute = () => this.reviewScenarioWithinTransaction(id, reviewerId, dto);
+    return this.transactions ? this.transactions.run(execute) : execute();
+  }
+
+  private async reviewScenarioWithinTransaction(id: string, reviewerId: string, dto: ReviewScenarioDto): Promise<Scenario> {
     const scenario = await this.getScenarioById(id);
 
     const isAuthorized = await this.researchService.isSupervisorAssignedToCase(scenario.researchCaseId, reviewerId);
@@ -113,7 +122,7 @@ export class ScenariosService {
     const existingDecision =
       await this.scenarioRepo.findDecisionByIdempotencyKey(dto.idempotencyKey);
     if (existingDecision) {
-      if (existingDecision.scenarioId !== id) {
+      if (existingDecision.scenarioId !== id || existingDecision.reviewerId !== reviewerId || existingDecision.decision !== dto.decision) {
         throw new ScenariosDomainError(
           "کلید یکتایی (idempotencyKey) قبلاً برای داوری دیگری استفاده شده است",
           "CONFLICT",
@@ -156,6 +165,7 @@ export class ScenariosService {
       idempotencyKey: dto.idempotencyKey,
       decidedAt: new Date(),
     });
+    await this.audit?.recordEvent({ aggregateType: "ResearchCase", aggregateId: scenario.researchCaseId, action: "SCENARIO_REVIEWED", actorId: reviewerId, payload: { scenarioId: id, decision: dto.decision, expectedVersion: dto.expectedVersion, reason: dto.reason } });
 
     return updated;
   }
@@ -186,6 +196,10 @@ export class ScenariosService {
     return scenario;
   }
 
+  async getVersions(id: string) {
+    return this.scenarioRepo.findVersions?.(id) ?? [];
+  }
+
   async getScenariosByCaseId(caseId: string): Promise<Scenario[]> {
     return this.scenarioRepo.findByCaseId(caseId);
   }
@@ -194,7 +208,9 @@ export class ScenariosService {
     const users = await this.assignmentsService.getUsersForSupervisor(supervisorId);
     const interns = users.filter((user) => user.stage === "INTERN");
     const internById = new Map(interns.map((user) => [user.id, user.fullName]));
-    const cases = (await this.researchService.listCases()).filter((item) => internById.has(item.researcherId ?? ""));
+    const candidates = await this.researchService.listAccessibleCases(supervisorId, ["SCIENTIFIC_SUPERVISOR"]);
+    const cases = [];
+    for (const item of candidates) if (await this.researchService.isSupervisorAssignedToCase(item.id, supervisorId)) cases.push(item);
     const pending = [];
     for (const researchCase of cases) {
       for (const scenario of await this.scenarioRepo.findByCaseId(researchCase.id)) {

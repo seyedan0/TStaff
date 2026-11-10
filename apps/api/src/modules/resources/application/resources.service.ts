@@ -160,6 +160,9 @@ export class ResourcesService {
   async getResourcesByCaseId(caseId: string): Promise<Resource[]> {
     return this.resourceRepo.findResourcesByCaseId(caseId);
   }
+  async getFileCaseIds(fileId: string): Promise<string[]> {
+    return this.resourceRepo.findFileCaseIds?.(fileId) ?? [];
+  }
 
   async getResourceById(resourceId: string): Promise<Resource> {
     const resource = await this.resourceRepo.findResourceById(resourceId);

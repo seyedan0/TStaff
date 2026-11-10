@@ -1,120 +1,37 @@
-import React from "react";
-import { ShieldCheck, LogOut, User, Bell, RotateCcw } from "lucide-react";
+import React, { useState } from "react";
+import { BookOpen, LogOut, Menu, RotateCcw, X } from "lucide-react";
+import { Link, NavLink, useLocation } from "react-router-dom";
 import { useAuth } from "../features/auth/AuthContext.js";
-import { Badge } from "../shared/ui/Badge.js";
-import type { SystemRole } from "@tstaff/contracts";
 import { isDemoMode } from "../features/demo/demo-mode.js";
 import { resetDemoData } from "../features/demo/demo-store.js";
+import { getHomePath, getNavigation } from "./navigation.js";
 
-export interface AppHeaderProps {
-  onNotify: (type: "info", title: string, message?: string) => void;
-}
-
-const ROLE_DISPLAY_NAMES: Record<SystemRole, { label: string; variant: "info" | "success" | "warning" | "neutral" }> = {
-  APPRENTICE: { label: "کارآموز پژوهشی", variant: "neutral" },
-  INTERN: { label: "کارورز پژوهش", variant: "info" },
-  SCIENTIFIC_SUPERVISOR: { label: "مدیر علمی", variant: "success" },
-  PROVINCIAL_DIRECTOR: { label: "مدیر استانی", variant: "info" },
-  SUPPORT_DIRECTOR: { label: "مدیر پشتیبانی", variant: "warning" },
-  TRACKING_DIRECTOR: { label: "مدیر پیگیری", variant: "warning" },
-  SYSTEM_ADMIN: { label: "مدیر کل و ادمین", variant: "info" },
-};
-
+export interface AppHeaderProps { onNotify: (type: "info", title: string, message?: string) => void }
 export const AppHeader: React.FC<AppHeaderProps> = ({ onNotify }) => {
   const { currentUser, logout } = useAuth();
-  const demoMode = isDemoMode();
-
+  const [menuOpen, setMenuOpen] = useState(false);
+  const { pathname } = useLocation();
   if (!currentUser) return null;
-
-  const roleMeta = ROLE_DISPLAY_NAMES[currentUser.role] || {
-    label: currentUser.role,
-    variant: "neutral" as const,
-  };
-
-  return (
-    <header className="sticky top-0 z-40 apple-glass border-b border-white/10">
-      {demoMode && <div className="border-b border-apple-blue/15 bg-apple-blue/[0.05] px-4 py-1.5 text-center text-[10px] text-slate-400">
-        نسخه‌ی نمایشی · اطلاعات ساختگی است و تغییرات فقط در همین مرورگر ذخیره می‌شود.
-      </div>}
-      <div className="px-4 py-3">
-      <div className="max-w-7xl mx-auto flex items-center justify-between gap-4">
-        {/* Brand */}
-        <div className="flex items-center gap-3">
-          <div className="w-9 h-9 rounded-apple-md bg-apple-blue/20 border border-apple-blue/40 flex items-center justify-center text-apple-blue shadow-apple-glow shrink-0">
-            <ShieldCheck className="w-5 h-5" />
-          </div>
-          <div>
-            <h1 className="text-sm font-bold text-slate-100 flex items-center gap-2">
-              سامانه پژوهشگران TStaff
-              <span className="text-[10px] px-2 py-0.5 rounded-full bg-apple-blue/15 text-apple-blue border border-apple-blue/30 font-mono">
-                v1.0 MVP
-              </span>
-              {demoMode && <span className="text-[9px] px-1.5 py-0.5 rounded-full bg-apple-amber/10 text-apple-amber border border-apple-amber/20">DEMO</span>}
-            </h1>
-            <p className="text-[11px] text-slate-400 hidden sm:block">
-              شبکه هوشمند راهبری پرونده‌های پژوهشی و پذیرش علمی
-            </p>
-          </div>
-        </div>
-
-        {/* User Info & Controls */}
-        <div className="flex items-center gap-3">
-          {/* User Profile Chip */}
-          <div className="flex items-center gap-2 px-3 py-1.5 rounded-apple-md bg-white/[0.04] border border-white/10 text-xs">
-            <User className="w-3.5 h-3.5 text-apple-blue shrink-0" />
-            <div className="text-right">
-              <span className="font-semibold text-slate-200 block text-[11px] max-w-[140px] truncate">
-                {currentUser.fullName || currentUser.phoneNumber}
-              </span>
-            </div>
-            <Badge variant={roleMeta.variant} size="sm">
-              {roleMeta.label}
-            </Badge>
-          </div>
-
-          {/* Notifications Button */}
-          <button
-            onClick={() =>
-              onNotify(
-                "info",
-                "سیاست اعلان‌ها (D-04)",
-                "طبق تصمیم D-04، صرفاً رخدادهای حساس و فوری نوتیفیکیشن صادر می‌کنند تا تمرکز کاربر حفظ شود.",
-              )
-            }
-            className="p-2 rounded-apple-md text-slate-300 hover:text-white hover:bg-white/10 active:scale-95 transition-all"
-            aria-label="اعلان‌ها"
-            title="مرکز اعلان‌ها"
-          >
-            <Bell className="w-4 h-4" />
-          </button>
-
-          {demoMode && <button
-            type="button"
-            onClick={() => {
-              resetDemoData();
-              logout();
-              onNotify("info", "داده‌های نمونه بازنشانی شد", "حساب‌ها، مطالعه‌ها و درخواست ارزیابی به وضعیت اولیه برگشتند.");
-            }}
-            className="p-2 rounded-apple-md text-slate-400 hover:text-apple-blue hover:bg-white/10 active:scale-95 transition-all"
-            aria-label="بازنشانی داده‌های نمایشی"
-            title="بازنشانی داده‌های نمونه در این مرورگر"
-          >
-            <RotateCcw className="w-4 h-4" />
-          </button>}
-
-          {/* Logout Button */}
-          <button
-            onClick={logout}
-            className="p-2 rounded-apple-md text-slate-400 hover:text-apple-red hover:bg-apple-red/10 active:scale-95 transition-all"
-            aria-label="خروج"
-            title="خروج از حساب کاربری"
-          >
-            <LogOut className="w-4 h-4" />
-          </button>
-        </div>
+  const items = getNavigation(currentUser.role);
+  return <header className="site-header sticky top-0 z-40 shadow-lg">
+    {isDemoMode() && <div className="border-b border-white/15 bg-black/10 px-4 py-1 text-center text-[11px] text-white/75">نسخه نمایشی · اطلاعات نمونه است</div>}
+    <div className="mx-auto flex max-w-7xl flex-wrap items-center gap-4 px-4 py-4 md:px-6">
+      <Link to={getHomePath(currentUser.role)} className="flex shrink-0 items-center gap-2.5 text-white" aria-label="صفحه نخست">
+        <span className="flex h-10 w-10 items-center justify-center rounded-2xl bg-white/15"><BookOpen className="h-6 w-6" /></span>
+        <span><span className="block text-base font-bold tracking-wide">TStaff</span><span className="block text-[10px] text-white/65">شبکه پژوهشگران</span></span>
+      </Link>
+      <nav aria-label="منوی اصلی" className="hidden flex-1 flex-wrap items-center justify-center gap-1 lg:flex">
+        {items.map(item => <NavLink key={item.to} to={item.to} className={({ isActive }) => `rounded-xl px-3 py-2.5 text-xs font-medium transition ${isActive ? "bg-white text-[#214E3A] shadow-sm" : "text-white/80 hover:bg-white/10 hover:text-white"}`}>{item.label}</NavLink>)}
+      </nav>
+      <div className="ms-auto flex items-center gap-2 text-white">
+        <span className="hidden max-w-36 truncate text-xs sm:block">{currentUser.fullName || currentUser.phoneNumber}</span>
+        {isDemoMode() && <button type="button" aria-label="بازنشانی داده‌های نمایشی" onClick={() => { resetDemoData(); logout(); onNotify("info", "داده‌های نمونه بازنشانی شد"); }} className="rounded-xl p-2 hover:bg-white/10"><RotateCcw className="h-4 w-4" /></button>}
+        <button type="button" onClick={logout} aria-label="خروج" className="rounded-xl p-2 hover:bg-white/10"><LogOut className="h-4 w-4" /></button>
+        <button type="button" aria-label="فهرست بخش‌ها" aria-expanded={menuOpen} aria-controls="mobile-navigation" onClick={() => setMenuOpen(!menuOpen)} className="rounded-xl p-2 hover:bg-white/10 lg:hidden">{menuOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}</button>
       </div>
-      </div>
-    </header>
-  );
+      {menuOpen && <nav id="mobile-navigation" aria-label="منوی اصلی موبایل" className="grid w-full grid-cols-2 gap-2 border-t border-white/15 pt-3 lg:hidden">
+        {items.map(item => <Link key={item.to} to={item.to} onClick={() => setMenuOpen(false)} aria-current={pathname.startsWith(item.to) ? "page" : undefined} className={`rounded-xl px-3 py-3 text-xs ${pathname.startsWith(item.to) ? "bg-white text-[#214E3A]" : "bg-white/5 text-white"}`}>{item.label}</Link>)}
+      </nav>}
+    </div>
+  </header>;
 };
-

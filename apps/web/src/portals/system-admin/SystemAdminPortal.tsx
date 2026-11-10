@@ -1,3 +1,4 @@
+import { usePortalSection } from "../../app/usePortalSection.js";
 import React, { useState, useEffect } from "react";
 import {
   SlidersHorizontal,
@@ -30,9 +31,7 @@ export const SystemAdminPortal: React.FC<SystemAdminPortalProps> = ({
   onNotify,
 }) => {
   const { currentUser } = useAuth();
-  const [activeTab, setActiveTab] = useState<
-    "settings" | "archive" | "managers" | "health"
-  >("settings");
+  const activeTab = usePortalSection<"settings" | "archive" | "managers" | "health">({ "/management/settings": "settings", "/management/archive": "archive", "/management/managers": "managers", "/management/health": "health" }, "settings");
 
   // Settings State (FR-052 Deadlines)
   const [sourcesDeadline, setSourcesDeadline] = useState("14");
@@ -137,53 +136,6 @@ export const SystemAdminPortal: React.FC<SystemAdminPortalProps> = ({
             <p className="text-xs text-slate-300 max-w-2xl leading-relaxed">
               تعیین مهلت مجاز گام‌های پژوهش، نظارت بر سلامت زیرساخت دیتابیس و پردازش ناهمگام، بازبینی اسناد فریز‌شده و اعمال تغییرات سیستمی.
             </p>
-          </div>
-
-          <div className="flex items-center gap-2 p-1 rounded-apple-lg bg-white/[0.03] border border-white/5 overflow-x-auto">
-            <button
-              onClick={() => setActiveTab("settings")}
-              className={`flex items-center gap-2 px-3 py-1.5 rounded-apple-md text-xs font-semibold whitespace-nowrap transition-all ${
-                activeTab === "settings"
-                  ? "bg-apple-blue text-white shadow-apple-glow"
-                  : "text-slate-400 hover:text-slate-200"
-              }`}
-            >
-              <SlidersHorizontal className="w-3.5 h-3.5" />
-              مهلت مراحل (FR-052)
-            </button>
-            <button
-              onClick={() => setActiveTab("archive")}
-              className={`flex items-center gap-2 px-3 py-1.5 rounded-apple-md text-xs font-semibold whitespace-nowrap transition-all ${
-                activeTab === "archive"
-                  ? "bg-apple-blue text-white shadow-apple-glow"
-                  : "text-slate-400 hover:text-slate-200"
-              }`}
-            >
-              <Archive className="w-3.5 h-3.5" />
-              فریزر آرشیو (BR-19)
-            </button>
-            <button
-              onClick={() => setActiveTab("managers")}
-              className={`flex items-center gap-2 px-3 py-1.5 rounded-apple-md text-xs font-semibold whitespace-nowrap transition-all ${
-                activeTab === "managers"
-                  ? "bg-apple-blue text-white shadow-apple-glow"
-                  : "text-slate-400 hover:text-slate-200"
-              }`}
-            >
-              <Users className="w-3.5 h-3.5" />
-              مدیریت حساب‌ها
-            </button>
-            <button
-              onClick={() => setActiveTab("health")}
-              className={`flex items-center gap-2 px-3 py-1.5 rounded-apple-md text-xs font-semibold whitespace-nowrap transition-all ${
-                activeTab === "health"
-                  ? "bg-apple-blue text-white shadow-apple-glow"
-                  : "text-slate-400 hover:text-slate-200"
-              }`}
-            >
-              <Activity className="w-3.5 h-3.5" />
-              سلامت زیرساخت
-            </button>
           </div>
         </div>
       </Card>

@@ -14,6 +14,7 @@ export interface ScenarioProps {
   status: ScenarioStatus;
   createdAt: Date;
   updatedAt: Date;
+  createdById?: string | null;
 }
 
 export class Scenario {
@@ -25,6 +26,7 @@ export class Scenario {
     title: string;
     summary: string;
     content: string;
+    createdById?: string;
   }): Scenario {
     const now = new Date();
     return new Scenario({
@@ -33,6 +35,7 @@ export class Scenario {
       title: params.title,
       summary: params.summary,
       content: params.content,
+      createdById: params.createdById ?? null,
       version: 1,
       status: "DRAFT",
       createdAt: now,
@@ -42,6 +45,13 @@ export class Scenario {
 
   static reconstruct(props: ScenarioProps): Scenario {
     return new Scenario(props);
+  }
+
+  startRevision(params: { title?: string | undefined; summary?: string | undefined; content?: string | undefined }, expectedVersion: number): Scenario {
+    if (this.props.version !== expectedVersion) throw new StaleScenarioRevisionError(this.props.version, expectedVersion);
+    if (this.props.status !== "APPROVED_INTERNAL") throw new InvalidScenarioStatusTransitionError("فقط نسخه تأییدشده به گردش اصلاح بازمی‌گردد");
+    return new Scenario({ ...this.props, title: params.title ?? this.props.title, summary: params.summary ?? this.props.summary,
+      content: params.content ?? this.props.content, status: "DRAFT", version: this.props.version + 1, updatedAt: new Date() });
   }
 
   update(
@@ -137,6 +147,8 @@ export class Scenario {
     return this.props.id;
   }
 
+  get createdById(): string | null { return this.props.createdById ?? null; }
+
   get researchCaseId(): string {
     return this.props.researchCaseId;
   }
@@ -173,6 +185,7 @@ export class Scenario {
     return {
       id: this.props.id,
       researchCaseId: this.props.researchCaseId,
+      createdById: this.props.createdById ?? null,
       title: this.props.title,
       summary: this.props.summary,
       content: this.props.content,

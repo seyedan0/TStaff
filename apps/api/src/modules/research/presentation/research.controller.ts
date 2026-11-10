@@ -49,7 +49,7 @@ export class ResearchController {
     if (!validated.researcherId || !(await this.researchService.isSupervisorAssignedToUser(validated.researcherId, request.user.id))) {
       throw new UnauthorizedException("فقط مدیر علمی منتسب می‌تواند برای این کارورز پژوهش ایجاد کند");
     }
-    const rCase = await this.researchService.createCase(validated);
+    const rCase = await this.researchService.createCase(validated, request.user.id);
     return rCase.toJSON();
   }
 
@@ -70,20 +70,8 @@ export class ResearchController {
       "فهرست پرونده‌های پژوهش (فقط برای کارورزان و مدیران - مسدود برای کارآموز AT-02)",
   })
   async listCases(@Req() request: any, @Query("researcherId") researcherId?: string) {
-    const cases = await this.researchService.listCases();
     const roles: string[] = request.user?.roles ?? (request.user?.role ? [request.user.role] : []);
-    if (roles.includes("SCIENTIFIC_SUPERVISOR")) {
-      if (researcherId && !(await this.researchService.isSupervisorAssignedToUser(researcherId, request.user.id))) {
-        throw new ForbiddenException("این کارورز به شما منتسب نشده است");
-      }
-      const users = await this.researchService.getAssignedUserIds(request.user.id);
-      return cases.filter((c) => users.includes(c.researcherId ?? "") && (!researcherId || c.researcherId === researcherId)).map((c) => c.toJSON());
-    }
-    if (request.user?.stage === "INTERN" && !roles.some((role) => ["SYSTEM_ADMIN", "TRACKING_DIRECTOR", "PROVINCIAL_DIRECTOR"].includes(role))) {
-      return cases.filter((c) => c.researcherId === request.user.id).map((c) => c.toJSON());
-    }
-    if (researcherId) return cases.filter((c) => c.researcherId === researcherId).map((c) => c.toJSON());
-    return cases.map((c) => c.toJSON());
+    return (await this.researchService.listAccessibleCases(request.user.id, roles, researcherId)).map((item) => item.toJSON());
   }
 
   @Post(":id/rollback-stage")
@@ -94,9 +82,8 @@ export class ResearchController {
       "عقب‌گرد مرحله و تغییر وضعیت خودکار مراحل وابسته به REVIEW_REQUIRED (D-05, AT-33)",
   })
   async rollbackStage(@Param("id") id: string, @Body() body: unknown, @Req() request: any) {
-    const roles: string[] = request.user.roles ?? (request.user.role ? [request.user.role] : []);
-    if (!(await this.researchService.canUserAccessCase(id, request.user.id, roles))) {
-      throw new ForbiddenException("این پرونده خارج از قلمرو دسترسی شماست");
+    if (!(await this.researchService.isSupervisorAssignedToCase(id, request.user.id))) {
+      throw new ForbiddenException("بازگشت مرحله فقط توسط مدیر علمی منتسب به پژوهش مجاز است");
     }
     const validated = RollbackStageDtoSchema.parse(body);
     const rCase = await this.researchService.rollbackStage(id, validated);

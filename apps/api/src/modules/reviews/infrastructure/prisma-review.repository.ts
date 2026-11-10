@@ -9,6 +9,10 @@ import type { ReviewRepositoryPort } from "../application/ports/review.repositor
 export class PrismaReviewRepository implements ReviewRepositoryPort {
   constructor(private readonly prisma: PrismaService) {}
 
+  async findStageIdsByFileId(fileId: string): Promise<string[]> {
+    return (await this.prisma.stageSubmission.findMany({ where: { storedObjectId: fileId }, select: { stageInstanceId: true } })).map((row) => row.stageInstanceId);
+  }
+
   async saveSubmission(submission: StageSubmission): Promise<void> {
     await this.prisma.stageSubmission.upsert({
       where: { id: submission.id },

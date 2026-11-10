@@ -1,3 +1,5 @@
+import { useUnsavedChanges } from "../../shared/useUnsavedChanges.js";
+import { UnsavedChangesDialog } from "../../shared/ui/UnsavedChangesDialog.js";
 import React, { useCallback, useEffect, useState } from "react";
 import { apiClient } from "../../shared/api-client.js";
 import { Button } from "../../shared/ui/Button.js";
@@ -32,6 +34,7 @@ export const StageSubmissionWorkspace: React.FC<{
   const [uploaded, setUploaded] = useState<UploadResponse | null>(null);
   const [loading, setLoading] = useState(false);
   const [busy, setBusy] = useState(false);
+  const blocker = useUnsavedChanges(canEdit && !busy && (!!content.trim() || !!file || !!uploaded));
   const label = stageType === "EXPLANATION" ? "تبیین مسئله" : "تجویز راهکار";
 
   const load = useCallback(async () => {
@@ -73,7 +76,7 @@ export const StageSubmissionWorkspace: React.FC<{
     finally { setBusy(false); }
   };
 
-  return <div className="space-y-5">
+  return <div className="space-y-5"><UnsavedChangesDialog blocker={blocker} />
     <div><h3 className="text-lg font-bold text-slate-100">{label}</h3><p className="mt-1 text-xs text-slate-400">{caseTitle} · ارسال نسخه‌دار با فایل PDF/DOCX</p></div>
     {canEdit && <Card variant="glass" className="p-4">
       <form onSubmit={submit} className="space-y-3 text-right">

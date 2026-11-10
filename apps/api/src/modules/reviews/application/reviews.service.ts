@@ -1,4 +1,6 @@
-import { Injectable, Inject } from "@nestjs/common";
+import { Injectable, Inject, Optional } from "@nestjs/common";
+import { TRANSACTION_RUNNER, type TransactionRunner } from "../../../platform/transactions/transaction-runner.js";
+import { AuditService } from "../../audit/application/audit.service.js";
 import type {
   CreateStageSubmissionDto,
   SubmitReviewDecisionDto,
@@ -27,13 +29,25 @@ export class ReviewsService {
     @Inject(AssignmentsService)
     private readonly assignmentsService: AssignmentsService,
     @Inject(FilesService) private readonly files: FilesService,
+    @Optional() @Inject(TRANSACTION_RUNNER) private readonly transactions?: TransactionRunner,
+    @Optional() @Inject(AuditService) private readonly audit?: AuditService,
   ) {}
+
+  async getFileCaseIds(fileId: string): Promise<string[]> {
+    const stages = await this.reviewRepo.findStageIdsByFileId?.(fileId) ?? [];
+    return [...new Set(await Promise.all(stages.map(async (id) => (await this.researchService.getStageInstance(id)).researchCaseId)))];
+  }
 
   async submitStageReport(
     stageInstanceId: string,
     authorId: string,
     dto: CreateStageSubmissionDto,
   ): Promise<StageSubmission> {
+    const execute = () => this.submitStageReportWithinTransaction(stageInstanceId, authorId, dto);
+    return this.transactions ? this.transactions.run(execute) : execute();
+  }
+
+  private async submitStageReportWithinTransaction(stageInstanceId: string, authorId: string, dto: CreateStageSubmissionDto): Promise<StageSubmission> {
     const stage = await this.researchService.getStageInstance(stageInstanceId);
     const ownerCase = await this.researchService.getCase(stage.researchCaseId);
     if (ownerCase.researcherId !== authorId) {
@@ -85,6 +99,11 @@ export class ReviewsService {
     reviewerId: string,
     dto: SubmitReviewDecisionDto,
   ): Promise<{ submission: StageSubmission; decision: ReviewDecision }> {
+    const execute = () => this.submitReviewDecisionWithinTransaction(submissionId, reviewerId, dto);
+    return this.transactions ? this.transactions.run(execute) : execute();
+  }
+
+  private async submitReviewDecisionWithinTransaction(submissionId: string, reviewerId: string, dto: SubmitReviewDecisionDto): Promise<{ submission: StageSubmission; decision: ReviewDecision }> {
     // Authenticate the reviewer before checking idempotency to avoid leaking another review.
     const submission = await this.reviewRepo.findSubmissionById(submissionId);
     if (!submission) {
@@ -148,6 +167,7 @@ export class ReviewsService {
       idempotencyKey: dto.idempotencyKey,
     });
     await this.reviewRepo.saveDecision(decision);
+    await this.audit?.recordEvent({ aggregateType: "ResearchCase", aggregateId: stage.researchCaseId, action: "STAGE_REVIEWED", actorId: reviewerId, payload: { submissionId, decision: dto.decision, previousVersion: dto.caseVersion, reason: dto.reason } });
 
     return { submission: updatedSubmission, decision };
   }
@@ -181,7 +201,9 @@ export class ReviewsService {
   async getPendingReviewWorklist(supervisorId: string) {
     const trainees = await this.assignmentsService.getUsersForSupervisor(supervisorId);
     const traineeIds = new Set(trainees.filter((user) => user.stage === "INTERN").map((user) => user.id));
-    const cases = (await this.researchService.listCases()).filter((item) => traineeIds.has(item.researcherId ?? ""));
+    const candidates = await this.researchService.listAccessibleCases(supervisorId, ["SCIENTIFIC_SUPERVISOR"]);
+    const cases = [];
+    for (const item of candidates) if (await this.researchService.isSupervisorAssignedToCase(item.id, supervisorId)) cases.push(item);
     const results: Array<Record<string, unknown>> = [];
     for (const researchCase of cases) {
       for (const stage of researchCase.stages) {

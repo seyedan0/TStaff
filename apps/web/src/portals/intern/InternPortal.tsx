@@ -1,3 +1,4 @@
+import { usePortalSection } from "../../app/usePortalSection.js";
 import React, { useState } from "react";
 import { HelpCircle, Send } from "lucide-react";
 import { ResearchCasesView } from "../../features/research/ResearchCasesView.js";
@@ -6,7 +7,7 @@ import { LibraryDocumentsView } from "../../features/documents/LibraryDocumentsV
 import { Button } from "../../shared/ui/Button.js";
 import { Modal } from "../../shared/ui/Modal.js";
 import { apiClient } from "../../shared/api-client.js";
-import { UserNavigation, type UserNavigationTab } from "../../app/UserNavigation.js";
+import type { UserNavigationTab } from "../../app/UserNavigation.js";
 
 interface InternPortalProps {
   onNotify: (
@@ -17,7 +18,7 @@ interface InternPortalProps {
 }
 
 export const InternPortal: React.FC<InternPortalProps> = ({ onNotify }) => {
-  const [activeTab, setActiveTab] = useState<UserNavigationTab>("researcher");
+  const activeTab = usePortalSection<UserNavigationTab>({ "/projects": "researcher", "/library": "resources", "/messages": "chat" }, "researcher");
 
   // Support Ticket Modal
   const [showSupportModal, setShowSupportModal] = useState(false);
@@ -56,7 +57,6 @@ export const InternPortal: React.FC<InternPortalProps> = ({ onNotify }) => {
 
   return (
     <div className="space-y-6">
-      <UserNavigation active={activeTab} isApprentice={false} onChange={setActiveTab} />
 
       {/* Support ticket action */}
       <div className="flex items-center justify-between border-b border-white/10 pb-4">

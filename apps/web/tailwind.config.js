@@ -19,14 +19,18 @@ export default {
         ],
       },
       colors: {
+        oat: "#F3EBDD",
+        forest: "#214E3A",
+        tomato: "#D94F3D",
+        slate: { 50: "#183B2D", 100: "#214031", 200: "#304B3D", 300: "#43584A", 400: "#59675A", 500: "#697464", 600: "#9CA38F", 700: "#DDD9C8", 800: "#EAE5D7", 900: "#FAF6ED", 950: "#F3EBDD" },
         apple: {
-          blue: "#0A84FF",
-          "blue-hover": "#0071E3",
-          green: "#30D158",
-          amber: "#FF9F0A",
-          red: "#FF453A",
-          indigo: "#5E5CE6",
-          purple: "#BF5AF2",
+          blue: "#214E3A",
+          "blue-hover": "#183B2D",
+          green: "#326B4B",
+          amber: "#A65D31",
+          red: "#D94F3D",
+          indigo: "#214E3A",
+          purple: "#486747",
           gray: {
             100: "#F5F5F7",
             200: "#E5E5EA",
@@ -42,9 +46,9 @@ export default {
         },
       },
       boxShadow: {
-        "apple-card": "0 4px 24px -1px rgba(0, 0, 0, 0.2), 0 2px 8px -1px rgba(0, 0, 0, 0.1)",
-        "apple-elevated": "0 12px 40px -4px rgba(0, 0, 0, 0.35), 0 4px 12px -2px rgba(0, 0, 0, 0.2)",
-        "apple-glow": "0 0 20px -3px rgba(10, 132, 255, 0.35)",
+        "apple-card": "0 4px 24px -1px rgba(33, 78, 58, 0.06)",
+        "apple-elevated": "0 12px 40px -4px rgba(33, 78, 58, 0.09)",
+        "apple-glow": "0 0 20px -3px rgba(33, 78, 58, 0.12)",
       },
       borderRadius: {
         "apple-sm": "10px",

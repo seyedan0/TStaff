@@ -35,7 +35,10 @@ export class FilesController {
     response.setHeader("X-Content-Type-Options", "nosniff");
     response.setHeader("Content-Type", file.mimeType);
     response.setHeader("Content-Disposition", `attachment; filename*=UTF-8''${encodeURIComponent(file.name)}`);
-    file.stream.on("error", () => response.status(404).end());
+    file.stream.on("error", () => {
+      if (!response.headersSent) response.status(404).end();
+      else response.destroy();
+    });
     file.stream.pipe(response);
   }
 }

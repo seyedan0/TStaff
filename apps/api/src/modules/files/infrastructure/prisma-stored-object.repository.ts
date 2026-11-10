@@ -18,8 +18,13 @@ export class PrismaStoredObjectRepository implements StoredObjectRepositoryPort 
   async findById(id: string): Promise<StoredObjectRecord | null> {
     const stored = await this.prisma.storedObject.findUnique({ where: { id } });
     if (!stored) return null;
+    if (stored.storageProvider !== "LOCAL" && stored.storageProvider !== "S3") {
+      throw new Error("Unknown persisted private storage provider");
+    }
     return {
       id: stored.id,
+      bucket: stored.bucket,
+      storageProvider: stored.storageProvider,
       objectKey: stored.objectKey,
       originalName: stored.originalName,
       mimeType: stored.mimeType,

@@ -362,6 +362,7 @@ model Resource {
   personAge      Int?           @map("person_age")
   position       String?
   province       String?
+  provinceId     String?        @map("province_id")
   county         String?
   status         ResourceStatus @default(IDENTIFIED)
   createdAt      DateTime       @default(now()) @map("created_at")
@@ -370,7 +371,9 @@ model Resource {
   researchCase ResearchCase @relation(fields: [researchCaseId], references: [id], onDelete: Cascade)
   interview    Interview? // D-07: Maximum 1 interview per resource strictly enforced
   organization ResourceOrganization?
+  referrals ResourceReferral[]
 
+  @@index([provinceId, createdAt])
   @@map("resources")
 }
 
@@ -485,6 +488,7 @@ enum ScenarioStatus {
 model Scenario {
   id             String         @id @default(uuid())
   researchCaseId String         @map("research_case_id")
+  createdById    String?        @map("created_by_id")
   title          String
   summary        String         @db.Text
   content        String         @db.Text
@@ -495,6 +499,7 @@ model Scenario {
 
   researchCase ResearchCase     @relation(fields: [researchCaseId], references: [id], onDelete: Cascade)
   decisions    ReviewDecision[]
+  versions     ScenarioVersion[]
 
   @@index([researchCaseId])
   @@index([status])
@@ -508,6 +513,7 @@ model Scenario {
 model StoredObject {
   id             String   @id @default(uuid())
   bucket         String
+  storageProvider String @default("LOCAL") @map("storage_provider")
   objectKey      String   @unique @map("object_key")
   originalName   String   @map("original_name")
   mimeType       String   @map("mime_type")
@@ -712,4 +718,84 @@ model SystemSetting {
   updatedAt   DateTime @updatedAt @map("updated_at")
 
   @@map("system_settings")
+}
+
+// CHG-2026-11: organization scopes, referrals and immutable workflow history.
+model Province {
+  id String @id
+  name String @unique
+  @@map("provinces")
+}
+
+model ProvincialScope {
+  id String @id @default(uuid())
+  managerId String @map("manager_id")
+  provinceId String @map("province_id")
+  assignedById String @map("assigned_by_id")
+  assignedAt DateTime @default(now()) @map("assigned_at")
+  revokedAt DateTime? @map("revoked_at")
+  @@unique([managerId, provinceId])
+  @@index([managerId, revokedAt])
+  @@map("provincial_scopes")
+}
+
+model UserManagerGrant {
+  id String @id @default(uuid())
+  managerId String @map("manager_id")
+  userId String @map("user_id")
+  assignedById String @map("assigned_by_id")
+  assignedAt DateTime @default(now()) @map("assigned_at")
+  revokedAt DateTime? @map("revoked_at")
+  @@unique([managerId, userId])
+  @@index([managerId, revokedAt])
+  @@map("user_manager_grants")
+}
+
+model ResourceReferral {
+  id String @id @default(uuid())
+  resourceId String @map("resource_id")
+  recipientId String @map("recipient_id")
+  referredById String @map("referred_by_id")
+  snapshot Json
+  notes String? @db.Text
+  status String @default("PENDING")
+  applicantId String? @unique @map("applicant_id")
+  createdAt DateTime @default(now()) @map("created_at")
+  revokedAt DateTime? @map("revoked_at")
+  resource Resource @relation(fields: [resourceId], references: [id], onDelete: Restrict)
+  @@unique([resourceId, recipientId])
+  @@index([recipientId, status])
+  @@map("resource_referrals")
+}
+
+model ScenarioVersion {
+  id String @id @default(uuid())
+  scenarioId String @map("scenario_id")
+  version Int
+  title String
+  summary String @db.Text
+  content String @db.Text
+  status ScenarioStatus
+  createdById String? @map("created_by_id")
+  createdAt DateTime @default(now()) @map("created_at")
+  scenario Scenario @relation(fields: [scenarioId], references: [id], onDelete: Restrict)
+  @@unique([scenarioId, version])
+  @@map("scenario_versions")
+}
+
+model ResearchChangeRequest {
+  id String @id @default(uuid())
+  researchCaseId String @map("research_case_id")
+  authorId String @map("author_id")
+  targetStage StageType @map("target_stage")
+  reason String @db.Text
+  status String @default("PENDING")
+  expectedVersion Int @map("expected_version")
+  version Int @default(1)
+  reviewerId String? @map("reviewer_id")
+  decisionReason String? @db.Text @map("decision_reason")
+  createdAt DateTime @default(now()) @map("created_at")
+  decidedAt DateTime? @map("decided_at")
+  @@index([researchCaseId, status])
+  @@map("research_change_requests")
 }

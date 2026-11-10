@@ -7,9 +7,10 @@ import {
 import { PrismaScenarioRepository } from "./infrastructure/prisma-scenario.repository.js";
 import { ResearchModule } from "../research/research.module.js";
 import { AssignmentsModule } from "../assignments/assignments.module.js";
+import { AuditModule } from "../audit/audit.module.js";
 
 @Module({
-  imports: [ResearchModule, AssignmentsModule],
+  imports: [ResearchModule, AssignmentsModule, AuditModule],
   controllers: [ScenariosController],
   providers: [
     ScenariosService,
