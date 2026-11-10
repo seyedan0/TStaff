@@ -1,11 +1,12 @@
 # راهنمای آزمون و CI
 
-جریان GitHub Actions در `.github/workflows/ci.yml` روی push به `main` و شاخه‌های `feat/*` و روی pull request به `main` اجرا می‌شود. Node 20 و pnpm 9.15.0 نصب می‌شوند؛ سپس وابستگی‌ها با lockfile، بررسی مرزهای معماری، تولید Prisma Client، build بستهٔ دیتابیس، ممیزی امنیت، typecheck، آزمون‌ها و build اجرا می‌شوند.
+جریان GitHub Actions در `.github/workflows/ci.yml` روی push به `main` و شاخه‌های `feat/*` و روی pull request به `main` اجرا می‌شود. Node 20 و pnpm 9.15.0 نصب می‌شوند؛ سپس وابستگی‌ها با lockfile، بررسی مرزهای معماری، تولید Prisma Client، build بسته‌های دیتابیس و قراردادها، ممیزی امنیت، typecheck، آزمون‌ها و build اجرا می‌شوند.
 
 ```bash
 pnpm install --frozen-lockfile
 pnpm db:generate
 pnpm --filter @tstaff/database build
+pnpm --filter @tstaff/contracts build
 pnpm test:boundaries
 pnpm security:audit
 pnpm typecheck

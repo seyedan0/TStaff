@@ -49,7 +49,7 @@ pnpm test
 pnpm build
 ```
 
-CI همین کنترل‌ها را پس از نصب وابستگی و تولید Prisma Client اجرا می‌کند. آزمون‌های API عمدتاً با repository ساختگی انجام می‌شوند؛ جایگزین آزمون واقعی migration، قیود PostgreSQL و بازیابی پشتیبان نیستند. دستور `pnpm lint` فعلاً در چند بسته placeholder است.
+CI همین کنترل‌ها را پس از نصب وابستگی، تولید Prisma Client و build بسته‌های database و contracts اجرا می‌کند. آزمون‌های API عمدتاً با repository ساختگی انجام می‌شوند؛ جایگزین آزمون واقعی migration، قیود PostgreSQL و بازیابی پشتیبان نیستند. دستور `pnpm lint` فعلاً در چند بسته placeholder است.
 
 ## استقرار
 
