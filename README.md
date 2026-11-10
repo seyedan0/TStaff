@@ -1,85 +1,56 @@
-# سامانه مدیریت شبکه پژوهشگران و فرایندهای پژوهشی (TStaff)
+# سامانه مدیریت شبکه پژوهشگران TStaff
 
-سامانه TStaff یک بستر جامع برای مدیریت شبکه پژوهشگران، پذیرش متقاضیان، هدایت کارآموزان و کارورزان، و پیشبرد مراحل چهارگانه پژوهش علمی (**منابع ← تبیین ← تجویز ← سناریو**) با ثبت تاریخچه و داوری نسخه‌دار است.
+TStaff سامانه‌ای برای پذیرش متقاضیان، راهبری پژوهشگران و مدیریت چرخهٔ پژوهش «منابع، تبیین، تجویز و سناریو» است. برنامه در یک monorepo با معماری modular monolith نگهداری می‌شود.
 
-## ارکان و اسناد مرجع
+## اسناد مرجع
 
-- **سند الزام‌آور محصول (RFP / PRD v1.0):** [TStaff_Requirements_Final_v1.0.docx](file:///d:/Programing/Mana/TStaff/Docs/TStaff_Requirements_Final_v1.0%20(2).docx)
-- **پروپزال جامع فنی (Technical Proposal v0.1):** [TStaff_Technical_Proposal_v0.1.md](file:///d:/Programing/Mana/TStaff/Docs/TStaff_Technical_Proposal_v0.1.md)
-- **نقشه راه کلی تحویل (Roadmap):** [roadmap.md](file:///d:/Programing/Mana/TStaff/Docs/08-delivery/roadmap.md)
-- **دفتر تصمیمات معماری (ADR):** [Docs/adr/](file:///d:/Programing/Mana/TStaff/Docs/adr)
-- **راهنمای مأموریت هوش مصنوعی و توسعه‌دهندگان:** [AGENTS.md](file:///d:/Programing/Mana/TStaff/AGENTS.md)
+- [نیازمندی‌های محصول نسخه ۱.۰](Docs/TStaff_Requirements_Final_v1.0%20%282%29.docx) و [راهنمای مخزن](AGENTS.md)
+- [محدوده MVP](Docs/00-product/scope.md) و [ماتریس ردیابی](Docs/00-product/traceability.md)
+- [معماری](Docs/01-architecture/README.md)، [API](Docs/03-api/README.md)، [داده](Docs/04-data/README.md)، [عملیات](Docs/06-operations/README.md) و [کیفیت و CI](Docs/07-quality/README.md)
+- [نقشه راه](Docs/08-delivery/roadmap.md) و [تصمیمات معماری](Docs/adr/)
 
----
+## ساختار و قابلیت‌ها
 
-## معماری سامانه
+- `apps/web`: رابط فارسی React، Vite، React Router و Tailwind؛ صفحه‌های نقش‌محور با URL مستقل.
+- `apps/api`: API مبتنی بر NestJS با ماژول‌های دامنه، اعتبارسنجی قراردادها و کنترل دسترسی سمت سرور.
+- `apps/worker`: پردازش رویدادها و کارهای نگهداری.
+- `packages/contracts`: قراردادهای مشترک و Zod؛ `packages/database`: مدل Prisma و migrationهای PostgreSQL.
+- `infra/compose`: PostgreSQL، MinIO و ClamAV برای توسعهٔ محلی.
 
-معماری سامانه بر پایه **Modular Monolith + API-First** در یک **pnpm Monorepo** طراحی شده است:
+پروندهٔ متقاضی تا تأیید نهایی حساب کاربری ندارد؛ سن عدد صحیح مثبت است؛ هر منبع حداکثر یک مصاحبه دارد. مدیران علمی اصلی و همکارِ منتسب اختیار برابر دارند و تصمیم هم‌زمان با کنترل نسخه انجام می‌شود. بازگشت مرحله، تاریخچه را نگه می‌دارد و خروجی‌های وابسته را نیازمند بازبینی می‌کند. OTP، کنشگری، هدایت تحصیلی، تالار عمومی، پنل مسئله‌پژوه و اکسپلور عمومی سناریو خارج از MVP هستند.
 
-```text
-tstaff/
-├── apps/
-│   ├── web/        # رابط کاربری React + Vite + TypeScript (RTL, Tailwind CSS, shadcn/ui)
-│   ├── api/        # سرور هسته NestJS با ۱۷ ماژول تفکیک‌شده (Domain/Application/Infra/Presentation)
-│   └── worker/     # پردازشگر رویدادهای صف Outbox و وظایف زمان‌بندی‌شده
-├── packages/
-│   ├── contracts/  # تعاریف قرارداد و DTOهای مستقل از پایگاه داده
-│   ├── database/   # تعاریف اسکیما، Migrations و Seedها (PostgreSQL)
-│   ├── config/     # پیکربندی‌های مشترک (TypeScript, ESLint, Prettier)
-│   └── test-utils/ # ابزارهای آزمون یکپارچه و ساخت داده مصنوعی
-├── infra/          # کانفیگ‌های Docker Compose، Reverse Proxy، Backup و پایش
-├── scripts/        # اسکریپت‌های کنترل مرز معماری و وظایف نگهداری
-└── Docs/           # مستندات زنده معماری، دامنه، نیازمندی‌ها و آزمون‌ها
-```
+## راه‌اندازی محلی
 
----
-
-## اصول کلیدی کسب‌وکار (BR و مصوبات D-01 تا D-07)
-
-1. **پرونده متقاضی مستقل از حساب (D-01/D-03):** تا پیش از تأیید علمی در مرحله پذیرش، هیچ حسابی برای متقاضی ایجاد نمی‌شود.
-2. **سن فقط عدد صحیح (D-01):** سن در ثبت‌نام‌ها و فرم‌ها عدد صحیح است و از تاریخ تولد مشتق نمی‌شود.
-3. **اختیار علمی مدیران و کفایت یک تصمیم (D-02):** هر پژوهش دارای یک مدیر علمی اصلی و حداکثر یک همکار است. تأیید یکی از آن‌ها برای عبور از مرحله کافی است؛ تعارض همزمان از طریق مقایسه نسخه (CAS) حل می‌شود.
-4. **رابطه یکتای منبع و مصاحبه (D-07):** به ازای هر منبع حداکثر یک مصاحبه ثبت می‌شود و در زمان اتمام پژوهش، هر منبع دقیقاً دارای یک مصاحبه و یک گزارش اصلی مکتوب است.
-5. **بازبینی وابستگی‌ها پس از بازگشت مرحله (D-05):** تغییر در منابع یا مراحل قبلی، خروجی‌های تاریخی را حذف نمی‌کند؛ وضعیت خروجی‌های وابسته به `REVIEW_REQUIRED` تغییر می‌یابد.
-6. **مرزهای صریح MVP:** موضوعاتی نظیر «مسئله‌پژوه»، «کنشگری»، «هدایت تحصیلی» و «اکسپلور عمومی سناریوها» خارج از محدوده MVP هستند.
-
----
-
-## راه‌اندازی و توسعه محلی
-
-### پیش‌نیازها
-- Node.js >= 20.18.0 (LTS)
-- pnpm >= 9.0.0
-- Docker & Docker Compose (برای پایگاه داده PostgreSQL و شیء‌نگاشت MinIO)
-
-### دستورات آغازین
+پیش‌نیازها: Node.js نسخهٔ ۲۰.۱۸ یا بالاتر، pnpm نسخهٔ ۹.۱۵ و Docker Compose. برای استفاده از API و فایل‌ها به PostgreSQL و ClamAV نیاز است؛ MinIO برای آداپتور S3 محلی است.
 
 ```bash
-# نصب وابستگی‌ها
-pnpm install
-
-# راه‌اندازی پایگاه داده و سرویس‌های زیرساختی محلی
+cp .env.example .env                 # در PowerShell: Copy-Item .env.example .env
+pnpm install --frozen-lockfile
 docker compose -f infra/compose/compose.dev.yml up -d
-
-# اجرای همزمان سرور API و رابط کاربری
+pnpm db:generate
+pnpm --filter @tstaff/database prisma migrate deploy
+pnpm build
 pnpm dev
-
-# اجرای کنترل‌های کیفیت پیش از ثبت تغییرات
-pnpm lint
-pnpm typecheck
-pnpm test
-pnpm test:boundaries
 ```
 
----
+API به‌صورت پیش‌فرض در `http://localhost:4000/api/v1` و مستندات Swagger در `http://localhost:4000/api/docs` هستند. برای اجرای API با تنظیمات فایل محیط می‌توان پس از build از `node --env-file=.env apps/api/dist/main.js` استفاده کرد. آدرس وب در خروجی Vite نمایش داده می‌شود.
 
-## وضعیت فازها (Roadmap Status)
+حالت پیش‌فرض وب روی `localhost` و دامنه‌های `vercel.app` نمایشی است و تغییرات را در مرورگر نگه می‌دارد. برای اتصال وب به API واقعی، `VITE_DEMO_MODE=false` و `VITE_API_URL` را در محیط Vite تنظیم کنید. [محدودیت‌ها و داده‌های دمو](Docs/07-quality/vercel-demo-seed.md) را ببینید.
 
-- [x] **M0: تثبیت مبنا** (طرح معماری، استقرار Monorepo، دفتر تصمیم ADR، ماتریس ردیابی)
-- [x] **M1: زیرساخت توسعه** (پوسته اجراشدنی با Prisma ORM، Health API، RFC 7807، OpenAPI و آزمون‌ها)
-- [ ] **M2: هویت و پذیرش** (مدیریت متقاضیان، ورود گذرواژه [OTP موکول به فاز بعد]، کارآموزی)
-- [ ] **M3: انتساب و منابع** (مدیران علمی، منابع، مصاحبه یکتا و گزارش)
-- [ ] **M4: چرخه علمی** (تبیین، تجویز، سناریو و بانک داخلی)
-- [ ] **M5: مدیریت و ارتباطات** (چت خصوصی، ممیزی، اعلان و آرشیو)
-- [ ] **M6: آماده‌سازی و انتشار** (آزمون‌های بار و امنیت، Hardening و Go/No-Go)
+اسکریپت `scripts/seed-data.mjs` حساب‌های آزمایشی با گذرواژهٔ ثابت می‌سازد؛ فقط پس از build و روی دیتابیس توسعهٔ مجزا اجرا شود. از آن برای دادهٔ عملیاتی استفاده نکنید.
 
+## کنترل‌های کیفیت
+
+```bash
+pnpm test:boundaries
+pnpm security:audit
+pnpm typecheck
+pnpm test
+pnpm build
+```
+
+CI همین کنترل‌ها را پس از نصب وابستگی و تولید Prisma Client اجرا می‌کند. آزمون‌های API عمدتاً با repository ساختگی انجام می‌شوند؛ جایگزین آزمون واقعی migration، قیود PostgreSQL و بازیابی پشتیبان نیستند. دستور `pnpm lint` فعلاً در چند بسته placeholder است.
+
+## استقرار
+
+`vercel.json` فقط وب استاتیک را می‌سازد و rewrite مسیرهای React Router را فراهم می‌کند. این پیکربندی API، worker، PostgreSQL یا فضای فایل را مستقر نمی‌کند. برای محیط واقعی، API، پایگاه داده، ذخیره‌سازی خصوصی، اسکن فایل، تنظیمات CORS و پشتیبان‌گیری باید جداگانه فراهم شوند؛ جزئیات در [راهنمای عملیات](Docs/06-operations/README.md) آمده است.

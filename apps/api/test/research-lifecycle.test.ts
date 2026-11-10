@@ -3,6 +3,10 @@ import { Test } from "@nestjs/testing";
 import { INestApplication } from "@nestjs/common";
 import request from "supertest";
 import { AppModule } from "../src/app.module.js";
+import { PrismaService } from "@tstaff/database";
+import { TRANSACTION_RUNNER } from "../src/platform/transactions/transaction-runner.js";
+import { NOTIFICATION_REPOSITORY } from "../src/modules/notifications/application/notifications.service.js";
+import { ORGANIZATION_REPOSITORY } from "../src/modules/organization/application/ports/organization.repository.port.js";
 import { ProblemDetailsFilter } from "../src/platform/errors/problem-details.filter.js";
 import { ASSIGNMENT_REPOSITORY } from "../src/modules/assignments/application/assignments.service.js";
 import { RESOURCE_REPOSITORY } from "../src/modules/resources/application/resources.service.js";
@@ -136,6 +140,10 @@ describe("Research workflow acceptance (D-02, D-03, D-05, D-07, FR-045, FR-058, 
 
   beforeAll(async () => {
     const moduleRef = await Test.createTestingModule({ imports: [AppModule] })
+      .overrideProvider(PrismaService).useValue({ $connect: async () => {}, $disconnect: async () => {} })
+      .overrideProvider(TRANSACTION_RUNNER).useValue({ run: async <T>(operation: () => Promise<T>) => operation() })
+      .overrideProvider(ORGANIZATION_REPOSITORY).useValue({ hasUserGrant: async () => false, provinceIds: async () => [] })
+      .overrideProvider(NOTIFICATION_REPOSITORY).useValue({ save: async () => {}, findById: async () => null, findByUserId: async () => [], countUnread: async () => 0 })
       .overrideProvider(ASSIGNMENT_REPOSITORY).useClass(MockAssignmentRepository)
       .overrideProvider(RESOURCE_REPOSITORY).useClass(MockResourceRepository)
       .overrideProvider(RESEARCH_REPOSITORY).useClass(MockResearchRepository)

@@ -3,6 +3,9 @@ import { Test } from "@nestjs/testing";
 import { INestApplication } from "@nestjs/common";
 import request from "supertest";
 import { AppModule } from "../src/app.module.js";
+import { PrismaService } from "@tstaff/database";
+import { TRANSACTION_RUNNER } from "../src/platform/transactions/transaction-runner.js";
+import { ORGANIZATION_REPOSITORY } from "../src/modules/organization/application/ports/organization.repository.port.js";
 import { ProblemDetailsFilter } from "../src/platform/errors/problem-details.filter.js";
 import { ASSIGNMENT_REPOSITORY } from "../src/modules/assignments/application/assignments.service.js";
 import { RESOURCE_REPOSITORY } from "../src/modules/resources/application/resources.service.js";
@@ -195,6 +198,9 @@ describe("Scientific review and scenario workflow (D-02, D-03, D-05, FR-016, FR-
 
   beforeAll(async () => {
     const moduleRef = await Test.createTestingModule({ imports: [AppModule] })
+      .overrideProvider(PrismaService).useValue({ $connect: async () => {}, $disconnect: async () => {} })
+      .overrideProvider(TRANSACTION_RUNNER).useValue({ run: async <T>(operation: () => Promise<T>) => operation() })
+      .overrideProvider(ORGANIZATION_REPOSITORY).useValue({ hasUserGrant: async () => false, provinceIds: async () => [] })
       .overrideProvider(ASSIGNMENT_REPOSITORY).useClass(MockAssignmentRepository)
       .overrideProvider(RESOURCE_REPOSITORY).useClass(MockResourceRepository)
       .overrideProvider(RESEARCH_REPOSITORY).useClass(MockResearchRepository)

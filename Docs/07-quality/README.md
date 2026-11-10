@@ -1,23 +1,20 @@
-# استراتژی آزمون و تضمین کیفیت (Quality Assurance & Test Strategy)
+# راهنمای آزمون و CI
 
-## هرم آزمون (Testing Pyramid)
-1. **Unit Tests (Vitest/Jest):**
-   - اعتبارسنجی قوانین خالص دامنه، تغییرات ماشین وضعیت، محاسبه وابستگی‌ها بدون وابستگی به دیتابیس یا فریم‌ورک.
-2. **Integration Tests (PostgreSQL واقعی):**
-   - آزمون قیود یکتایی (`uq_interview_resource`, `uq_research_main_active`).
-   - آزمون قفل و همزمانی دو مدیر علمی (Race condition).
-   - آزمون تراکنش اتمیک درج در جدول دامنه + رویداد Outbox + Audit.
-3. **API Contract & Negative Security Tests:**
-   - تست‌های OpenAPI Schema، کدهای خطای Problem Details.
-   - تست‌های رد دسترسی (403/404) برای کاربران بدون Scope مجاز.
-4. **End-to-End Tests (Playwright):**
-   - آزمون جریان کامل پذیرش تا کارآموزی، ثبت منابع، داوری تبیین و تجویز، و چت خصوصی.
+جریان GitHub Actions در `.github/workflows/ci.yml` روی push به `main` و شاخه‌های `feat/*` و روی pull request به `main` اجرا می‌شود. Node 20 و pnpm 9.15.0 نصب می‌شوند؛ سپس وابستگی‌ها با lockfile، بررسی مرزهای معماری، تولید Prisma Client، build بستهٔ دیتابیس، ممیزی امنیت، typecheck، آزمون‌ها و build اجرا می‌شوند.
 
-## آستانه پوشش آزمون
-- حداقل ۸۰٪ پوشش خطوط و شاخه‌ها برای ماژول‌های حیاتی (`applicants`, `research`, `reviews`, `assignments`, `authorization`).
+```bash
+pnpm install --frozen-lockfile
+pnpm db:generate
+pnpm --filter @tstaff/database build
+pnpm test:boundaries
+pnpm security:audit
+pnpm typecheck
+pnpm test
+pnpm build
+```
 
-## پوشه آزمون‌های تکمیلی و مرورگری (۲۰۲۶-۱۱-۱۰)
-- **تست‌های یکپارچه‌سازی API (`apps/api/test/`):** شامل `workspace-bank-scenarios.spec.ts` (اولویت‌بندی کارتابل مدیر علمی، جداسازی دسترسی پروفایل و پرونده، تصمیم هم‌زمان `409 STALE_REVISION`، بازگشت مرحله `D-05`، محدوده استانی بانک منابع، محافظت ارجاع/تبدیل تکراری، عدم ایجاد کاربر پیش از تأیید علمی و حذف کاوش عمومی بانک سناریوها) و `organization-grants-and-reporting.spec.ts` (کنترل مجوز `user-grants`، قلمرو استانی و گزارش‌گیری محدود به استان).
-- **تست‌های دمو و کلاینت وب (`apps/web/src/`):** شامل `navigation.test.ts` (مسیرهای URL و Negative AuthZ) و `demo.test.ts` (سازگاری ۸ حساب نمونه، شناسه‌های استان، مرتب‌سازی کارتابل، مسدودسازی `SCIENTIFIC_SUPERVISOR` در بانک منابع و تفکیک قلمرو استانی/کشوری).
-- **آزمون مرورگری Playwright (محیط زنده API و نسخه نمایشی):** بررسی مستقیم لینک با حفظ `returnTo`، بازیابی صفحه پس از `F5`، تاریخچه Back/Forward مرورگر، نمایش موبایل `390x844`، فرم پیش‌پرشدن از بانک منابع، اعتبارسنجی عدد صحیح سن (`D-01`) و دیالوگ `UnsavedChangesDialog`، و پیام‌های `403` / `404` / `409`.
+تولید Prisma Client در CI فقط به یک `DATABASE_URL` صوری نیاز دارد. مجموعه‌های API که repository ساختگی دارند، transaction runner و Prisma را نیز در محیط آزمون جایگزین می‌کنند؛ اتصال آن‌ها به دیتابیس توسعه لازم نیست. این transaction runner ساختگی rollback یا ایزوله‌سازی تراکنش PostgreSQL را اثبات نمی‌کند. برای بازسازی خطای قبلی می‌توان آزمون‌ها را با `DATABASE_URL=postgresql://dummy:dummy@127.0.0.1:1/dummy` اجرا کرد؛ آدرس باید فقط در همان فرایند آزمون تنظیم شود.
 
+پوشش فعلی شامل آزمون‌های قرارداد و دامنه، آزمون سرویس و API با داده‌های ساختگی، دسترسی منفی، جریان علمی، بانک منابع، دمو و مسیریابی است. شناسه‌های FR و AT مربوط در آزمون‌ها درج شده‌اند. آزمون یکتایی واقعی دیتابیس، migration، رقابت تراکنش روی PostgreSQL، بازیابی پشتیبان و مرورگر واقعی باید به‌صورت جداگانه در محیط آزمایشی اجرا و ثبت شوند؛ CI فعلی آن‌ها را اجرا نمی‌کند. اسکریپت‌های `test` در بسته‌های database و test-utils و اسکریپت‌های lint چند بسته placeholder هستند و نشانهٔ پوشش واقعی نیستند.
+
+پیش از انتشار، مسیرهای ورود، لینک مستقیم، refresh، Back/Forward، فرم دارای تغییر ذخیره‌نشده، دسترسی نقش‌ها و نمایش RTL و موبایل در مرورگر واقعی بررسی شوند. هدف پوشش ۸۰٪ برای بخش‌های حیاتی، هدف کیفیت است؛ اجرای فعلی CI گزارش یا آستانهٔ پوشش تولید نمی‌کند.

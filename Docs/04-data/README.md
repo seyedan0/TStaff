@@ -1,34 +1,19 @@
-# مدل داده و قواعد یکپارچگی پایگاه داده (Data Model & Constraints)
+# مدل داده و قیود پایگاه داده
 
-## قواعد کلیدی طراحی دیتابیس
-1. **یکتایی مصاحبه برای هر منبع:**
-   ```sql
-   CREATE UNIQUE INDEX uq_interview_resource ON interviews(resource_id);
-   ```
-2. **حداکثر یک مدیر اصلی فعال:**
-   ```sql
-   CREATE UNIQUE INDEX uq_research_main_active
-   ON research_assignments(research_id)
-   WHERE assignment_kind = 'MAIN' AND revoked_at IS NULL;
-   ```
-3. **حداکثر یک همکار فعال:**
-   ```sql
-   CREATE UNIQUE INDEX uq_research_collab_active
-   ON research_assignments(research_id)
-   WHERE assignment_kind = 'COLLABORATOR' AND revoked_at IS NULL;
-   ```
-4. **جلوگیری از ارسال تکراری تصمیم:**
-   ```sql
-   CREATE UNIQUE INDEX uq_review_idempotency
-   ON review_decisions(actor_id, idempotency_key);
-   ```
-5. **جدول ممیزی غیرقابل ویرایش (Append-only Audit Log):**
-   هیچ عملیات `UPDATE` یا `DELETE` روی جدول `audit_events` مجاز نیست.
-6. **مهاجرت ساختاری `20261110_workspace_bank_versions`:**
-   - جدول استان‌های مرجع `provinces` (۳۱ استان با شناسه‌های ثابت `@tstaff/contracts`) و ستون `resources.province_id`.
-   - جدول قلمرو مدیران استانی `provincial_scopes` (`@@unique([manager_id, province_id])`) و جدول مجوز مشاهده پروفایل کاربری `user_manager_grants`.
-   - جدول `resource_referrals` با محدودیت یکتایی `(resource_id, recipient_id)` و `applicant_id` برای جلوگیری از ارجاع و تبدیل تکراری.
-   - جدول تاریخچه نسخه‌های سناریو `scenario_versions` (`@@unique([scenario_id, version])`) و ستون `scenarios.created_by_id`.
-   - جدول `research_change_requests` برای درخواست‌های بازگشایی مرحله تأییدشده همراه با `expected_version` و `version`.
-   - ستون `stored_objects.storage_provider` (`LOCAL` / `S3`) جهت حفظ دسترسی به فایل‌های پیشین هنگام تغییر ارائه‌دهنده ذخیره‌سازی.
+مدل اصلی در `packages/database/prisma/schema.prisma` و migrationهای قابل اجرا در `packages/database/prisma/migrations/` قرار دارند. شناسه و نسخهٔ هر تغییر ساختار باید همراه migration آن بازبینی شود.
 
+## قیود موجود
+
+- `interviews_resource_id_key` روی `interviews.resource_id` یکتاست و مصاحبهٔ دوم برای یک منبع را در سطح دیتابیس مسدود می‌کند (D-07 / FR-058 / AT-30).
+- `stage_instances_research_case_id_stage_type_key` برای هر نوع مرحله در یک پرونده یک رکورد نگه می‌دارد.
+- `review_decisions_idempotency_key_key` کلید idempotency را در سطح جدول یکتا می‌کند.
+- `interview_reports_interview_id_version_key` و `scenario_versions_scenario_id_version_key` نسخه‌های گزارش و سناریو را در محدودهٔ رکورد والد یکتا می‌کنند.
+- `provincial_scopes_manager_id_province_id_key`، `user_manager_grants_manager_id_user_id_key` و `resource_referrals_resource_id_recipient_id_key` از تکرار انتساب یا ارجاع یکسان جلوگیری می‌کنند؛ `resource_referrals_applicant_id_key` اتصال تکراری به یک متقاضی را مسدود می‌کند.
+
+محدودیت یک مدیر علمی اصلی فعال و حداکثر یک همکار در گردش دامنه پیاده‌سازی شده است؛ در migrationهای فعلی ایندکس جزئی یکتا برای این دو شرط وجود ندارد. همچنین append-only بودن ممیزی در این migrationها با قید پایگاه داده تضمین نشده است. این موارد برای تضمین سطح دیتابیس و آزمون رقابت واقعی نیازمند کار و بررسی جداگانه‌اند.
+
+## داده‌های اخیر
+
+Migration `20261110_workspace_bank_versions` استان‌های مرجع، قلمرو مدیران، مجوزهای کاربر، ارجاع منابع، نسخه‌های سناریو، درخواست تغییر پژوهش و ستون ارائه‌دهندهٔ ذخیره‌سازی فایل را اضافه می‌کند. فایل باینری خارج از PostgreSQL است و جدول `stored_objects` فراداده و وضعیت اسکن را نگه می‌دارد.
+
+آزمون‌های CI عمدتاً از repository ساختگی استفاده می‌کنند. پیش از اعمال migration روی محیط عملیاتی، نسخهٔ پشتیبان، اجرای آزمایشی migration و کنترل قیود روی PostgreSQL مجزا لازم است.

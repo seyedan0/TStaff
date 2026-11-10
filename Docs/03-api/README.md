@@ -26,7 +26,7 @@
 - **درخواست‌های بازگشایی پژوهش:** `GET/POST /api/v1/research-cases/:caseId/change-requests` و `POST /api/v1/research-cases/:caseId/change-requests/:requestId/decide`؛ به همراه `GET /api/v1/research-cases/directory` برای پایش مدیر پیگیری.
 - **بانک منابع و ارجاع بین‌استانی:** `GET /api/v1/resource-bank`، `GET /api/v1/resource-bank/:id` (محدود به مشخصات فرد، مجموعه، تماس، موقعیت و وضعیت معرفی بدون افشای گزارش یا فایل)، `POST /api/v1/resource-bank/:id/referrals`، `DELETE /api/v1/resource-bank/referrals/:id` و `POST /api/v1/resource-bank/:id/applicants`.
 - **قلمرو استانی و مجوزهای مدیریتی:** `GET /api/v1/organization/provinces`، `GET /api/v1/organization/scopes`، `POST/DELETE /api/v1/organization/provincial-scopes` و `GET/POST/DELETE /api/v1/organization/user-grants`.
-- **حذف کاوش عمومی بانک سناریو:** مسیر سراسری `GET /api/v1/scenarios` حذف شده و دسترسی به سناریوها فقط در چارچوب پرونده و کارتابل علمی مجاز است.
+- **سناریو:** مسیر سراسری `GET /api/v1/scenarios/bank` ارائه نمی‌شود؛ دسترسی از مسیر پرونده و کارتابل علمی مجاز بررسی می‌شود.
 
 ## مسیرهای URL فرانت‌اند (`apps/web` با React Router)
 - ورود و بازگشت مقصد: `/login` (حفظ `returnTo` امن برای لینک‌های مستقیم، و بازگشت تمیز به `/login` هنگام خروج صریح).

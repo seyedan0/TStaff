@@ -12,6 +12,7 @@
 
 ## ذخیره‌سازی فایل خصوصی و متغیرهای اجرا
 - فایل‌های باینری خارج از PostgreSQL نگهداری می‌شوند؛ جدول `stored_objects` فقط فراداده، `storage_provider` (`LOCAL` یا `S3`)، `bucket` و وضعیت اسکن را ذخیره می‌کند تا فایل‌های قبلی با تغییر ارائه‌دهنده گم نشوند.
-- در توسعه، آداپتور خصوصی محلی (`FILE_STORAGE_PROVIDER=LOCAL`، مسیر `FILE_STORAGE_DIR`) فعال است و در محیط عملیاتی از آداپتور `S3` با متغیرهای `S3_BUCKET`، `S3_ENDPOINT`، `S3_REGION`، `S3_ACCESS_KEY`، `S3_SECRET_KEY`، `S3_FORCE_PATH_STYLE` و `S3_SERVER_SIDE_ENCRYPTION=AES256` استفاده می‌شود (سقف `FILE_MAX_BYTES=26214400` برای PDF/DOCX).
-- برای اجرای لوکال پس از بیلد workspace (`pnpm build` شامل خروجی `@tstaff/contracts/dist`)، مهاجرت و داده اولیه با `pnpm --filter @tstaff/database prisma migrate deploy` و `node scripts/seed-data.mjs` اعمال می‌شود و API با `node --env-file=apps/api/.env apps/api/dist/main.js` بالا می‌آید. در وب محلی، برای اتصال به API واقعی باید `VITE_DEMO_MODE=false` تنظیم شود.
+- در توسعه، آداپتور خصوصی محلی (`FILE_STORAGE_PROVIDER=LOCAL`، مسیر `PRIVATE_FILES_DIR` با پیش‌فرض `var/private-files`) فعال است. برای S3 متغیرهای `S3_BUCKET`، `S3_ENDPOINT`، `S3_REGION`، `S3_ACCESS_KEY`، `S3_SECRET_KEY` و `S3_FORCE_PATH_STYLE` تنظیم می‌شوند؛ `S3_SERVER_SIDE_ENCRYPTION=AES256` اختیاری است. سقف پیش‌فرض PDF/DOCX برابر `FILE_MAX_BYTES=26214400` است.
+- مهاجرت روی دیتابیس هدف با `pnpm --filter @tstaff/database prisma migrate deploy` اجرا می‌شود. پس از `pnpm build` می‌توان API را با `node --env-file=.env apps/api/dist/main.js` اجرا کرد. `scripts/seed-data.mjs` فقط برای محیط توسعه و دادهٔ آزمایشی با گذرواژهٔ ثابت است. برای وب متصل به API مقدار `VITE_DEMO_MODE=false` لازم است.
+- پیکربندی Vercel فقط وب استاتیک و مسیرهای SPA را ارائه می‌دهد. در میزبان `vercel.app` حالت دمو به‌صورت پیش‌فرض فعال است؛ API و ذخیره‌سازی واقعی باید جداگانه مستقر و پیکربندی شوند.
 

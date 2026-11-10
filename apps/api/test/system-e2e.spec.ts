@@ -4,6 +4,8 @@ import { INestApplication, HttpStatus } from "@nestjs/common";
 import request from "supertest";
 import { IRAN_PROVINCES } from "@tstaff/contracts";
 import { AppModule } from "../src/app.module.js";
+import { PrismaService } from "@tstaff/database";
+import { TRANSACTION_RUNNER } from "../src/platform/transactions/transaction-runner.js";
 import { ProblemDetailsFilter } from "../src/platform/errors/problem-details.filter.js";
 
 import { APPLICANT_REPOSITORY } from "../src/modules/applicants/application/applicants.service.js";
@@ -105,6 +107,8 @@ describe("E2E System Integration: M1 to M6 Complete Flow & Pre-UI Readiness", ()
     const moduleRef = await Test.createTestingModule({
       imports: [AppModule],
     })
+      .overrideProvider(PrismaService).useValue({ $connect: async () => {}, $disconnect: async () => {} })
+      .overrideProvider(TRANSACTION_RUNNER).useValue({ run: async <T>(operation: () => Promise<T>) => operation() })
       .overrideProvider(APPLICANT_REPOSITORY)
       .useValue({
         findById: async (id: string) => mocks.applicants.get(id) || null,

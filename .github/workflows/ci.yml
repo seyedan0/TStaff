@@ -8,7 +8,7 @@ on:
 
 jobs:
   verify:
-    name: Lint, Test, Boundaries & Build
+    name: Typecheck, Test, Boundaries & Build
     runs-on: ubuntu-latest
 
     steps:
@@ -53,6 +53,9 @@ jobs:
 
       - name: Security & Secret Leakage Audit
         run: pnpm run security:audit
+
+      - name: Typecheck
+        run: pnpm typecheck
 
       - name: Run Test Suites
         run: pnpm test
