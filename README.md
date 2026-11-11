@@ -1,30 +1,79 @@
-# سامانه مدیریت شبکه پژوهشگران TStaff
+<div dir="rtl" align="right">
 
-TStaff سامانه‌ای برای پذیرش متقاضیان، راهبری پژوهشگران و مدیریت چرخهٔ پژوهش «منابع، تبیین، تجویز و سناریو» است. برنامه در یک monorepo با معماری modular monolith نگهداری می‌شود.
+<h1 align="center">TStaff</h1>
+<p align="center"><strong>سامانهٔ مدیریت شبکهٔ پژوهشگران</strong></p>
+<p align="center">از پذیرش متقاضی تا راهبری پژوهش و تبدیل یافته‌ها به سناریو</p>
 
-## اسناد مرجع
+<p align="center">
+  <a href="https://github.com/ManaInstituteDev/TStaff/actions/workflows/ci.yml"><img src="https://github.com/ManaInstituteDev/TStaff/actions/workflows/ci.yml/badge.svg" alt="CI"></a>
+  <img src="https://img.shields.io/badge/Node.js-20.18%2B-3C873A?logo=node.js&logoColor=white" alt="Node.js 20.18+">
+  <img src="https://img.shields.io/badge/pnpm-9.15-F69220?logo=pnpm&logoColor=white" alt="pnpm 9.15">
+  <img src="https://img.shields.io/badge/واجهة-فارسی-214E3A" alt="رابط فارسی">
+</p>
 
-- [نیازمندی‌های محصول نسخه ۱.۰](Docs/TStaff_Requirements_Final_v1.0%20%282%29.docx) و [راهنمای مخزن](AGENTS.md)
-- [محدوده MVP](Docs/00-product/scope.md) و [ماتریس ردیابی](Docs/00-product/traceability.md)
-- [معماری](Docs/01-architecture/README.md)، [API](Docs/03-api/README.md)، [داده](Docs/04-data/README.md)، [عملیات](Docs/06-operations/README.md) و [کیفیت و CI](Docs/07-quality/README.md)
-- [نقشه راه](Docs/08-delivery/roadmap.md) و [تصمیمات معماری](Docs/adr/)
+<p align="center">
+  <a href="#-معرفی">معرفی</a> ·
+  <a href="#-قابلیتهای-اصلی">قابلیت‌ها</a> ·
+  <a href="#-معماری-در-یک-نگاه">معماری</a> ·
+  <a href="#-شروع-سریع">شروع سریع</a> ·
+  <a href="#-کنترل-کیفیت">کیفیت</a> ·
+  <a href="#-استقرار">استقرار</a>
+</p>
 
-## ساختار و قابلیت‌ها
+</div>
 
-- `apps/web`: رابط فارسی React، Vite، React Router و Tailwind؛ صفحه‌های نقش‌محور با URL مستقل.
-- `apps/api`: API مبتنی بر NestJS با ماژول‌های دامنه، اعتبارسنجی قراردادها و کنترل دسترسی سمت سرور.
-- `apps/worker`: پردازش رویدادها و کارهای نگهداری.
-- `packages/contracts`: قراردادهای مشترک و Zod؛ `packages/database`: مدل Prisma و migrationهای PostgreSQL.
-- `infra/compose`: PostgreSQL، MinIO و ClamAV برای توسعهٔ محلی.
+---
 
-پروندهٔ متقاضی تا تأیید نهایی حساب کاربری ندارد؛ سن عدد صحیح مثبت است؛ هر منبع حداکثر یک مصاحبه دارد. مدیران علمی اصلی و همکارِ منتسب اختیار برابر دارند و تصمیم هم‌زمان با کنترل نسخه انجام می‌شود. بازگشت مرحله، تاریخچه را نگه می‌دارد و خروجی‌های وابسته را نیازمند بازبینی می‌کند. OTP، کنشگری، هدایت تحصیلی، تالار عمومی، پنل مسئله‌پژوه و اکسپلور عمومی سناریو خارج از MVP هستند.
+## 🔎 معرفی
 
-## راه‌اندازی محلی
+TStaff یک سامانهٔ فارسی برای پذیرش متقاضیان، راهبری پژوهشگران و مدیریت چرخهٔ پژوهش است. هستهٔ محصول بر گردش علمی چهارمرحله‌ای **منابع، تبیین، تجویز و سناریو** و پیگیری نقش‌محور پرونده‌ها بنا شده است. کد در قالب یک monorepo با معماری **Modular Monolith** سازمان‌دهی شده است.
 
-پیش‌نیازها: Node.js نسخهٔ ۲۰.۱۸ یا بالاتر، pnpm نسخهٔ ۹.۱۵ و Docker Compose. برای استفاده از API و فایل‌ها به PostgreSQL و ClamAV نیاز است؛ MinIO برای آداپتور S3 محلی است.
+## ✨ قابلیت‌های اصلی
+
+| 🧭 گردش پژوهش                                                           | 👥 پذیرش و راهبری                                          | 🔐 قواعد محصول                                                    |
+| ----------------------------------------------------------------------- | ---------------------------------------------------------- | ----------------------------------------------------------------- |
+| مراحل منابع، تبیین، تجویز و سناریو با تاریخچهٔ نسخه‌دار                 | پروندهٔ متقاضی تا پذیرش نهایی مستقل از حساب کاربری است     | دسترسی‌ها در سمت سرور کنترل می‌شوند                               |
+| مسیر مستقل و قابل اشتراک برای صفحه‌ها و پرونده‌ها                       | مدیران علمی اصلی و همکار در پژوهش اختیار داوری برابر دارند | هر منبع حداکثر یک مصاحبه دارد                                     |
+| بازگشت مرحله بدون حذف تاریخچه؛ خروجی‌های وابسته نیازمند بازبینی می‌شوند | کارتابل برای پیگیری وضعیت پرونده‌ها و اقدام‌های علمی       | سن فقط عدد صحیح مثبت است؛ تصمیم همزمان با کنترل نسخه انجام می‌شود |
+
+> **محدودهٔ MVP:** ورود با نام کاربری/شمارهٔ همراه و گذرواژه انجام می‌شود. OTP پیامکی، کنشگری، هدایت تحصیلی، تالار عمومی، پنل مسئله‌پژوه و اکسپلور عمومی بانک سناریو خارج از این محدوده‌اند.
+
+## 🧱 معماری در یک نگاه
+
+```mermaid
+flowchart LR
+    WEB["apps/web<br/>React · Vite · React Router"] -->|"HTTP / قراردادهای مشترک"| API["apps/api<br/>NestJS · Modular Monolith"]
+    API --> CONTRACTS["packages/contracts<br/>DTO · Zod"]
+    API --> DB["packages/database<br/>Prisma · PostgreSQL"]
+    API --> FILES["ذخیره‌سازی خصوصی فایل<br/>Local / S3-compatible"]
+    API --> WORKER["apps/worker<br/>کارهای پس‌زمینه"]
+    WORKER --> DB
+    WORKER --> FILES
+```
+
+| مسیر                 | مسئولیت                                                      |
+| -------------------- | ------------------------------------------------------------ |
+| `apps/web`           | رابط فارسی React، Vite، React Router و Tailwind              |
+| `apps/api`           | API مبتنی بر NestJS، ماژول‌های دامنه و کنترل دسترسی سمت سرور |
+| `apps/worker`        | پردازش رویدادها و کارهای نگهداری                             |
+| `packages/contracts` | DTOها، قراردادهای مشترک و اعتبارسنجی Zod                     |
+| `packages/database`  | مدل Prisma و migrationهای PostgreSQL                         |
+| `infra/compose`      | PostgreSQL، MinIO و ClamAV برای توسعهٔ محلی                  |
+
+## 🚀 شروع سریع
+
+### پیش‌نیازها
+
+- Node.js نسخهٔ `20.18` یا بالاتر
+- pnpm نسخهٔ `9.15`
+- Docker Compose
+
+برای استفاده از API و فایل‌ها، PostgreSQL و ClamAV لازم است؛ MinIO آداپتور S3 محلی را فراهم می‌کند.
+
+### اجرا
 
 ```bash
-cp .env.example .env                 # در PowerShell: Copy-Item .env.example .env
+cp .env.example .env
 pnpm install --frozen-lockfile
 docker compose -f infra/compose/compose.dev.yml up -d
 pnpm db:generate
@@ -33,13 +82,32 @@ pnpm build
 pnpm dev
 ```
 
-API به‌صورت پیش‌فرض در `http://localhost:4000/api/v1` و مستندات Swagger در `http://localhost:4000/api/docs` هستند. برای اجرای API با تنظیمات فایل محیط می‌توان پس از build از `node --env-file=.env apps/api/dist/main.js` استفاده کرد. آدرس وب در خروجی Vite نمایش داده می‌شود.
+در PowerShell، به‌جای خط اول اجرا کنید:
 
-حالت پیش‌فرض وب روی `localhost` و دامنه‌های `vercel.app` نمایشی است و تغییرات را در مرورگر نگه می‌دارد. برای اتصال وب به API واقعی، `VITE_DEMO_MODE=false` و `VITE_API_URL` را در محیط Vite تنظیم کنید. [محدودیت‌ها و داده‌های دمو](Docs/07-quality/vercel-demo-seed.md) را ببینید.
+```powershell
+Copy-Item .env.example .env
+```
 
-اسکریپت `scripts/seed-data.mjs` حساب‌های آزمایشی با گذرواژهٔ ثابت می‌سازد؛ فقط پس از build و روی دیتابیس توسعهٔ مجزا اجرا شود. از آن برای دادهٔ عملیاتی استفاده نکنید.
+پس از اجرا، آدرس وب در خروجی Vite نمایش داده می‌شود. API به‌صورت پیش‌فرض در `http://localhost:4000/api/v1` و مستندات Swagger در `http://localhost:4000/api/docs` در دسترس‌اند. برای اجرای API با تنظیمات فایل محیط پس از build:
 
-## کنترل‌های کیفیت
+```bash
+node --env-file=.env apps/api/dist/main.js
+```
+
+### اتصال وب به API
+
+حالت پیش‌فرض وب روی `localhost` و دامنه‌های `vercel.app` نمایشی است و داده‌ها را در مرورگر نگه می‌دارد. برای اتصال به API واقعی، این متغیرها را در محیط Vite تنظیم کنید:
+
+```env
+VITE_DEMO_MODE=false
+VITE_API_URL=http://localhost:4000/api/v1
+```
+
+جزئیات و محدودیت‌ها: [راهنمای داده‌های نمایشی](Docs/07-quality/vercel-demo-seed.md).
+
+> اسکریپت `scripts/seed-data.mjs` حساب‌های آزمایشی با گذرواژهٔ ثابت می‌سازد. آن را فقط پس از build و روی دیتابیس توسعهٔ جدا اجرا کنید؛ برای دادهٔ عملیاتی مناسب نیست.
+
+## ✅ کنترل کیفیت
 
 ```bash
 pnpm test:boundaries
@@ -49,8 +117,20 @@ pnpm test
 pnpm build
 ```
 
-CI همین کنترل‌ها را پس از نصب وابستگی، تولید Prisma Client و build بسته‌های database و contracts اجرا می‌کند. آزمون‌های API عمدتاً با repository ساختگی انجام می‌شوند؛ جایگزین آزمون واقعی migration، قیود PostgreSQL و بازیابی پشتیبان نیستند. دستور `pnpm lint` فعلاً در چند بسته placeholder است.
+GitHub Actions همین کنترل‌ها را پس از نصب وابستگی‌ها، تولید Prisma Client و build بسته‌های database و contracts اجرا می‌کند. آزمون‌های API عمدتاً از repositoryهای ساختگی استفاده می‌کنند؛ بنابراین جایگزین آزمون migration، قیود PostgreSQL و بازیابی پشتیبان نیستند. دستور `pnpm lint` فعلاً در چند بسته placeholder است.
 
-## استقرار
+## ☁️ استقرار
 
-`vercel.json` فقط وب استاتیک را می‌سازد و rewrite مسیرهای React Router را فراهم می‌کند. این پیکربندی API، worker، PostgreSQL یا فضای فایل را مستقر نمی‌کند. برای محیط واقعی، API، پایگاه داده، ذخیره‌سازی خصوصی، اسکن فایل، تنظیمات CORS و پشتیبان‌گیری باید جداگانه فراهم شوند؛ جزئیات در [راهنمای عملیات](Docs/06-operations/README.md) آمده است.
+`vercel.json` وب را به‌شکل فایل‌های استاتیک build می‌کند و مسیرهای React Router را rewrite می‌کند. این پیکربندی API، worker، PostgreSQL یا فضای فایل را مستقر نمی‌کند. محیط واقعی به میزبانی جداگانهٔ API، پایگاه داده، ذخیره‌سازی خصوصی، اسکن فایل، تنظیمات CORS و پشتیبان‌گیری نیاز دارد؛ جزئیات در [راهنمای عملیات](Docs/06-operations/README.md) آمده است.
+
+## 📚 اسناد پروژه
+
+| موضوع               | سند                                                                                                                                                                             |
+| ------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| نیازمندی‌ها و دامنه | [نیازمندی‌های محصول نسخهٔ ۱.۰](Docs/TStaff_Requirements_Final_v1.0%20%282%29.docx) · [محدودهٔ MVP](Docs/00-product/scope.md) · [ماتریس ردیابی](Docs/00-product/traceability.md) |
+| معماری و API        | [معماری](Docs/01-architecture/README.md) · [API](Docs/03-api/README.md)                                                                                                         |
+| داده و عملیات       | [داده](Docs/04-data/README.md) · [عملیات](Docs/06-operations/README.md)                                                                                                         |
+| کیفیت و برنامه‌ریزی | [کیفیت و CI](Docs/07-quality/README.md) · [نقشهٔ راه](Docs/08-delivery/roadmap.md) · [تصمیمات معماری](Docs/adr/)                                                                |
+| راهنمای مشارکت      | [AGENTS.md](AGENTS.md)                                                                                                                                                          |
+
+<p align="center"><sub>TStaff · سامانهٔ مدیریت شبکهٔ پژوهشگران</sub></p>
