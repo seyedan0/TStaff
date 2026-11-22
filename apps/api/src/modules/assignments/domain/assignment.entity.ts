@@ -1,7 +1,7 @@
 import type { AssignmentRole } from "@tstaff/contracts";
 import {
   MainSupervisorAlreadyAssignedError,
-  CollaboratorSupervisorAlreadyAssignedError,
+  SingleSupervisorPerResearchError,
 } from "./assignment-errors.js";
 
 export interface ResearchAssignmentProps {
@@ -42,6 +42,8 @@ export class ResearchAssignment {
     role: AssignmentRole,
     activeAssignments: ResearchAssignment[],
   ): void {
+    if (role === "COLLABORATOR_SUPERVISOR")
+      throw new SingleSupervisorPerResearchError();
     if (role === "MAIN_SUPERVISOR") {
       const existingMain = activeAssignments.find(
         (a) => a.role === "MAIN_SUPERVISOR" && a.isActive,
@@ -49,15 +51,6 @@ export class ResearchAssignment {
       if (existingMain) {
         throw new MainSupervisorAlreadyAssignedError(
           existingMain.researchCaseId,
-        );
-      }
-    } else if (role === "COLLABORATOR_SUPERVISOR") {
-      const existingCollab = activeAssignments.find(
-        (a) => a.role === "COLLABORATOR_SUPERVISOR" && a.isActive,
-      );
-      if (existingCollab) {
-        throw new CollaboratorSupervisorAlreadyAssignedError(
-          existingCollab.researchCaseId,
         );
       }
     }

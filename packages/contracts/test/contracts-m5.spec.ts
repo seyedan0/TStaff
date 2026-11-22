@@ -13,6 +13,7 @@ import {
   SupervisorWorklistSchema,
   TrackingDirectorBacklogSchema,
   GeneralDirectorSummarySchema,
+  SupervisorHealthSchema,
   UpdateSystemSettingDtoSchema,
 } from "../src/index.js";
 
@@ -95,7 +96,10 @@ describe("Milestone 5 Contracts Validation", () => {
         aggregateId: "case-123",
         action: "STAGE_ROLLED_BACK",
         actorId: "33333333-3333-3333-3333-333333333333",
-        payload: { targetStage: "EXPLANATION", reason: "نیاز به بازنگری فرضیات" },
+        payload: {
+          targetStage: "EXPLANATION",
+          reason: "نیاز به بازنگری فرضیات",
+        },
       });
       expect(audit.action).toBe("STAGE_ROLLED_BACK");
       expect(audit.payload).toHaveProperty("targetStage", "EXPLANATION");
@@ -132,6 +136,8 @@ describe("Milestone 5 Contracts Validation", () => {
   describe("Reporting Dashboards (AT-09, AT-11, AT-15, AT-21, AT-24)", () => {
     it("should parse provincial director metrics", () => {
       const metrics = ProvincialDirectorMetricsSchema.parse({
+        applicantsByStatus: { PENDING: 20, APPROVED: 40, REJECTED: 40 },
+        pendingSupervisorAllocation: 7,
         totalApplicants: 100,
         approvedApplicants: 40,
         totalApprentices: 35,
@@ -162,6 +168,33 @@ describe("Milestone 5 Contracts Validation", () => {
       });
       expect(worklist.pendingStageSubmissions).toBe(2);
       expect(worklist.items).toHaveLength(1);
+    });
+
+    it("parses D-09 supervisor health warnings (AT-39, AT-40)", () => {
+      const health = SupervisorHealthSchema.parse({
+        inactiveSupervisorAssignmentsCount: 1,
+        revokedSupervisorAssignmentsCount: 1,
+        legacyCollaboratorAssignmentsCount: 0,
+        caseSupervisorMismatchCount: 1,
+        issues: [
+          {
+            type: "CASE_SUPERVISOR_MISSING",
+            entityId: "case-1",
+            caseCode: "CASE-01",
+          },
+          {
+            type: "SUPERVISOR_INACTIVE_OR_ROLE_REMOVED",
+            entityId: "user-1",
+            relatedId: "manager-1",
+          },
+          {
+            type: "SUPERVISOR_ASSIGNMENT_REVOKED",
+            entityId: "user-2",
+            relatedId: "manager-2",
+          },
+        ],
+      });
+      expect(health.issues).toHaveLength(3);
     });
 
     it("should parse tracking director backlog", () => {
@@ -213,4 +246,3 @@ describe("Milestone 5 Contracts Validation", () => {
     });
   });
 });
-

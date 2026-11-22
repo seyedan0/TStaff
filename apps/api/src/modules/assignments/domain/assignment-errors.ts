@@ -11,7 +11,7 @@ export class DomainError extends Error {
 export class MainSupervisorAlreadyAssignedError extends DomainError {
   constructor(caseId: string) {
     super(
-      `پرونده پژوهشی ${caseId} دارای مدیر علمی اصلی فعال است و امکان انتساب مدیر اصلی دیگر بدون جایگزینی وجود ندارد (D-02)`,
+      `پرونده پژوهشی ${caseId} از قبل مدیر علمی اصلی دارد و انتساب مدیر دیگری مجاز نیست (D-09)`,
       "MAIN_SUPERVISOR_ALREADY_ASSIGNED",
     );
   }
@@ -20,7 +20,7 @@ export class MainSupervisorAlreadyAssignedError extends DomainError {
 export class CollaboratorSupervisorAlreadyAssignedError extends DomainError {
   constructor(caseId: string) {
     super(
-      `پرونده پژوهشی ${caseId} حداکثر می‌تواند ۱ مدیر علمی همکار فعال داشته باشد (D-02)`,
+      `پرونده پژوهشی ${caseId} مدیر علمی همکار نمی‌پذیرد (D-09)`,
       "COLLABORATOR_SUPERVISOR_ALREADY_ASSIGNED",
     );
   }
@@ -49,12 +49,45 @@ export class InvalidScientificSupervisorError extends DomainError {
 
 export class InvalidTraineeAssignmentTargetError extends DomainError {
   constructor() {
-    super("انتساب مدیر علمی فقط برای حساب کارآموز یا کارورز مجاز است", "BAD_REQUEST");
+    super(
+      "انتساب مدیر علمی فقط برای حساب کارآموز یا کارورز مجاز است",
+      "BAD_REQUEST",
+    );
+  }
+}
+
+export class DifferentLifetimeSupervisorError extends DomainError {
+  constructor() {
+    super(
+      "برای این فرد قبلاً مدیر علمی دیگری ثبت شده است؛ تعیین مدیر علمی دوم مجاز نیست",
+      "CONFLICT",
+    );
+  }
+}
+
+export class SingleSupervisorPerResearchError extends DomainError {
+  constructor() {
+    super(
+      "برای پرونده پژوهش فقط مدیر علمی مادام‌العمر صاحب پرونده مجاز است؛ مدیر همکار پشتیبانی نمی‌شود",
+      "CONFLICT",
+    );
+  }
+}
+
+export class ResearchOwnerRequiredError extends DomainError {
+  constructor() {
+    super(
+      "پرونده باید به پژوهشگر مشخصی متصل باشد تا مدیر علمی یکتای او کنترل شود",
+      "CONFLICT",
+    );
   }
 }
 
 export class CannotRemoveMainSupervisorWithoutReplacementError extends DomainError {
   constructor() {
-    super("لغو مدیر علمی اصلی بدون معرفی هم‌زمان جایگزین مجاز نیست (D-02)", "CONFLICT");
+    super(
+      "لغو مدیر علمی اصلی پرونده مجاز نیست؛ هر پرونده باید به مدیر یکتای پژوهشگر متصل بماند (D-09)",
+      "CONFLICT",
+    );
   }
 }

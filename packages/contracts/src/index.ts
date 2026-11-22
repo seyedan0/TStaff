@@ -75,20 +75,47 @@ export const ApplicantStatusSchema = z.enum([
 ]);
 export type ApplicantStatus = z.infer<typeof ApplicantStatusSchema>;
 
-export const CreateApplicantDtoSchema = z.object({
-  fullName: z.string().min(3, "نام و نام خانوادگی باید حداقل ۳ کاراکتر باشد"),
-  nationalId: z.string().regex(/^\d{10}$/, "کد ملی باید دقیقاً ۱۰ رقم باشد"),
-  phoneNumber: z
-    .string()
-    .regex(/^09\d{9}$/, "شماره همراه باید با 09 آغاز شده و ۱۱ رقم باشد"),
-  age: IntegerAgeSchema,
-  provinceId: z.string().uuid("شناسه استان نامعتبر است"),
-  education: z.string().min(2, "مقطع تحصیلی الزامی است"),
-  fieldOfStudy: z.string().min(2, "رشته تحصیلی الزامی است"),
-  notes: z.string().optional(),
-  initialSupervisorId: z.string().uuid(),
-});
+export const CreateApplicantDtoSchema = z
+  .object({
+    fullName: z.string().min(3, "نام و نام خانوادگی باید حداقل ۳ کاراکتر باشد"),
+    nationalId: z.string().regex(/^\d{10}$/, "کد ملی باید دقیقاً ۱۰ رقم باشد"),
+    phoneNumber: z
+      .string()
+      .regex(/^09\d{9}$/, "شماره همراه باید با 09 آغاز شده و ۱۱ رقم باشد"),
+    age: IntegerAgeSchema,
+    provinceId: z.string().uuid("شناسه استان نامعتبر است"),
+    education: z.string().min(2, "مقطع تحصیلی الزامی است"),
+    fieldOfStudy: z.string().min(2, "رشته تحصیلی الزامی است"),
+    notes: z.string().optional(),
+  })
+  .strict();
 export type CreateApplicantDto = z.infer<typeof CreateApplicantDtoSchema>;
+
+export const AllocateApplicantSupervisorDtoSchema = z.object({
+  supervisorId: z.string().uuid("شناسه مدیر علمی نامعتبر است"),
+});
+export type AllocateApplicantSupervisorDto = z.infer<
+  typeof AllocateApplicantSupervisorDtoSchema
+>;
+
+export const ApplicantAllocationItemDtoSchema = z.object({
+  id: z.string().uuid(),
+  fullName: z.string(),
+  nationalId: z.string().nullable().optional(),
+  phoneNumber: z.string(),
+  age: z.number().int().positive(),
+  provinceId: z.string().nullable().optional(),
+  provinceName: z.string().nullable().optional(),
+  educationLevel: z.string().nullable().optional(),
+  fieldOfStudy: z.string().nullable().optional(),
+  notes: z.string().nullable().optional(),
+  status: z.string(),
+  createdAt: z.string(),
+  waitingDays: z.number().int().nonnegative().optional(),
+});
+export type ApplicantAllocationItemDto = z.infer<
+  typeof ApplicantAllocationItemDtoSchema
+>;
 
 export const ReviewApplicantDecisionDtoSchema = z.object({
   decision: z.enum(["APPROVED", "REJECTED"]),
@@ -142,7 +169,9 @@ export const ManagerRoleSchema = z.enum([
 export type ManagerRole = z.infer<typeof ManagerRoleSchema>;
 
 export const CreateManagerDtoSchema = z.object({
-  fullName: z.string().min(3, "نام و نام خانوادگی مدیر باید حداقل ۳ کاراکتر باشد"),
+  fullName: z
+    .string()
+    .min(3, "نام و نام خانوادگی مدیر باید حداقل ۳ کاراکتر باشد"),
   phoneNumber: z
     .string()
     .regex(/^09\d{9}$/, "شماره همراه باید با 09 آغاز شده و ۱۱ رقم باشد"),
@@ -153,28 +182,47 @@ export const CreateManagerDtoSchema = z.object({
 });
 export type CreateManagerDto = z.infer<typeof CreateManagerDtoSchema>;
 
-export const RequestStudyEvaluationDtoSchema = z.object({
-  notes: z.string().max(2000).optional(),
-}).strict();
-export type RequestStudyEvaluationDto = z.infer<typeof RequestStudyEvaluationDtoSchema>;
+export const RequestStudyEvaluationDtoSchema = z
+  .object({
+    notes: z.string().max(2000).optional(),
+  })
+  .strict();
+export type RequestStudyEvaluationDto = z.infer<
+  typeof RequestStudyEvaluationDtoSchema
+>;
 
-export const LibraryDocumentVersionStatusSchema = z.enum(["DRAFT", "PUBLISHED", "ARCHIVED"]);
-export type LibraryDocumentVersionStatus = z.infer<typeof LibraryDocumentVersionStatusSchema>;
+export const LibraryDocumentVersionStatusSchema = z.enum([
+  "DRAFT",
+  "PUBLISHED",
+  "ARCHIVED",
+]);
+export type LibraryDocumentVersionStatus = z.infer<
+  typeof LibraryDocumentVersionStatusSchema
+>;
 
-export const CreateLibraryDocumentDtoSchema = z.object({
-  title: z.string().trim().min(1).max(200),
-  description: z.string().trim().max(2000),
-  category: z.string().trim().min(1).max(100),
-}).strict();
-export type CreateLibraryDocumentDto = z.infer<typeof CreateLibraryDocumentDtoSchema>;
+export const CreateLibraryDocumentDtoSchema = z
+  .object({
+    title: z.string().trim().min(1).max(200),
+    description: z.string().trim().max(2000),
+    category: z.string().trim().min(1).max(100),
+  })
+  .strict();
+export type CreateLibraryDocumentDto = z.infer<
+  typeof CreateLibraryDocumentDtoSchema
+>;
 
-export const CreateLibraryDocumentVersionDtoSchema = CreateLibraryDocumentDtoSchema;
+export const CreateLibraryDocumentVersionDtoSchema =
+  CreateLibraryDocumentDtoSchema;
 export type CreateLibraryDocumentVersionDto = CreateLibraryDocumentDto;
 
-export const PublishLibraryDocumentVersionDtoSchema = z.object({
-  isRequired: z.boolean(),
-}).strict();
-export type PublishLibraryDocumentVersionDto = z.infer<typeof PublishLibraryDocumentVersionDtoSchema>;
+export const PublishLibraryDocumentVersionDtoSchema = z
+  .object({
+    isRequired: z.boolean(),
+  })
+  .strict();
+export type PublishLibraryDocumentVersionDto = z.infer<
+  typeof PublishLibraryDocumentVersionDtoSchema
+>;
 
 export const LibraryDocumentVersionDtoSchema = z.object({
   id: z.string().uuid(),
@@ -189,19 +237,26 @@ export const LibraryDocumentVersionDtoSchema = z.object({
   fileName: z.string(),
   scanStatus: z.enum(["QUARANTINED", "AVAILABLE", "REJECTED"]),
 });
-export type LibraryDocumentVersionDto = z.infer<typeof LibraryDocumentVersionDtoSchema>;
+export type LibraryDocumentVersionDto = z.infer<
+  typeof LibraryDocumentVersionDtoSchema
+>;
 
-export const ManagedLibraryDocumentVersionDtoSchema = LibraryDocumentVersionDtoSchema.extend({
-  uploadedById: z.string().uuid(),
-  storedObjectId: z.string().uuid(),
-});
-export type ManagedLibraryDocumentVersionDto = z.infer<typeof ManagedLibraryDocumentVersionDtoSchema>;
+export const ManagedLibraryDocumentVersionDtoSchema =
+  LibraryDocumentVersionDtoSchema.extend({
+    uploadedById: z.string().uuid(),
+    storedObjectId: z.string().uuid(),
+  });
+export type ManagedLibraryDocumentVersionDto = z.infer<
+  typeof ManagedLibraryDocumentVersionDtoSchema
+>;
 
 export const PublishedLibraryDocumentDtoSchema = z.object({
   id: z.string().uuid(),
   currentVersion: LibraryDocumentVersionDtoSchema,
 });
-export type PublishedLibraryDocumentDto = z.infer<typeof PublishedLibraryDocumentDtoSchema>;
+export type PublishedLibraryDocumentDto = z.infer<
+  typeof PublishedLibraryDocumentDtoSchema
+>;
 
 export const LibraryDocumentDtoSchema = z.object({
   id: z.string().uuid(),
@@ -245,13 +300,17 @@ export const CreateSupportTicketDtoSchema = z.object({
   subject: z.string().min(3, "موضوع پیام پشتیبانی الزامی است"),
   description: z.string().min(10, "شرح پیام باید حداقل ۱۰ کاراکتر باشد"),
 });
-export type CreateSupportTicketDto = z.infer<typeof CreateSupportTicketDtoSchema>;
+export type CreateSupportTicketDto = z.infer<
+  typeof CreateSupportTicketDtoSchema
+>;
 
 export const ResolveSupportTicketDtoSchema = z.object({
   response: z.string().min(5, "پاسخ پشتیبانی الزامی است"),
   status: z.enum(["RESOLVED", "CLOSED"]),
 });
-export type ResolveSupportTicketDto = z.infer<typeof ResolveSupportTicketDtoSchema>;
+export type ResolveSupportTicketDto = z.infer<
+  typeof ResolveSupportTicketDtoSchema
+>;
 
 /**
  * ----------------------------------------------------------------------------
@@ -280,10 +339,7 @@ export const AssignmentRoleSchema = z.enum([
 ]);
 export type AssignmentRole = z.infer<typeof AssignmentRoleSchema>;
 
-export const SupervisorRoleSchema = z.enum([
-  "MAIN_SUPERVISOR",
-  "COLLABORATOR_SUPERVISOR",
-]);
+export const SupervisorRoleSchema = z.literal("MAIN_SUPERVISOR");
 export type SupervisorRole = z.infer<typeof SupervisorRoleSchema>;
 
 export const StageTypeSchema = z.enum([
@@ -353,44 +409,67 @@ export type AssignSupervisorDto = z.infer<typeof AssignSupervisorDtoSchema>;
 export const AssignScientificSupervisorToUserDtoSchema = z.object({
   supervisorId: z.string().uuid(),
 });
-export type AssignScientificSupervisorToUserDto = z.infer<typeof AssignScientificSupervisorToUserDtoSchema>;
+export type AssignScientificSupervisorToUserDto = z.infer<
+  typeof AssignScientificSupervisorToUserDtoSchema
+>;
 
-export const CreateResourceDtoSchema = z.object({
-  type: ResourceTypeSchema,
-  title: z
-    .string()
-    .min(2, "عنوان منبع الزامی است")
-    .max(255, "عنوان منبع حداکثر ۲۵۵ کاراکتر است"),
-  description: z.string().max(2000, "توضیحات حداکثر ۲۰۰۰ کاراکتر است").optional(),
-  contactInfo: z.string().max(255, "اطلاعات تماس حداکثر ۲۵۵ کاراکتر است").optional(),
-  personAge: IntegerAgeSchema.optional(),
-  position: z.string().min(2).max(255).optional(),
-  provinceId: z.string().uuid("شناسه استان نامعتبر است").optional(),
-  province: z.string().max(120).optional(),
-  county: z.string().max(120).optional(),
-  organizationName: z.string().max(255).optional(),
-  organizationEducationLevel: z.string().max(120).optional(),
-  organizationType: z.string().max(120).optional(),
-}).superRefine((resource, context) => {
-  if (resource.type === "INDIVIDUAL" && resource.personAge === undefined) {
-    context.addIssue({ code: z.ZodIssueCode.custom, path: ["personAge"], message: "سن فرد الزامی است" });
-  }
-  if (resource.type === "INDIVIDUAL" && !resource.position) {
-    context.addIssue({ code: z.ZodIssueCode.custom, path: ["position"], message: "سمت یا شغل فرد الزامی است" });
-  }
-});
+export const CreateResourceDtoSchema = z
+  .object({
+    type: ResourceTypeSchema,
+    title: z
+      .string()
+      .min(2, "عنوان منبع الزامی است")
+      .max(255, "عنوان منبع حداکثر ۲۵۵ کاراکتر است"),
+    description: z
+      .string()
+      .max(2000, "توضیحات حداکثر ۲۰۰۰ کاراکتر است")
+      .optional(),
+    contactInfo: z
+      .string()
+      .max(255, "اطلاعات تماس حداکثر ۲۵۵ کاراکتر است")
+      .optional(),
+    personAge: IntegerAgeSchema.optional(),
+    position: z.string().min(2).max(255).optional(),
+    provinceId: z.string().uuid("شناسه استان نامعتبر است").optional(),
+    province: z.string().max(120).optional(),
+    county: z.string().max(120).optional(),
+    organizationName: z.string().max(255).optional(),
+    organizationEducationLevel: z.string().max(120).optional(),
+    organizationType: z.string().max(120).optional(),
+  })
+  .superRefine((resource, context) => {
+    if (resource.type === "INDIVIDUAL" && resource.personAge === undefined) {
+      context.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["personAge"],
+        message: "سن فرد الزامی است",
+      });
+    }
+    if (resource.type === "INDIVIDUAL" && !resource.position) {
+      context.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["position"],
+        message: "سمت یا شغل فرد الزامی است",
+      });
+    }
+  });
 export type CreateResourceDto = z.infer<typeof CreateResourceDtoSchema>;
 
-export const UpdateResourceDtoSchema = z.object({
-  title: z.string().min(2).max(255).optional(),
-  description: z.string().max(2000).optional(),
-  contactInfo: z.string().max(255).optional(),
-  personAge: IntegerAgeSchema.optional(),
-  position: z.string().min(2).max(255).optional(),
-  provinceId: z.string().uuid("شناسه استان نامعتبر است").optional(),
-  province: z.string().max(120).optional(),
-  county: z.string().max(120).optional(),
-}).refine((value) => Object.keys(value).length > 0, "حداقل یک فیلد برای اصلاح لازم است");
+export const UpdateResourceDtoSchema = z
+  .object({
+    title: z.string().min(2).max(255).optional(),
+    description: z.string().max(2000).optional(),
+    contactInfo: z.string().max(255).optional(),
+    personAge: IntegerAgeSchema.optional(),
+    position: z.string().min(2).max(255).optional(),
+    provinceId: z.string().uuid("شناسه استان نامعتبر است").optional(),
+    province: z.string().max(120).optional(),
+    county: z.string().max(120).optional(),
+  })
+  .refine(
+    (value) => Object.keys(value).length > 0,
+    "حداقل یک فیلد برای اصلاح لازم است",
+  );
 export type UpdateResourceDto = z.infer<typeof UpdateResourceDtoSchema>;
 
 export const ResourceOrganizationDtoSchema = z.object({
@@ -399,7 +478,9 @@ export const ResourceOrganizationDtoSchema = z.object({
   organizationType: z.string().max(120).optional(),
   description: z.string().max(2000).optional(),
 });
-export type ResourceOrganizationDto = z.infer<typeof ResourceOrganizationDtoSchema>;
+export type ResourceOrganizationDto = z.infer<
+  typeof ResourceOrganizationDtoSchema
+>;
 
 export const CreateInterviewDtoSchema = z.object({
   intervieweeName: z
@@ -418,15 +499,20 @@ export const CreateInterviewDtoSchema = z.object({
 });
 export type CreateInterviewDto = z.infer<typeof CreateInterviewDtoSchema>;
 
-export const UpdateInterviewDtoSchema = z.object({
-  intervieweeName: z.string().min(2).max(255).optional(),
-  intervieweeAge: IntegerAgeSchema.optional(),
-  conductedAt: z.string().datetime().or(z.date()).optional(),
-  durationMinutes: z.number().int().positive().max(1440).optional(),
-  mode: z.string().max(80).optional(),
-  location: z.string().max(255).optional(),
-  notes: z.string().max(4000).optional(),
-}).refine((value) => Object.keys(value).length > 0, "حداقل یک فیلد برای اصلاح لازم است");
+export const UpdateInterviewDtoSchema = z
+  .object({
+    intervieweeName: z.string().min(2).max(255).optional(),
+    intervieweeAge: IntegerAgeSchema.optional(),
+    conductedAt: z.string().datetime().or(z.date()).optional(),
+    durationMinutes: z.number().int().positive().max(1440).optional(),
+    mode: z.string().max(80).optional(),
+    location: z.string().max(255).optional(),
+    notes: z.string().max(4000).optional(),
+  })
+  .refine(
+    (value) => Object.keys(value).length > 0,
+    "حداقل یک فیلد برای اصلاح لازم است",
+  );
 export type UpdateInterviewDto = z.infer<typeof UpdateInterviewDtoSchema>;
 
 export const CreateInterviewReportDtoSchema = z.object({
@@ -464,7 +550,10 @@ export type RollbackStageDto = z.infer<typeof RollbackStageDtoSchema>;
 
 export const ReviewDecisionDtoSchema = z.object({
   decision: z.enum(["APPROVED", "REVISION_REQUESTED", "REJECTED"]),
-  notes: z.string().max(2000, "توضیحات داوری حداکثر ۲۰۰۰ کاراکتر است").optional(),
+  notes: z
+    .string()
+    .max(2000, "توضیحات داوری حداکثر ۲۰۰۰ کاراکتر است")
+    .optional(),
   expectedVersion: z
     .number()
     .int()
@@ -509,10 +598,7 @@ export const SubmitReviewDecisionDtoSchema = z.object({
     .number()
     .int()
     .positive("نسخه مورد انتظار باید عدد صحیح مثبت باشد"),
-  caseVersion: z
-    .number()
-    .int()
-    .positive("نسخه پرونده باید عدد صحیح مثبت باشد"),
+  caseVersion: z.number().int().positive("نسخه پرونده باید عدد صحیح مثبت باشد"),
   idempotencyKey: z
     .string()
     .min(10, "کلید یکتایی حداقل ۱۰ کاراکتر است")
@@ -530,7 +616,12 @@ export const ScenarioStatusSchema = z.enum([
 ]);
 export type ScenarioStatus = z.infer<typeof ScenarioStatusSchema>;
 
-export const ScenarioAudienceSchema = z.enum(["TEACHER", "STUDENT", "MENTOR", "OTHER"]);
+export const ScenarioAudienceSchema = z.enum([
+  "TEACHER",
+  "STUDENT",
+  "MENTOR",
+  "OTHER",
+]);
 export type ScenarioAudience = z.infer<typeof ScenarioAudienceSchema>;
 
 export const ScenarioStructuredContentSchema = z.object({
@@ -540,15 +631,25 @@ export const ScenarioStructuredContentSchema = z.object({
   keywords: z.array(z.string().min(2).max(80)).min(1).max(30),
   implementationSteps: z.array(z.string().min(5).max(3000)).min(1).max(30),
 });
-export type ScenarioStructuredContent = z.infer<typeof ScenarioStructuredContentSchema>;
+export type ScenarioStructuredContent = z.infer<
+  typeof ScenarioStructuredContentSchema
+>;
 
-const ScenarioContentJsonSchema = z.string().min(20).max(50000).superRefine((value, context) => {
-  try {
-    ScenarioStructuredContentSchema.parse(JSON.parse(value));
-  } catch {
-    context.addIssue({ code: z.ZodIssueCode.custom, message: "محتوای سناریو باید شامل مخاطب، استان، دسته‌بندی، کلیدواژه و مراحل اجرا باشد" });
-  }
-});
+const ScenarioContentJsonSchema = z
+  .string()
+  .min(20)
+  .max(50000)
+  .superRefine((value, context) => {
+    try {
+      ScenarioStructuredContentSchema.parse(JSON.parse(value));
+    } catch {
+      context.addIssue({
+        code: z.ZodIssueCode.custom,
+        message:
+          "محتوای سناریو باید شامل مخاطب، استان، دسته‌بندی، کلیدواژه و مراحل اجرا باشد",
+      });
+    }
+  });
 
 export const CreateScenarioDtoSchema = z.object({
   title: z
@@ -600,10 +701,7 @@ export const ReviewScenarioDtoSchema = z.object({
     .number()
     .int()
     .positive("نسخه مورد انتظار باید عدد صحیح مثبت باشد"),
-  caseVersion: z
-    .number()
-    .int()
-    .positive("نسخه پرونده باید عدد صحیح مثبت باشد"),
+  caseVersion: z.number().int().positive("نسخه پرونده باید عدد صحیح مثبت باشد"),
   idempotencyKey: z
     .string()
     .min(10, "کلید یکتایی حداقل ۱۰ کاراکتر است")
@@ -792,6 +890,8 @@ export type ArchiveJobDto = z.infer<typeof ArchiveJobDtoSchema>;
 export const ProvincialDirectorMetricsSchema = z.object({
   provinceId: z.string().optional(),
   totalApplicants: z.number().int().nonnegative(),
+  applicantsByStatus: z.record(z.number().int().nonnegative()),
+  pendingSupervisorAllocation: z.number().int().nonnegative(),
   approvedApplicants: z.number().int().nonnegative(),
   totalApprentices: z.number().int().nonnegative(),
   totalInterns: z.number().int().nonnegative(),
@@ -858,10 +958,34 @@ export type GeneralDirectorSummary = z.infer<
 >;
 
 export const WorkflowMetricsSchema = z.object({
-  averageStageCompletionDays: z.record(z.number().nonnegative()),
   rollbackFrequencyByStage: z.record(z.number().int().nonnegative()),
 });
 export type WorkflowMetrics = z.infer<typeof WorkflowMetricsSchema>;
+
+export const SupervisorHealthIssueSchema = z.object({
+  type: z.enum([
+    "SUPERVISOR_INACTIVE_OR_ROLE_REMOVED",
+    "SUPERVISOR_ASSIGNMENT_REVOKED",
+    "LEGACY_COLLABORATOR_ASSIGNMENT",
+    "CASE_OWNER_MISSING",
+    "CASE_SUPERVISOR_MISSING",
+    "CASE_MULTIPLE_MAIN_SUPERVISORS",
+    "CASE_SUPERVISOR_MISMATCH",
+  ]),
+  entityId: z.string(),
+  relatedId: z.string().optional(),
+  caseCode: z.string().optional(),
+});
+export type SupervisorHealthIssue = z.infer<typeof SupervisorHealthIssueSchema>;
+
+export const SupervisorHealthSchema = z.object({
+  inactiveSupervisorAssignmentsCount: z.number().int().nonnegative(),
+  revokedSupervisorAssignmentsCount: z.number().int().nonnegative(),
+  legacyCollaboratorAssignmentsCount: z.number().int().nonnegative(),
+  caseSupervisorMismatchCount: z.number().int().nonnegative(),
+  issues: z.array(SupervisorHealthIssueSchema),
+});
+export type SupervisorHealth = z.infer<typeof SupervisorHealthSchema>;
 
 // 7. Runtime System Settings (FR-052, AT-34)
 export const SystemSettingSchema = z.object({
@@ -990,7 +1114,9 @@ export const ConversationContactDtoSchema = z.object({
   stage: UserStageSchema,
   role: SystemRoleSchema,
 });
-export type ConversationContactDto = z.infer<typeof ConversationContactDtoSchema>;
+export type ConversationContactDto = z.infer<
+  typeof ConversationContactDtoSchema
+>;
 
 export const DirectoryUserDtoSchema = z.object({
   id: z.string().uuid(),
@@ -1008,7 +1134,9 @@ export type DirectoryUserDto = z.infer<typeof DirectoryUserDtoSchema>;
 export const ReplaceMainSupervisorDtoSchema = z.object({
   supervisorId: z.string().uuid("شناسه مدیر علمی جایگزین نامعتبر است"),
 });
-export type ReplaceMainSupervisorDto = z.infer<typeof ReplaceMainSupervisorDtoSchema>;
+export type ReplaceMainSupervisorDto = z.infer<
+  typeof ReplaceMainSupervisorDtoSchema
+>;
 
 export const CaseSupervisorDtoSchema = z.object({
   id: z.string().uuid(),
@@ -1021,8 +1149,3 @@ export const CaseSupervisorDtoSchema = z.object({
   assignedAt: z.string(),
 });
 export type CaseSupervisorDto = z.infer<typeof CaseSupervisorDtoSchema>;
-
-
-
-
-

@@ -8,6 +8,8 @@ import type {
   TrackingDirectorBacklog,
   GeneralDirectorSummary,
   WorkflowMetrics,
+  SupervisorHealth,
+  SupervisorHealthIssue,
 } from "@tstaff/contracts";
 
 @Injectable()
@@ -18,9 +20,7 @@ export class PrismaReportingRepository implements ReportingRepositoryPort {
     provinceId?: string,
   ): Promise<ProvincialDirectorMetrics> {
     const applicantFilter = provinceId ? { provinceId } : {};
-    const userApplicantFilter = provinceId
-      ? { applicant: { provinceId } }
-      : {};
+    const userApplicantFilter = provinceId ? { applicant: { provinceId } } : {};
 
     const [
       totalApplicants,
@@ -28,6 +28,8 @@ export class PrismaReportingRepository implements ReportingRepositoryPort {
       totalApprentices,
       totalInterns,
       activeResearchCases,
+      statusCounts,
+      pendingSupervisorAllocation,
     ] = await Promise.all([
       this.prisma.applicant.count({ where: applicantFilter }),
       this.prisma.applicant.count({
@@ -45,11 +47,29 @@ export class PrismaReportingRepository implements ReportingRepositoryPort {
           ...(provinceId ? { researcher: { applicant: { provinceId } } } : {}),
         },
       }),
+      this.prisma.applicant.groupBy({
+        by: ["status"],
+        where: applicantFilter,
+        _count: { status: true },
+      }),
+      this.prisma.applicant.count({
+        where: {
+          ...applicantFilter,
+          status: "PENDING",
+          initialSupervisorId: null,
+        },
+      }),
     ]);
+
+    const applicantsByStatus = Object.fromEntries(
+      statusCounts.map((entry) => [entry.status, entry._count.status]),
+    );
 
     return {
       provinceId,
       totalApplicants,
+      applicantsByStatus,
+      pendingSupervisorAllocation,
       approvedApplicants,
       totalApprentices,
       totalInterns,
@@ -64,7 +84,7 @@ export class PrismaReportingRepository implements ReportingRepositoryPort {
       where: {
         userId: supervisorId,
         isActive: true,
-        role: { in: ["MAIN_SUPERVISOR", "COLLABORATOR_SUPERVISOR"] },
+        role: "MAIN_SUPERVISOR",
       },
       select: { researchCaseId: true },
     });
@@ -205,17 +225,27 @@ export class PrismaReportingRepository implements ReportingRepositoryPort {
       this.prisma.applicant.count(),
       this.prisma.researchCase.count(),
       this.prisma.scenario.count({ where: { status: "APPROVED_INTERNAL" } }),
-      this.prisma.researchAssignment.findMany({
+      this.prisma.scientificSupervisorAssignment.findMany({
         where: {
-          isActive: true,
-          role: { in: ["MAIN_SUPERVISOR", "COLLABORATOR_SUPERVISOR"] },
+          revokedAt: null,
+          supervisor: {
+            isActive: true,
+            userRoles: { some: { role: { name: "SCIENTIFIC_SUPERVISOR" } } },
+          },
         },
-        distinct: ["userId"],
+        distinct: ["supervisorId"],
       }),
       this.prisma.stageInstance.groupBy({
         by: ["stageType"],
         where: {
-          status: { in: ["IN_PROGRESS", "SUBMITTED", "REVISION_REQUESTED", "REVIEW_REQUIRED"] },
+          status: {
+            in: [
+              "IN_PROGRESS",
+              "SUBMITTED",
+              "REVISION_REQUESTED",
+              "REVIEW_REQUIRED",
+            ],
+          },
         },
         _count: { stageType: true },
       }),
@@ -264,13 +294,129 @@ export class PrismaReportingRepository implements ReportingRepositoryPort {
     }
 
     return {
-      averageStageCompletionDays: {
-        SOURCES: 14,
-        EXPLANATION: 21,
-        PRESCRIPTION: 14,
-        SCENARIO: 7,
-      },
       rollbackFrequencyByStage,
+    };
+  }
+
+  async getSupervisorHealth(): Promise<SupervisorHealth> {
+    const [userAssignments, researchCases, collaboratorAssignments] =
+      await Promise.all([
+        this.prisma.scientificSupervisorAssignment.findMany({
+          include: {
+            supervisor: {
+              select: {
+                id: true,
+                isActive: true,
+                userRoles: { include: { role: { select: { name: true } } } },
+              },
+            },
+          },
+        }),
+        this.prisma.researchCase.findMany({
+          select: {
+            id: true,
+            code: true,
+            researcherId: true,
+            assignments: {
+              where: { role: "MAIN_SUPERVISOR", isActive: true },
+              select: { userId: true },
+            },
+          },
+        }),
+        this.prisma.researchAssignment.findMany({
+          where: { role: "COLLABORATOR_SUPERVISOR" },
+          select: { id: true, researchCaseId: true, userId: true },
+        }),
+      ]);
+
+    const issues: SupervisorHealthIssue[] = [];
+    const supervisorByUser = new Map<string, string>();
+    let inactiveSupervisorAssignmentsCount = 0;
+    let revokedSupervisorAssignmentsCount = 0;
+    for (const assignment of userAssignments) {
+      if (assignment.revokedAt) {
+        revokedSupervisorAssignmentsCount += 1;
+        issues.push({
+          type: "SUPERVISOR_ASSIGNMENT_REVOKED",
+          entityId: assignment.userId,
+          relatedId: assignment.supervisorId,
+        });
+        continue;
+      }
+      supervisorByUser.set(assignment.userId, assignment.supervisorId);
+      const hasRole = assignment.supervisor.userRoles.some(
+        (entry) => entry.role.name === "SCIENTIFIC_SUPERVISOR",
+      );
+      if (!assignment.supervisor.isActive || !hasRole) {
+        inactiveSupervisorAssignmentsCount += 1;
+        issues.push({
+          type: "SUPERVISOR_INACTIVE_OR_ROLE_REMOVED",
+          entityId: assignment.userId,
+          relatedId: assignment.supervisorId,
+        });
+      }
+    }
+
+    const affectedCases = new Set<string>();
+    for (const researchCase of researchCases) {
+      if (!researchCase.researcherId) {
+        affectedCases.add(researchCase.id);
+        issues.push({
+          type: "CASE_OWNER_MISSING",
+          entityId: researchCase.id,
+          caseCode: researchCase.code,
+        });
+      }
+      if (researchCase.assignments.length === 0) {
+        affectedCases.add(researchCase.id);
+        issues.push({
+          type: "CASE_SUPERVISOR_MISSING",
+          entityId: researchCase.id,
+          caseCode: researchCase.code,
+        });
+        continue;
+      }
+      if (researchCase.assignments.length > 1) {
+        affectedCases.add(researchCase.id);
+        issues.push({
+          type: "CASE_MULTIPLE_MAIN_SUPERVISORS",
+          entityId: researchCase.id,
+          caseCode: researchCase.code,
+        });
+      }
+      const expectedSupervisorId = researchCase.researcherId
+        ? supervisorByUser.get(researchCase.researcherId)
+        : undefined;
+      for (const assignment of researchCase.assignments) {
+        if (
+          !expectedSupervisorId ||
+          expectedSupervisorId !== assignment.userId
+        ) {
+          affectedCases.add(researchCase.id);
+          issues.push({
+            type: "CASE_SUPERVISOR_MISMATCH",
+            entityId: researchCase.id,
+            relatedId: assignment.userId,
+            caseCode: researchCase.code,
+          });
+        }
+      }
+    }
+
+    for (const assignment of collaboratorAssignments) {
+      issues.push({
+        type: "LEGACY_COLLABORATOR_ASSIGNMENT",
+        entityId: assignment.researchCaseId,
+        relatedId: assignment.userId,
+      });
+    }
+
+    return {
+      inactiveSupervisorAssignmentsCount,
+      revokedSupervisorAssignmentsCount,
+      legacyCollaboratorAssignmentsCount: collaboratorAssignments.length,
+      caseSupervisorMismatchCount: affectedCases.size,
+      issues: issues.slice(0, 100),
     };
   }
 }

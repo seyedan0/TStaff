@@ -49,8 +49,20 @@ class InMemoryUserRepository implements UserRepositoryPort {
     this.users.set(user.id, user);
   }
 
-  async createStudyEvaluation(userId: string, notes?: string, completedDocuments: any[] = []): Promise<any> {
-    return { id: "eval-1", userId, status: "PENDING", notes, completedDocuments, createdAt: new Date(), updatedAt: new Date() };
+  async createStudyEvaluation(
+    userId: string,
+    notes?: string,
+    completedDocuments: any[] = [],
+  ): Promise<any> {
+    return {
+      id: "eval-1",
+      userId,
+      status: "PENDING",
+      notes,
+      completedDocuments,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    };
   }
 
   async getPendingStudyEvaluations(): Promise<any[]> {
@@ -61,20 +73,54 @@ class InMemoryUserRepository implements UserRepositoryPort {
     return null;
   }
 
-  async decideStudyEvaluation(id: string, supervisorId: string, decision: any, feedback: string): Promise<any> {
-    return { id, supervisorId, status: decision, feedback, createdAt: new Date(), updatedAt: new Date() };
+  async decideStudyEvaluation(
+    id: string,
+    supervisorId: string,
+    decision: any,
+    feedback: string,
+  ): Promise<any> {
+    return {
+      id,
+      supervisorId,
+      status: decision,
+      feedback,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    };
   }
 
-  async createSupportTicket(userId: string, subject: string, description: string): Promise<any> {
-    return { id: "ticket-1", userId, subject, description, status: "OPEN", createdAt: new Date(), updatedAt: new Date() };
+  async createSupportTicket(
+    userId: string,
+    subject: string,
+    description: string,
+  ): Promise<any> {
+    return {
+      id: "ticket-1",
+      userId,
+      subject,
+      description,
+      status: "OPEN",
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    };
   }
 
   async getAllSupportTickets(): Promise<any[]> {
     return [];
   }
 
-  async resolveSupportTicket(id: string, response: string, status: any): Promise<any> {
-    return { id, response, status, createdAt: new Date(), updatedAt: new Date() };
+  async resolveSupportTicket(
+    id: string,
+    response: string,
+    status: any,
+  ): Promise<any> {
+    return {
+      id,
+      response,
+      status,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    };
   }
 }
 
@@ -87,6 +133,8 @@ class FakePasswordHasher implements PasswordHasherPort {
     return hash === `hashed_${password}`;
   }
 }
+
+const SUPERVISOR_ID = "assigned-supervisor";
 
 describe("IdentityService (FR-001, FR-003, FR-004, AT-01, AT-03)", () => {
   let userRepo: InMemoryUserRepository;
@@ -101,57 +149,88 @@ describe("IdentityService (FR-001, FR-003, FR-004, AT-01, AT-03)", () => {
       getStudySnapshot: async () => ({
         requiredCount: 1,
         readRequiredCount: 1,
-        completedDocuments: [{
-          documentId: "123e4567-e89b-12d3-a456-426614174001",
-          versionId: "123e4567-e89b-12d3-a456-426614174002",
-          title: "شیوه‌نامه منابع",
-          category: "آموزش",
-          version: 1,
-          isRequired: true,
-          readAt: new Date().toISOString(),
-        }],
+        completedDocuments: [
+          {
+            documentId: "123e4567-e89b-12d3-a456-426614174001",
+            versionId: "123e4567-e89b-12d3-a456-426614174002",
+            title: "شیوه‌نامه منابع",
+            category: "آموزش",
+            version: 1,
+            isRequired: true,
+            readAt: new Date().toISOString(),
+          },
+        ],
       }),
     };
-    identityService = new IdentityService(userRepo, hasher, undefined, documentsService as DocumentsService);
+    const assignments = {
+      isScientificSupervisor: async (supervisorId: string) =>
+        supervisorId === SUPERVISOR_ID,
+      assignSupervisorToUser: async () => {},
+    };
+    identityService = new IdentityService(
+      userRepo,
+      hasher,
+      assignments as never,
+      documentsService as DocumentsService,
+    );
   });
 
   it("stores the server-verified document version snapshot with an apprentice evaluation (FR-004 / AT-37)", async () => {
     const user = await identityService.createUserFromApprovedApplicant({
+      initialSupervisorId: SUPERVISOR_ID,
       id: "app-study-1",
       fullName: "کارآموز آزمون",
       phoneNumber: "09123334456",
     });
 
-    const evaluation = await identityService.requestStudyEvaluation(user.id, "درخواست ارزیابی");
+    const evaluation = await identityService.requestStudyEvaluation(
+      user.id,
+      "درخواست ارزیابی",
+    );
 
-    expect(evaluation.completedDocuments).toEqual(expect.arrayContaining([
-      expect.objectContaining({ versionId: "123e4567-e89b-12d3-a456-426614174002", version: 1 }),
-    ]));
+    expect(evaluation.completedDocuments).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          versionId: "123e4567-e89b-12d3-a456-426614174002",
+          version: 1,
+        }),
+      ]),
+    );
   });
 
   it("does not accept evaluation requests after the apprentice has been promoted (FR-004 / AT-37)", async () => {
     const user = await identityService.createUserFromApprovedApplicant({
+      initialSupervisorId: SUPERVISOR_ID,
       id: "app-study-2",
       fullName: "کارورز آزمون",
       phoneNumber: "09123334457",
     });
     await userRepo.save(user.promoteToIntern());
 
-    await expect(identityService.requestStudyEvaluation(user.id))
-      .rejects.toThrow(UserAlreadyPromotedError);
+    await expect(
+      identityService.requestStudyEvaluation(user.id),
+    ).rejects.toThrow(UserAlreadyPromotedError);
   });
 
   it("shows study evaluations only to assigned supervisors and blocks unrelated decisions (FR-004 / AT-37)", async () => {
     const user = await identityService.createUserFromApprovedApplicant({
+      initialSupervisorId: SUPERVISOR_ID,
       id: "app-study-3",
       fullName: "کارآموز منتسب",
       phoneNumber: "09123334458",
     });
     const assignments = {
+      isScientificSupervisor: vi.fn(
+        async (supervisorId: string) => supervisorId === SUPERVISOR_ID,
+      ),
+      assignSupervisorToUser: vi.fn(async () => {}),
       getUsersForSupervisor: vi.fn(async (supervisorId: string) =>
-        supervisorId === "assigned-supervisor" ? [{ id: user.id }] : []),
-      isSupervisorAssignedToUser: vi.fn(async (userId: string, supervisorId: string) =>
-        userId === user.id && supervisorId === "assigned-supervisor"),
+        supervisorId === SUPERVISOR_ID ? [{ id: user.id }] : [],
+      ),
+      isSupervisorAssignedToUser: vi.fn(
+        async (userId: string, supervisorId: string) =>
+          userId === user.id && supervisorId === SUPERVISOR_ID,
+      ),
     };
     const evaluation = {
       id: "eval-assigned",
@@ -162,7 +241,9 @@ describe("IdentityService (FR-001, FR-003, FR-004, AT-01, AT-03)", () => {
       createdAt: new Date(),
       updatedAt: new Date(),
     };
-    vi.spyOn(userRepo, "getPendingStudyEvaluations").mockResolvedValue([evaluation]);
+    vi.spyOn(userRepo, "getPendingStudyEvaluations").mockResolvedValue([
+      evaluation,
+    ]);
     const assignedService = new IdentityService(
       userRepo,
       hasher,
@@ -170,16 +251,25 @@ describe("IdentityService (FR-001, FR-003, FR-004, AT-01, AT-03)", () => {
       documentsService as DocumentsService,
     );
 
-    await expect(assignedService.getPendingStudyEvaluations("assigned-supervisor"))
-      .resolves.toEqual([evaluation]);
-    await expect(assignedService.getPendingStudyEvaluations("unrelated-supervisor"))
-      .resolves.toEqual([]);
-    await expect(assignedService.decideStudyEvaluation("eval-assigned", "unrelated-supervisor", "APPROVED", ""))
-      .rejects.toThrow("این کارآموز به شما منتسب نشده است");
+    await expect(
+      assignedService.getPendingStudyEvaluations(SUPERVISOR_ID),
+    ).resolves.toEqual([evaluation]);
+    await expect(
+      assignedService.getPendingStudyEvaluations("unrelated-supervisor"),
+    ).resolves.toEqual([]);
+    await expect(
+      assignedService.decideStudyEvaluation(
+        "eval-assigned",
+        "unrelated-supervisor",
+        "APPROVED",
+        "",
+      ),
+    ).rejects.toThrow("این کارآموز به شما منتسب نشده است");
   });
 
   it("creates user with initial stage APPRENTICE only after scientific approval (FR-003)", async () => {
     const user = await identityService.createUserFromApprovedApplicant({
+      initialSupervisorId: SUPERVISOR_ID,
       id: "app-1",
       fullName: "امیر رضایی",
       phoneNumber: "09121113344",
@@ -199,6 +289,7 @@ describe("IdentityService (FR-001, FR-003, FR-004, AT-01, AT-03)", () => {
 
   it("authenticates user with valid phone and password (Phase 1 Password Auth)", async () => {
     await identityService.createUserFromApprovedApplicant({
+      initialSupervisorId: SUPERVISOR_ID,
       id: "app-2",
       fullName: "نرگس کریمی",
       phoneNumber: "09122223344",
@@ -216,6 +307,7 @@ describe("IdentityService (FR-001, FR-003, FR-004, AT-01, AT-03)", () => {
 
   it("rejects login with invalid password", async () => {
     await identityService.createUserFromApprovedApplicant({
+      initialSupervisorId: SUPERVISOR_ID,
       id: "app-3",
       fullName: "حمید طاهری",
       phoneNumber: "09123334455",
@@ -232,6 +324,7 @@ describe("IdentityService (FR-001, FR-003, FR-004, AT-01, AT-03)", () => {
 
   it("blocks suspended user from logging in", async () => {
     const user = await identityService.createUserFromApprovedApplicant({
+      initialSupervisorId: SUPERVISOR_ID,
       id: "app-4",
       fullName: "کاربر معلق",
       phoneNumber: "09124445577",
@@ -251,6 +344,7 @@ describe("IdentityService (FR-001, FR-003, FR-004, AT-01, AT-03)", () => {
 
   it("creates the approved applicant as APPRENTICE until scientific study approval (FR-003, FR-004 / AT-02, AT-03)", async () => {
     const user = await identityService.createUserFromApprovedApplicant({
+      initialSupervisorId: SUPERVISOR_ID,
       id: "app-5",
       fullName: "محمد نادری",
       phoneNumber: "09125556677",
@@ -262,6 +356,7 @@ describe("IdentityService (FR-001, FR-003, FR-004, AT-01, AT-03)", () => {
 
   it("suspends and reactivates user account (FR-035 / AT-12 / BR-18)", async () => {
     const user = await identityService.createUserFromApprovedApplicant({
+      initialSupervisorId: SUPERVISOR_ID,
       id: "app-6",
       fullName: "سارا حسینی",
       phoneNumber: "09126667788",

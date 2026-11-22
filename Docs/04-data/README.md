@@ -1,19 +1,29 @@
 # مدل داده و قیود پایگاه داده
 
-مدل اصلی در `packages/database/prisma/schema.prisma` و migrationهای قابل اجرا در `packages/database/prisma/migrations/` قرار دارند. شناسه و نسخهٔ هر تغییر ساختار باید همراه migration آن بازبینی شود.
+مدل در `packages/database/prisma/schema.prisma` و نسخه‌بندی ساختار در `packages/database/prisma/migrations/` نگهداری می‌شود.
 
-## قیود موجود
+## قیود و تضمین‌های اصلی
 
-- `interviews_resource_id_key` روی `interviews.resource_id` یکتاست و مصاحبهٔ دوم برای یک منبع را در سطح دیتابیس مسدود می‌کند (D-07 / FR-058 / AT-30).
-- `stage_instances_research_case_id_stage_type_key` برای هر نوع مرحله در یک پرونده یک رکورد نگه می‌دارد.
-- `review_decisions_idempotency_key_key` کلید idempotency را در سطح جدول یکتا می‌کند.
-- `interview_reports_interview_id_version_key` و `scenario_versions_scenario_id_version_key` نسخه‌های گزارش و سناریو را در محدودهٔ رکورد والد یکتا می‌کنند.
-- `provincial_scopes_manager_id_province_id_key`، `user_manager_grants_manager_id_user_id_key` و `resource_referrals_resource_id_recipient_id_key` از تکرار انتساب یا ارجاع یکسان جلوگیری می‌کنند؛ `resource_referrals_applicant_id_key` اتصال تکراری به یک متقاضی را مسدود می‌کند.
+- `interviews_resource_id_key` روی `interviews.resource_id` یکتاست؛ برای هر منبع تنها یک مصاحبه پذیرفته می‌شود (D-07 / FR-058 / AT-30).
+- `scientific_supervisor_assignments_user_id_key` برای هر حساب فقط یک مدیر علمی در کل تاریخچه نگه می‌دارد؛ لغو انتساب، قید را آزاد نمی‌کند (D-09 / FR-045 / FR-059 / AT-39).
+- `research_assignments_one_active_main_per_case_key` حداکثر یک مدیر اصلی فعال برای پرونده تضمین می‌کند. trigger پایگاه داده درج همکار، پرونده بدون پژوهشگر، یا مدیر متفاوت از مدیر یکتای مالک را رد می‌کند.
+- شناسه مدیر اولیه متقاضی به `users` با حذف محدودشده متصل است. عامل و زمان تخصیص اولیه، زمان آرشیو پرونده ردشده و انتساب حساب ثبت می‌شود.
+- قیدهای نسخه و idempotency، گزارش مصاحبه و نسخه‌های سناریو را در محدوده والد یکتا نگه می‌دارند. سیاست append-only ممیزی همچنان در لایه سرویس کنترل می‌شود.
 
-محدودیت یک مدیر علمی اصلی فعال و حداکثر یک همکار در گردش دامنه پیاده‌سازی شده است؛ در migrationهای فعلی ایندکس جزئی یکتا برای این دو شرط وجود ندارد. همچنین append-only بودن ممیزی در این migrationها با قید پایگاه داده تضمین نشده است. این موارد برای تضمین سطح دیتابیس و آزمون رقابت واقعی نیازمند کار و بررسی جداگانه‌اند.
+## Migration D-09 و داده‌های ناسازگار
 
-## داده‌های اخیر
+Migration `20261122_single_lifetime_supervisor` پیش از ساخت قیدها، ناسازگاری‌های قدیمی را بررسی می‌کند و در صورت مشاهده آن‌ها کل تغییر را rollback و با جزئیات قابل رسیدگی متوقف می‌کند. هیچ تاریخچه‌ای خودکار حذف، ادغام یا بازنویسی نمی‌شود.
 
-Migration `20261110_workspace_bank_versions` استان‌های مرجع، قلمرو مدیران، مجوزهای کاربر، ارجاع منابع، نسخه‌های سناریو، درخواست تغییر پژوهش و ستون ارائه‌دهندهٔ ذخیره‌سازی فایل را اضافه می‌کند. فایل باینری خارج از PostgreSQL است و جدول `stored_objects` فراداده و وضعیت اسکن را نگه می‌دارد.
+برای inventory فقط‌خواندنی:
 
-آزمون‌های CI عمدتاً از repository ساختگی استفاده می‌کنند. پیش از اعمال migration روی محیط عملیاتی، نسخهٔ پشتیبان، اجرای آزمایشی migration و کنترل قیود روی PostgreSQL مجزا لازم است.
+```bash
+psql "$DATABASE_URL" -X -v ON_ERROR_STOP=1 -f packages/database/scripts/audit-supervisor-consistency.sql
+```
+
+گزارش شامل شناسه‌های داخلی است و باید محدود نگه داشته شود. هر مورد ناسازگار باید با تصمیم محصول و نگهداشت تاریخچه حل شود؛ سپس migration را دوباره اجرا کنید. ابتدا backup و اجرای آزمایشی روی clone لازم است. اجرای مستقیم migration با `psql` فقط برای پایگاه آزمایشی این کار بود؛ محیط عملیاتی باید با روش migration مصوب پروژه و پس از تطبیق وضعیت تاریخچه migration اجرا شود.
+
+## Migrationهای اخیر و CI
+
+Migration `20261110_workspace_bank_versions` استان‌ها، قلمرو مدیران، مجوزهای کاربر، ارجاع منابع، نسخه‌های سناریو، درخواست تغییر پژوهش و metadata ذخیره‌سازی فایل را اضافه می‌کند. فایل باینری خارج از PostgreSQL است و جدول `stored_objects` metadata و وضعیت اسکن را نگه می‌دارد.
+
+CI فعلی schema و بسته‌ها را می‌سازد و آزمون‌های repository ساختگی را اجرا می‌کند؛ اجرای migration، trigger و race واقعی را جایگزین نمی‌کند. D-09 به‌صورت جداگانه روی PostgreSQL آزمایشی بررسی می‌شود.

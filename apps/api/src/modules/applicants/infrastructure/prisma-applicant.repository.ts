@@ -39,12 +39,17 @@ export class PrismaApplicantRepository implements ApplicantRepositoryPort {
       age: applicant.age,
       provinceId: applicant.provinceId ?? null,
       initialSupervisorId: applicant.initialSupervisorId ?? null,
+      initialSupervisorAssignedById:
+        applicant.initialSupervisorAssignedById ?? null,
+      initialSupervisorAssignedAt:
+        applicant.initialSupervisorAssignedAt ?? null,
       createdById: applicant.createdById ?? null,
       educationLevel: applicant.educationLevel ?? null,
       fieldOfStudy: applicant.fieldOfStudy ?? null,
       status: applicant.status as any,
       notes: applicant.notes ?? null,
       rejectionReason: applicant.rejectionReason ?? null,
+      archivedAt: applicant.archivedAt ?? null,
     };
 
     await this.prisma.applicant.upsert({
@@ -55,6 +60,31 @@ export class PrismaApplicantRepository implements ApplicantRepositoryPort {
       },
       update: data,
     });
+  }
+
+  async assignInitialSupervisor(
+    applicantId: string,
+    supervisorId: string,
+    assignedById: string,
+    assignedAt: Date,
+  ): Promise<boolean> {
+    const result = await this.prisma.applicant.updateMany({
+      where: { id: applicantId, initialSupervisorId: null, status: "PENDING" },
+      data: {
+        initialSupervisorId: supervisorId,
+        initialSupervisorAssignedById: assignedById,
+        initialSupervisorAssignedAt: assignedAt,
+      },
+    });
+    return result.count === 1;
+  }
+
+  async findPendingAllocationQueue(): Promise<Applicant[]> {
+    const rows = await this.prisma.applicant.findMany({
+      where: { status: "PENDING", initialSupervisorId: null },
+      orderBy: { createdAt: "asc" },
+    });
+    return rows.map((row) => this.toDomain(row));
   }
 
   async findAll(filter?: {
@@ -86,12 +116,15 @@ export class PrismaApplicantRepository implements ApplicantRepositoryPort {
       age: raw.age,
       provinceId: raw.provinceId,
       initialSupervisorId: raw.initialSupervisorId,
+      initialSupervisorAssignedById: raw.initialSupervisorAssignedById,
+      initialSupervisorAssignedAt: raw.initialSupervisorAssignedAt,
       createdById: raw.createdById,
       educationLevel: raw.educationLevel,
       fieldOfStudy: raw.fieldOfStudy,
       status: raw.status as ApplicantStatusType,
       notes: raw.notes,
       rejectionReason: raw.rejectionReason,
+      archivedAt: raw.archivedAt,
       createdAt: raw.createdAt,
       updatedAt: raw.updatedAt,
     });

@@ -12,6 +12,7 @@ import { Button } from "../../shared/ui/Button.js";
 import { Card } from "../../shared/ui/Card.js";
 import { PageHeader } from "../../shared/ui/PageHeader.js";
 import { ErrorState, LoadingState } from "../../shared/ui/StateFeedback.js";
+import { MetricStrip } from "../../shared/ui/MetricStrip.js";
 
 interface ProvincialDirectorPortalProps {
   onNotify: (
@@ -28,7 +29,9 @@ interface ScopeRow {
   revokedAt?: string | null;
 }
 
-export const ProvincialDirectorPortal: React.FC<ProvincialDirectorPortalProps> = ({ onNotify }) => {
+export const ProvincialDirectorPortal: React.FC<
+  ProvincialDirectorPortalProps
+> = ({ onNotify }) => {
   const { currentUser } = useAuth();
   const activeTab = usePortalSection<"applicants" | "kpis">(
     { "/admissions": "applicants", "/province/metrics": "kpis" },
@@ -38,7 +41,9 @@ export const ProvincialDirectorPortal: React.FC<ProvincialDirectorPortalProps> =
   const navigate = useNavigate();
 
   const [scopes, setScopes] = useState<ScopeRow[]>([]);
-  const [metrics, setMetrics] = useState<ProvincialDirectorMetrics | null>(null);
+  const [metrics, setMetrics] = useState<ProvincialDirectorMetrics | null>(
+    null,
+  );
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -53,13 +58,15 @@ export const ProvincialDirectorPortal: React.FC<ProvincialDirectorPortalProps> =
       const activeScopes = scopeRows.filter((row) => !row.revokedAt);
       setScopes(activeScopes);
 
-      const targetProvince = selectedProvinceId || activeScopes[0]?.provinceId || "";
+      const targetProvince =
+        selectedProvinceId || activeScopes[0]?.provinceId || "";
       const endpoint = targetProvince
         ? `/reporting/provincial-director?provinceId=${encodeURIComponent(targetProvince)}`
         : "/reporting/provincial-director";
       setMetrics(await apiClient.get<ProvincialDirectorMetrics>(endpoint));
     } catch (err) {
-      const msg = err instanceof Error ? err.message : "دریافت آمار استان ناموفق بود.";
+      const msg =
+        err instanceof Error ? err.message : "دریافت آمار استان ناموفق بود.";
       setError(msg);
       setMetrics(null);
     } finally {
@@ -89,7 +96,13 @@ export const ProvincialDirectorPortal: React.FC<ProvincialDirectorPortalProps> =
         }
         actions={
           <div className="flex flex-wrap items-center gap-2">
-            <Button variant="secondary" size="sm" icon={<RefreshCw className="h-3.5 w-3.5" />} loading={loading} onClick={() => void loadMetrics()}>
+            <Button
+              variant="secondary"
+              size="sm"
+              icon={<RefreshCw className="h-3.5 w-3.5" />}
+              loading={loading}
+              onClick={() => void loadMetrics()}
+            >
               به‌روزرسانی
             </Button>
             <Link
@@ -109,7 +122,11 @@ export const ProvincialDirectorPortal: React.FC<ProvincialDirectorPortalProps> =
       />
 
       {scopes.length > 0 && (
-        <Card variant="default" padding="sm" className="flex flex-wrap items-center justify-between gap-3">
+        <Card
+          variant="default"
+          padding="sm"
+          className="flex flex-wrap items-center justify-between gap-3"
+        >
           <div className="flex flex-wrap items-center gap-2 text-xs text-[#214031]">
             <Building2 className="h-4 w-4 text-[#214E3A]" />
             <span className="font-semibold">استان‌های تحت قلمرو:</span>
@@ -126,7 +143,9 @@ export const ProvincialDirectorPortal: React.FC<ProvincialDirectorPortalProps> =
               value={effectiveProvinceId}
               onChange={(e) => {
                 const next = new URLSearchParams(query);
-                e.target.value ? next.set("provinceId", e.target.value) : next.delete("provinceId");
+                e.target.value
+                  ? next.set("provinceId", e.target.value)
+                  : next.delete("provinceId");
                 navigate({ search: next.toString() }, { replace: true });
               }}
               className="rounded-xl border border-[#214E3A]/20 bg-[#FFFCF5] px-3 py-1.5 text-xs text-[#214031]"
@@ -142,8 +161,12 @@ export const ProvincialDirectorPortal: React.FC<ProvincialDirectorPortalProps> =
       )}
 
       {!loading && scopes.length === 0 && (
-        <Card variant="outlined" className="border-[#D94F3D]/35 bg-[#D94F3D]/5 p-4 text-xs leading-relaxed text-[#214031]">
-          هنوز قلمرو استانی فعالی برای حساب شما ثبت نشده است. برای مشاهده داده‌های استان و بانک منابع، مدیر پیگیری باید استان شما را تعیین کند.
+        <Card
+          variant="outlined"
+          className="border-[#D94F3D]/35 bg-[#D94F3D]/5 p-4 text-xs leading-relaxed text-[#214031]"
+        >
+          هنوز قلمرو استانی فعالی برای حساب شما ثبت نشده است. برای مشاهده
+          داده‌های استان و بانک منابع، مدیر پیگیری باید استان شما را تعیین کند.
         </Card>
       )}
 
@@ -152,38 +175,123 @@ export const ProvincialDirectorPortal: React.FC<ProvincialDirectorPortalProps> =
       ) : error ? (
         <ErrorState message={error} onRetry={() => void loadMetrics()} />
       ) : metrics ? (
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-5">
-          <Card variant="default" className="space-y-1">
-            <span className="text-xs text-[#4F6659]">کل متقاضیان استان</span>
-            <div className="text-2xl font-bold text-[#214031]">{metrics.totalApplicants}</div>
-            <span className="text-[11px] text-[#59675A]">پرونده‌های ثبت‌شده در پذیرش</span>
-          </Card>
-
-          <Card variant="default" className="space-y-1">
-            <span className="text-xs text-[#4F6659]">متقاضیان تأییدشده</span>
-            <div className="text-2xl font-bold text-[#214E3A]">{metrics.approvedApplicants}</div>
-            <span className="text-[11px] text-[#59675A]">دارای حساب کاربری فعال (FR-001)</span>
-          </Card>
-
-          <Card variant="default" className="space-y-1">
-            <span className="text-xs text-[#4F6659]">کارآموزان فعال</span>
-            <div className="text-2xl font-bold text-[#214031]">{metrics.totalApprentices}</div>
-            <span className="text-[11px] text-[#59675A]">در مرحله مطالعه شیوه‌نامه‌ها</span>
-          </Card>
-
-          <Card variant="default" className="space-y-1">
-            <span className="text-xs text-[#4F6659]">کارورزان فعال</span>
-            <div className="text-2xl font-bold text-[#214E3A]">{metrics.totalInterns}</div>
-            <span className="text-[11px] text-[#59675A]">مجاز به اجرای پژوهش چهارمرحله‌ای</span>
-          </Card>
-
-          <Card variant="default" className="space-y-1">
-            <span className="text-xs text-[#4F6659]">پژوهش‌های فعال استان</span>
-            <div className="text-2xl font-bold text-[#D94F3D]">{metrics.activeResearchCases}</div>
-            <span className="text-[11px] text-[#59675A]">در حال اجرا یا بررسی</span>
-          </Card>
-        </div>
+        <MetricStrip
+          label="شاخص‌های زنده استان"
+          items={[
+            {
+              label: "کل متقاضیان استان",
+              value: metrics.totalApplicants,
+              detail: "پرونده‌های پذیرش",
+            },
+            {
+              label: "متقاضیان تأییدشده",
+              value: metrics.approvedApplicants,
+              detail: "حساب پس از تأیید (FR-001)",
+              tone: "success",
+            },
+            {
+              label: "کارآموزان فعال",
+              value: metrics.totalApprentices,
+              detail: "در حال مطالعه",
+            },
+            {
+              label: "کارورزان فعال",
+              value: metrics.totalInterns,
+              detail: "مجاز به اجرای پژوهش",
+            },
+            {
+              label: "پژوهش‌های فعال",
+              value: metrics.activeResearchCases,
+              detail: "در حال اجرا یا بررسی",
+            },
+            {
+              label: "منتظر تخصیص مدیر",
+              value: metrics.pendingSupervisorAllocation,
+              detail: "پرونده‌های بدون مدیر",
+              tone: metrics.pendingSupervisorAllocation ? "warning" : "success",
+              to: "/admissions?status=PENDING",
+            },
+          ]}
+        />
       ) : null}
+
+      {!loading && !error && metrics && (
+        <section aria-labelledby="applicant-status-title" className="space-y-2">
+          <h2
+            id="applicant-status-title"
+            className="text-sm font-bold text-[#214031]"
+          >
+            توزیع وضعیت پرونده‌های پذیرش
+          </h2>
+          <div className="grid grid-cols-2 gap-x-6 border-y border-[#214E3A]/15 sm:grid-cols-3 lg:grid-cols-6">
+            {[
+              ["در انتظار تخصیص", metrics.applicantsByStatus.PENDING ?? 0],
+              ["در بررسی علمی", metrics.applicantsByStatus.IN_REVIEW ?? 0],
+              ["تأییدشده", metrics.applicantsByStatus.APPROVED ?? 0],
+              ["ردشده", metrics.applicantsByStatus.REJECTED ?? 0],
+              ["آرشیوشده", metrics.applicantsByStatus.ARCHIVED ?? 0],
+              [
+                "درخواست بازگشایی",
+                metrics.applicantsByStatus.REOPEN_REQUESTED ?? 0,
+              ],
+            ].map(([label, count]) => (
+              <div
+                key={String(label)}
+                className="flex items-baseline justify-between gap-2 border-b border-[#214E3A]/10 py-2 text-xs lg:border-0"
+              >
+                <span className="text-[#4F6659]">{label}</span>
+                <strong className="text-[#214031]">{count}</strong>
+              </div>
+            ))}
+          </div>
+        </section>
+      )}
+
+      {!loading && !error && metrics && (
+        <section
+          aria-labelledby="provincial-actions-title"
+          className="space-y-2"
+        >
+          <h2
+            id="provincial-actions-title"
+            className="text-sm font-bold text-[var(--ink)]"
+          >
+            اقدام‌های پذیرش در قلمرو شما
+          </h2>
+          <div className="grid gap-2 sm:grid-cols-2">
+            <Link
+              to="/admissions?status=PENDING"
+              className="flex items-center justify-between gap-3 border-b border-[var(--line)] py-3 text-sm hover:text-[var(--forest)]"
+            >
+              <span>پرونده‌های نیازمند تخصیص یا ارسال به بررسی</span>
+              <Badge
+                variant={
+                  metrics.pendingSupervisorAllocation ? "warning" : "success"
+                }
+                size="sm"
+              >
+                {metrics.pendingSupervisorAllocation} تخصیص
+              </Badge>
+            </Link>
+            <Link
+              to="/admissions?status=REOPEN_REQUESTED"
+              className="flex items-center justify-between gap-3 border-b border-[var(--line)] py-3 text-sm hover:text-[var(--forest)]"
+            >
+              <span>درخواست‌های بازگشایی پرونده ردشده</span>
+              <Badge
+                variant={
+                  metrics.applicantsByStatus.REOPEN_REQUESTED
+                    ? "warning"
+                    : "neutral"
+                }
+                size="sm"
+              >
+                {metrics.applicantsByStatus.REOPEN_REQUESTED ?? 0}
+              </Badge>
+            </Link>
+          </div>
+        </section>
+      )}
 
       <Card variant="default" className="space-y-3">
         <h3 className="flex items-center gap-2 text-sm font-bold text-[#214031]">
@@ -192,13 +300,16 @@ export const ProvincialDirectorPortal: React.FC<ProvincialDirectorPortalProps> =
         </h3>
         <ul className="list-inside list-disc space-y-1.5 text-xs leading-6 text-[#43584A]">
           <li>
-            <strong>FR-001 و FR-002:</strong> تا پیش از تأیید نهایی علمی، حساب کاربری ساخته نمی‌شود و متقاضی ردشده آرشیو می‌گردد.
+            <strong>FR-001 و FR-002:</strong> تا پیش از تأیید نهایی علمی، حساب
+            کاربری ساخته نمی‌شود و متقاضی ردشده آرشیو می‌گردد.
           </li>
           <li>
-            <strong>D-01:</strong> سن متقاضی عدد صحیح مثبت است و از تاریخ تولد محاسبه نمی‌شود.
+            <strong>D-01:</strong> سن متقاضی عدد صحیح مثبت است و از تاریخ تولد
+            محاسبه نمی‌شود.
           </li>
           <li>
-            <strong>قلمرو بانک منابع:</strong> فهرست بانک منابع فقط شامل اطلاعات استان‌های مجاز شما و موارد ارجاع‌شده به شماست.
+            <strong>قلمرو بانک منابع:</strong> فهرست بانک منابع فقط شامل اطلاعات
+            استان‌های مجاز شما و موارد ارجاع‌شده به شماست.
           </li>
         </ul>
       </Card>

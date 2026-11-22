@@ -1,6 +1,19 @@
 import React, { useCallback, useEffect, useState } from "react";
-import { CheckCircle2, LifeBuoy, MessageSquare, RefreshCw, Search, Send, UserX } from "lucide-react";
-import { Link, useNavigate, useParams, useSearchParams } from "react-router-dom";
+import {
+  CheckCircle2,
+  LifeBuoy,
+  MessageSquare,
+  RefreshCw,
+  Search,
+  Send,
+  UserX,
+} from "lucide-react";
+import {
+  Link,
+  useNavigate,
+  useParams,
+  useSearchParams,
+} from "react-router-dom";
 import type { DirectoryUserDto } from "@tstaff/contracts";
 import { getRoleLabel } from "../../app/navigation.js";
 import { usePortalSection } from "../../app/usePortalSection.js";
@@ -10,7 +23,12 @@ import { Button } from "../../shared/ui/Button.js";
 import { Card } from "../../shared/ui/Card.js";
 import { Modal } from "../../shared/ui/Modal.js";
 import { PageHeader } from "../../shared/ui/PageHeader.js";
-import { EmptyState, ErrorState, LoadingState } from "../../shared/ui/StateFeedback.js";
+import {
+  EmptyState,
+  ErrorState,
+  LoadingState,
+} from "../../shared/ui/StateFeedback.js";
+import { MetricStrip } from "../../shared/ui/MetricStrip.js";
 
 interface SupportDirectorPortalProps {
   onNotify: (
@@ -38,7 +56,9 @@ interface SupportTicketItem {
   };
 }
 
-export const SupportDirectorPortal: React.FC<SupportDirectorPortalProps> = ({ onNotify }) => {
+export const SupportDirectorPortal: React.FC<SupportDirectorPortalProps> = ({
+  onNotify,
+}) => {
   const activeTab = usePortalSection<"tickets" | "users">(
     { "/support/tickets": "tickets", "/support/users": "users" },
     "tickets",
@@ -53,10 +73,13 @@ export const SupportDirectorPortal: React.FC<SupportDirectorPortalProps> = ({ on
   const [error, setError] = useState<string | null>(null);
 
   const [ticketResponse, setTicketResponse] = useState("");
-  const [ticketResolutionStatus, setTicketResolutionStatus] = useState<"RESOLVED" | "CLOSED">("RESOLVED");
+  const [ticketResolutionStatus, setTicketResolutionStatus] = useState<
+    "RESOLVED" | "CLOSED"
+  >("RESOLVED");
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const [statusModalUser, setStatusModalUser] = useState<DirectoryUserDto | null>(null);
+  const [statusModalUser, setStatusModalUser] =
+    useState<DirectoryUserDto | null>(null);
   const [statusReason, setStatusReason] = useState("");
 
   const searchTerm = (query.get("q") ?? "").trim().toLowerCase();
@@ -65,11 +88,17 @@ export const SupportDirectorPortal: React.FC<SupportDirectorPortalProps> = ({ on
     setLoading(true);
     setError(null);
     try {
-      const data = await apiClient.get<SupportTicketItem[]>("/users/support-tickets");
+      const data = await apiClient.get<SupportTicketItem[]>(
+        "/users/support-tickets",
+      );
       setTickets(data);
     } catch (err) {
       setTickets([]);
-      setError(err instanceof Error ? err.message : "دریافت تیکت‌های پشتیبانی ناموفق بود.");
+      setError(
+        err instanceof Error
+          ? err.message
+          : "دریافت تیکت‌های پشتیبانی ناموفق بود.",
+      );
     } finally {
       setLoading(false);
     }
@@ -83,7 +112,9 @@ export const SupportDirectorPortal: React.FC<SupportDirectorPortalProps> = ({ on
       setUsers(data);
     } catch (err) {
       setUsers([]);
-      setError(err instanceof Error ? err.message : "دریافت فهرست کاربران ناموفق بود.");
+      setError(
+        err instanceof Error ? err.message : "دریافت فهرست کاربران ناموفق بود.",
+      );
     } finally {
       setLoading(false);
     }
@@ -97,17 +128,26 @@ export const SupportDirectorPortal: React.FC<SupportDirectorPortalProps> = ({ on
     }
   }, [activeTab, loadTickets, loadUsers]);
 
-  const activeTicket = ticketId ? tickets.find((t) => t.id === ticketId) ?? null : null;
-  const activeUser = userId ? users.find((u) => u.id === userId) ?? null : null;
+  const activeTicket = ticketId
+    ? (tickets.find((t) => t.id === ticketId) ?? null)
+    : null;
+  const activeUser = userId
+    ? (users.find((u) => u.id === userId) ?? null)
+    : null;
 
   useEffect(() => {
     if (activeTicket) {
       setTicketResponse(activeTicket.response ?? "");
-      setTicketResolutionStatus(activeTicket.status === "CLOSED" ? "CLOSED" : "RESOLVED");
+      setTicketResolutionStatus(
+        activeTicket.status === "CLOSED" ? "CLOSED" : "RESOLVED",
+      );
     }
   }, [activeTicket]);
 
-  const handleResolveTicket = async (event: React.FormEvent, targetId: string) => {
+  const handleResolveTicket = async (
+    event: React.FormEvent,
+    targetId: string,
+  ) => {
     event.preventDefault();
     if (ticketResponse.trim().length < 5) {
       onNotify("warning", "پاسخ کوتاه است", "پاسخ باید حداقل ۵ کاراکتر باشد.");
@@ -115,38 +155,66 @@ export const SupportDirectorPortal: React.FC<SupportDirectorPortalProps> = ({ on
     }
     setIsSubmitting(true);
     try {
-      await apiClient.post(`/users/support-tickets/${encodeURIComponent(targetId)}/resolve`, {
-        status: ticketResolutionStatus,
-        response: ticketResponse.trim(),
-      });
+      await apiClient.post(
+        `/users/support-tickets/${encodeURIComponent(targetId)}/resolve`,
+        {
+          status: ticketResolutionStatus,
+          response: ticketResponse.trim(),
+        },
+      );
       onNotify("success", "تیکت تعیین تکلیف شد");
       await loadTickets();
     } catch (err) {
-      onNotify("error", "ثبت پاسخ تیکت ناموفق بود", err instanceof Error ? err.message : undefined);
+      onNotify(
+        "error",
+        "ثبت پاسخ تیکت ناموفق بود",
+        err instanceof Error ? err.message : undefined,
+      );
     } finally {
       setIsSubmitting(false);
     }
   };
 
-  const handleToggleSuspension = async (target: DirectoryUserDto, reason: string) => {
+  const handleToggleSuspension = async (
+    target: DirectoryUserDto,
+    reason: string,
+  ) => {
     if (reason.trim().length < 5) {
-      onNotify("warning", "علت الزامی است", "حداقل ۵ کاراکتر دلیل برای تغییر وضعیت حساب ثبت کنید.");
+      onNotify(
+        "warning",
+        "علت الزامی است",
+        "حداقل ۵ کاراکتر دلیل برای تغییر وضعیت حساب ثبت کنید.",
+      );
       return;
     }
     setIsSubmitting(true);
     try {
       if (target.isActive) {
-        await apiClient.post(`/users/${encodeURIComponent(target.id)}/suspend`, { reason: reason.trim() });
-        onNotify("warning", "حساب کاربر تعلیق شد", "دسترسی کاربر تا زمان رفع تعلیق مسدود شد (FR-035).");
+        await apiClient.post(
+          `/users/${encodeURIComponent(target.id)}/suspend`,
+          { reason: reason.trim() },
+        );
+        onNotify(
+          "warning",
+          "حساب کاربر تعلیق شد",
+          "دسترسی کاربر تا زمان رفع تعلیق مسدود شد (FR-035).",
+        );
       } else {
-        await apiClient.post(`/users/${encodeURIComponent(target.id)}/reactivate`, { reason: reason.trim() });
+        await apiClient.post(
+          `/users/${encodeURIComponent(target.id)}/reactivate`,
+          { reason: reason.trim() },
+        );
         onNotify("success", "حساب کاربر فعال شد");
       }
       setStatusModalUser(null);
       setStatusReason("");
       await loadUsers();
     } catch (err) {
-      onNotify("error", "تغییر وضعیت کاربر انجام نشد", err instanceof Error ? err.message : undefined);
+      onNotify(
+        "error",
+        "تغییر وضعیت کاربر انجام نشد",
+        err instanceof Error ? err.message : undefined,
+      );
     } finally {
       setIsSubmitting(false);
     }
@@ -166,10 +234,16 @@ export const SupportDirectorPortal: React.FC<SupportDirectorPortalProps> = ({ on
         <div className="space-y-4">
           <PageHeader
             title="جزئیات تیکت پشتیبانی"
-            breadcrumbs={[{ label: "تیکت‌ها", to: "/support/tickets" }, { label: "جزئیات" }]}
+            breadcrumbs={[
+              { label: "تیکت‌ها", to: "/support/tickets" },
+              { label: "جزئیات" },
+            ]}
             backTo={{ to: "/support/tickets", label: "بازگشت به تیکت‌ها" }}
           />
-          <ErrorState message={error ?? "تیکت مورد نظر یافت نشد."} onRetry={() => void loadTickets()} />
+          <ErrorState
+            message={error ?? "تیکت مورد نظر یافت نشد."}
+            onRetry={() => void loadTickets()}
+          />
         </div>
       );
     }
@@ -178,23 +252,44 @@ export const SupportDirectorPortal: React.FC<SupportDirectorPortalProps> = ({ on
         <PageHeader
           title={activeTicket.subject}
           subtitle={`ارسال‌کننده: ${activeTicket.userFullName || activeTicket.user?.fullName || activeTicket.userId}`}
-          breadcrumbs={[{ label: "درخواست‌های پشتیبانی", to: "/support/tickets" }, { label: activeTicket.subject }]}
+          breadcrumbs={[
+            { label: "درخواست‌های پشتیبانی", to: "/support/tickets" },
+            { label: activeTicket.subject },
+          ]}
           backTo={{ to: "/support/tickets", label: "بازگشت به تیکت‌ها" }}
         />
 
         <Card variant="default" className="space-y-4">
           <div className="flex flex-wrap items-center justify-between gap-2">
-            <Badge variant={activeTicket.status === "OPEN" ? "warning" : activeTicket.status === "RESOLVED" ? "success" : "neutral"} size="sm">
-              {activeTicket.status === "OPEN" ? "در انتظار پاسخ" : activeTicket.status === "RESOLVED" ? "پاسخ‌داده‌شده" : "بسته‌شده"}
+            <Badge
+              variant={
+                activeTicket.status === "OPEN"
+                  ? "warning"
+                  : activeTicket.status === "RESOLVED"
+                    ? "success"
+                    : "neutral"
+              }
+              size="sm"
+            >
+              {activeTicket.status === "OPEN"
+                ? "در انتظار پاسخ"
+                : activeTicket.status === "RESOLVED"
+                  ? "پاسخ‌داده‌شده"
+                  : "بسته‌شده"}
             </Badge>
-            <span className="text-xs text-[#4F6659]">{new Date(activeTicket.createdAt).toLocaleString("fa-IR")}</span>
+            <span className="text-xs text-[#4F6659]">
+              {new Date(activeTicket.createdAt).toLocaleString("fa-IR")}
+            </span>
           </div>
 
           <div className="rounded-xl border border-[#214E3A]/15 bg-[#F3EBDD]/60 p-4 text-sm leading-7 text-[#214031]">
             {activeTicket.description}
           </div>
 
-          <form onSubmit={(e) => void handleResolveTicket(e, activeTicket.id)} className="space-y-3 border-t border-[#214E3A]/10 pt-4">
+          <form
+            onSubmit={(e) => void handleResolveTicket(e, activeTicket.id)}
+            className="space-y-3 border-t border-[#214E3A]/10 pt-4"
+          >
             <label className="block space-y-1.5 text-xs font-medium text-[#214031]">
               پاسخ پشتیبانی (حداقل ۵ کاراکتر)
               <textarea
@@ -212,14 +307,23 @@ export const SupportDirectorPortal: React.FC<SupportDirectorPortalProps> = ({ on
                 وضعیت پس از ثبت
                 <select
                   value={ticketResolutionStatus}
-                  onChange={(e) => setTicketResolutionStatus(e.target.value as "RESOLVED" | "CLOSED")}
+                  onChange={(e) =>
+                    setTicketResolutionStatus(
+                      e.target.value as "RESOLVED" | "CLOSED",
+                    )
+                  }
                   className="block rounded-xl border border-[#214E3A]/20 bg-[#FFFCF5] px-3 py-2 text-xs text-[#214031]"
                 >
                   <option value="RESOLVED">پاسخ‌داده‌شده</option>
                   <option value="CLOSED">بسته‌شده</option>
                 </select>
               </label>
-              <Button type="submit" variant="primary" loading={isSubmitting} icon={<Send className="h-4 w-4" />}>
+              <Button
+                type="submit"
+                variant="primary"
+                loading={isSubmitting}
+                icon={<Send className="h-4 w-4" />}
+              >
                 ثبت پاسخ پشتیبانی
               </Button>
             </div>
@@ -231,16 +335,23 @@ export const SupportDirectorPortal: React.FC<SupportDirectorPortalProps> = ({ on
 
   // Detail route: /support/users/:userId
   if (activeTab === "users" && userId) {
-    if (loading) return <LoadingState message="در حال دریافت مشخصات کاربر..." />;
+    if (loading)
+      return <LoadingState message="در حال دریافت مشخصات کاربر..." />;
     if (error || !activeUser) {
       return (
         <div className="space-y-4">
           <PageHeader
             title="جزئیات حساب کاربر"
-            breadcrumbs={[{ label: "کاربران", to: "/support/users" }, { label: "جزئیات" }]}
+            breadcrumbs={[
+              { label: "کاربران", to: "/support/users" },
+              { label: "جزئیات" },
+            ]}
             backTo={{ to: "/support/users", label: "بازگشت به کاربران" }}
           />
-          <ErrorState message={error ?? "کاربر یافت نشد."} onRetry={() => void loadUsers()} />
+          <ErrorState
+            message={error ?? "کاربر یافت نشد."}
+            onRetry={() => void loadUsers()}
+          />
         </div>
       );
     }
@@ -249,30 +360,48 @@ export const SupportDirectorPortal: React.FC<SupportDirectorPortalProps> = ({ on
         <PageHeader
           title={activeUser.fullName}
           subtitle={`${getRoleLabel(activeUser.role)} · ${activeUser.phoneNumber}`}
-          breadcrumbs={[{ label: "کاربران", to: "/support/users" }, { label: activeUser.fullName }]}
+          breadcrumbs={[
+            { label: "کاربران", to: "/support/users" },
+            { label: activeUser.fullName },
+          ]}
           backTo={{ to: "/support/users", label: "بازگشت به فهرست کاربران" }}
         />
 
         <Card variant="default" className="space-y-4">
           <div className="flex flex-wrap items-center justify-between gap-2">
-            <Badge variant={activeUser.isActive ? "success" : "danger"} size="sm">
+            <Badge
+              variant={activeUser.isActive ? "success" : "danger"}
+              size="sm"
+            >
               {activeUser.isActive ? "حساب فعال" : "حساب معلق (FR-035)"}
             </Badge>
-            <span className="text-xs text-[#4F6659]">عضویت: {new Date(activeUser.createdAt).toLocaleDateString("fa-IR")}</span>
+            <span className="text-xs text-[#4F6659]">
+              عضویت:{" "}
+              {new Date(activeUser.createdAt).toLocaleDateString("fa-IR")}
+            </span>
           </div>
 
           <dl className="grid gap-3 text-xs sm:grid-cols-3">
             <div className="rounded-xl bg-[#F3EBDD]/55 p-3">
               <dt className="text-[#4F6659]">شماره همراه</dt>
-              <dd dir="ltr" className="mt-1 text-right font-mono font-semibold text-[#214031]">{activeUser.phoneNumber}</dd>
+              <dd
+                dir="ltr"
+                className="mt-1 text-right font-mono font-semibold text-[#214031]"
+              >
+                {activeUser.phoneNumber}
+              </dd>
             </div>
             <div className="rounded-xl bg-[#F3EBDD]/55 p-3">
               <dt className="text-[#4F6659]">نقش اصلی</dt>
-              <dd className="mt-1 font-semibold text-[#214031]">{getRoleLabel(activeUser.role)}</dd>
+              <dd className="mt-1 font-semibold text-[#214031]">
+                {getRoleLabel(activeUser.role)}
+              </dd>
             </div>
             <div className="rounded-xl bg-[#F3EBDD]/55 p-3">
               <dt className="text-[#4F6659]">مرحله رشد</dt>
-              <dd className="mt-1 font-semibold text-[#214031]">{activeUser.stage === "INTERN" ? "کارورز" : "کارآموز"}</dd>
+              <dd className="mt-1 font-semibold text-[#214031]">
+                {activeUser.stage === "INTERN" ? "کارورز" : "کارآموز"}
+              </dd>
             </div>
           </dl>
 
@@ -284,7 +413,8 @@ export const SupportDirectorPortal: React.FC<SupportDirectorPortalProps> = ({ on
             className="space-y-3 border-t border-[#214E3A]/10 pt-4"
           >
             <label className="block space-y-1.5 text-xs font-medium text-[#214031]">
-              دلیل {activeUser.isActive ? "تعلیق حساب" : "رفع تعلیق"} (حداقل ۵ کاراکتر · ثبت در ممیزی D-04)
+              دلیل {activeUser.isActive ? "تعلیق حساب" : "رفع تعلیق"} (حداقل ۵
+              کاراکتر · ثبت در ممیزی D-04)
               <textarea
                 required
                 minLength={5}
@@ -296,8 +426,14 @@ export const SupportDirectorPortal: React.FC<SupportDirectorPortalProps> = ({ on
               />
             </label>
             <div className="flex justify-end">
-              <Button type="submit" variant={activeUser.isActive ? "danger" : "primary"} loading={isSubmitting}>
-                {activeUser.isActive ? "تعلیق حساب کاربری" : "رفع تعلیق و فعال‌سازی"}
+              <Button
+                type="submit"
+                variant={activeUser.isActive ? "danger" : "primary"}
+                loading={isSubmitting}
+              >
+                {activeUser.isActive
+                  ? "تعلیق حساب کاربری"
+                  : "رفع تعلیق و فعال‌سازی"}
               </Button>
             </div>
           </form>
@@ -306,18 +442,28 @@ export const SupportDirectorPortal: React.FC<SupportDirectorPortalProps> = ({ on
     );
   }
 
-  const filteredTickets = tickets.filter(
-    (t) =>
-      !searchTerm ||
-      `${t.subject} ${t.description} ${t.userFullName ?? t.user?.fullName ?? ""} ${t.userPhone ?? t.user?.phoneNumber ?? ""}`
-        .toLowerCase()
-        .includes(searchTerm),
-  );
+  const filteredTickets = tickets
+    .filter(
+      (t) =>
+        !searchTerm ||
+        `${t.subject} ${t.description} ${t.userFullName ?? t.user?.fullName ?? ""} ${t.userPhone ?? t.user?.phoneNumber ?? ""}`
+          .toLowerCase()
+          .includes(searchTerm),
+    )
+    .sort((a, b) => {
+      const priority = { OPEN: 0, IN_PROGRESS: 1, RESOLVED: 2, CLOSED: 3 };
+      return (
+        priority[a.status] - priority[b.status] ||
+        Date.parse(a.createdAt) - Date.parse(b.createdAt)
+      );
+    });
 
   const filteredUsers = users.filter(
     (u) =>
       !searchTerm ||
-      `${u.fullName} ${u.phoneNumber} ${getRoleLabel(u.role)}`.toLowerCase().includes(searchTerm),
+      `${u.fullName} ${u.phoneNumber} ${getRoleLabel(u.role)}`
+        .toLowerCase()
+        .includes(searchTerm),
   );
 
   return (
@@ -325,8 +471,14 @@ export const SupportDirectorPortal: React.FC<SupportDirectorPortalProps> = ({ on
       <PageHeader
         title={
           <span className="flex items-center gap-2">
-            {activeTab === "tickets" ? <LifeBuoy className="h-5 w-5 text-[#214E3A]" /> : <UserX className="h-5 w-5 text-[#214E3A]" />}
-            {activeTab === "tickets" ? "درخواست‌های پشتیبانی" : "مدیریت حساب کاربران (FR-035)"}
+            {activeTab === "tickets" ? (
+              <LifeBuoy className="h-5 w-5 text-[#214E3A]" />
+            ) : (
+              <UserX className="h-5 w-5 text-[#214E3A]" />
+            )}
+            {activeTab === "tickets"
+              ? "درخواست‌های پشتیبانی"
+              : "مدیریت حساب کاربران (FR-035)"}
           </span>
         }
         subtitle={
@@ -340,12 +492,75 @@ export const SupportDirectorPortal: React.FC<SupportDirectorPortalProps> = ({ on
             size="sm"
             icon={<RefreshCw className="h-3.5 w-3.5" />}
             loading={loading}
-            onClick={() => void (activeTab === "tickets" ? loadTickets() : loadUsers())}
+            onClick={() =>
+              void (activeTab === "tickets" ? loadTickets() : loadUsers())
+            }
           >
             به‌روزرسانی
           </Button>
         }
       />
+
+      {!loading && !error && activeTab === "tickets" && !ticketId && (
+        <MetricStrip
+          label="وضعیت صف پشتیبانی"
+          items={[
+            {
+              label: "کل درخواست‌ها",
+              value: tickets.length,
+              detail: "داده زنده سامانه",
+            },
+            {
+              label: "در انتظار پاسخ",
+              value: tickets.filter((ticket) => ticket.status === "OPEN")
+                .length,
+              detail: "قدیمی‌ترین موارد در صدر",
+              tone: tickets.some((ticket) => ticket.status === "OPEN")
+                ? "warning"
+                : "success",
+            },
+            {
+              label: "در حال پیگیری",
+              value: tickets.filter((ticket) => ticket.status === "IN_PROGRESS")
+                .length,
+              detail: "نیازمند ادامه رسیدگی",
+            },
+            {
+              label: "تعیین‌تکلیف‌شده",
+              value: tickets.filter(
+                (ticket) =>
+                  ticket.status === "RESOLVED" || ticket.status === "CLOSED",
+              ).length,
+              detail: "پاسخ داده یا بسته شده",
+            },
+          ]}
+        />
+      )}
+
+      {!loading && !error && activeTab === "users" && !userId && (
+        <MetricStrip
+          label="وضعیت حساب‌های تحت پشتیبانی"
+          items={[
+            {
+              label: "کل کاربران",
+              value: users.length,
+              detail: "در فهرست مجاز",
+            },
+            {
+              label: "حساب‌های فعال",
+              value: users.filter((user) => user.isActive).length,
+              tone: "success",
+            },
+            {
+              label: "حساب‌های تعلیق‌شده",
+              value: users.filter((user) => !user.isActive).length,
+              tone: users.some((user) => !user.isActive)
+                ? "warning"
+                : "success",
+            },
+          ]}
+        />
+      )}
 
       <Card variant="default" padding="sm">
         <div className="relative">
@@ -355,19 +570,38 @@ export const SupportDirectorPortal: React.FC<SupportDirectorPortalProps> = ({ on
             aria-label="جست‌وجو"
             value={query.get("q") ?? ""}
             onChange={(e) => setSearchQuery(e.target.value)}
-            placeholder={activeTab === "tickets" ? "جست‌وجوی موضوع یا نام فرستنده..." : "جست‌وجوی نام، شماره همراه یا نقش..."}
+            placeholder={
+              activeTab === "tickets"
+                ? "جست‌وجوی موضوع یا نام فرستنده..."
+                : "جست‌وجوی نام، شماره همراه یا نقش..."
+            }
             className="w-full rounded-xl border border-[#214E3A]/20 bg-[#FFFCF5] py-2 pr-9 pl-3 text-sm text-[#214031] placeholder:text-[#6B8073] focus:border-[#214E3A] focus:outline-none"
           />
         </div>
       </Card>
 
       {loading ? (
-        <LoadingState message={activeTab === "tickets" ? "در حال دریافت تیکت‌ها..." : "در حال دریافت کاربران..."} />
+        <LoadingState
+          message={
+            activeTab === "tickets"
+              ? "در حال دریافت تیکت‌ها..."
+              : "در حال دریافت کاربران..."
+          }
+        />
       ) : error ? (
-        <ErrorState message={error} onRetry={() => void (activeTab === "tickets" ? loadTickets() : loadUsers())} />
+        <ErrorState
+          message={error}
+          onRetry={() =>
+            void (activeTab === "tickets" ? loadTickets() : loadUsers())
+          }
+        />
       ) : activeTab === "tickets" ? (
         filteredTickets.length === 0 ? (
-          <EmptyState title="تیکت پشتیبانی یافت نشد" description="تیکتی ثبت نشده یا با جست‌وجو مطابقت ندارد." icon={<CheckCircle2 className="h-6 w-6" />} />
+          <EmptyState
+            title="تیکت پشتیبانی یافت نشد"
+            description="تیکتی ثبت نشده یا با جست‌وجو مطابقت ندارد."
+            icon={<CheckCircle2 className="h-6 w-6" />}
+          />
         ) : (
           <div className="space-y-3">
             {filteredTickets.map((t) => (
@@ -375,11 +609,27 @@ export const SupportDirectorPortal: React.FC<SupportDirectorPortalProps> = ({ on
                 <div className="flex flex-col justify-between gap-3 md:flex-row md:items-start">
                   <div className="space-y-2 flex-1">
                     <div className="flex flex-wrap items-center gap-2">
-                      <Link to={`/support/tickets/${encodeURIComponent(t.id)}`} className="text-sm font-bold text-[#214031] hover:underline">
+                      <Link
+                        to={`/support/tickets/${encodeURIComponent(t.id)}`}
+                        className="text-sm font-bold text-[#214031] hover:underline"
+                      >
                         {t.subject}
                       </Link>
-                      <Badge variant={t.status === "OPEN" ? "warning" : t.status === "RESOLVED" ? "success" : "neutral"} size="sm">
-                        {t.status === "OPEN" ? "در انتظار پاسخ" : t.status === "RESOLVED" ? "پاسخ‌داده‌شده" : "بسته‌شده"}
+                      <Badge
+                        variant={
+                          t.status === "OPEN"
+                            ? "warning"
+                            : t.status === "RESOLVED"
+                              ? "success"
+                              : "neutral"
+                        }
+                        size="sm"
+                      >
+                        {t.status === "OPEN"
+                          ? "در انتظار پاسخ"
+                          : t.status === "RESOLVED"
+                            ? "پاسخ‌داده‌شده"
+                            : "بسته‌شده"}
                       </Badge>
                     </div>
                     <p className="rounded-xl border border-[#214E3A]/10 bg-[#F3EBDD]/50 p-3 text-xs leading-relaxed text-[#214031]">
@@ -392,11 +642,18 @@ export const SupportDirectorPortal: React.FC<SupportDirectorPortalProps> = ({ on
                       </div>
                     )}
                     <div className="flex flex-wrap items-center gap-3 text-[11px] text-[#4F6659]">
-                      <span>ارسال‌کننده: {t.userFullName || t.user?.fullName || t.userId}</span>
+                      <span>
+                        ارسال‌کننده:{" "}
+                        {t.userFullName || t.user?.fullName || t.userId}
+                      </span>
                       <span>·</span>
-                      <span dir="ltr" className="font-mono">{t.userPhone || t.user?.phoneNumber || "-"}</span>
+                      <span dir="ltr" className="font-mono">
+                        {t.userPhone || t.user?.phoneNumber || "-"}
+                      </span>
                       <span>·</span>
-                      <span>{new Date(t.createdAt).toLocaleDateString("fa-IR")}</span>
+                      <span>
+                        {new Date(t.createdAt).toLocaleDateString("fa-IR")}
+                      </span>
                     </div>
                   </div>
                   <Link
@@ -412,24 +669,43 @@ export const SupportDirectorPortal: React.FC<SupportDirectorPortalProps> = ({ on
           </div>
         )
       ) : filteredUsers.length === 0 ? (
-        <EmptyState title="کاربری یافت نشد" description="فهرست کاربران با فیلتر فعلی خالی است." />
+        <EmptyState
+          title="کاربری یافت نشد"
+          description="فهرست کاربران با فیلتر فعلی خالی است."
+        />
       ) : (
         <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
           {filteredUsers.map((u) => (
-            <Card key={u.id} variant="default" className={u.isActive ? "" : "border-[#D94F3D]/40 bg-[#D94F3D]/5"}>
+            <Card
+              key={u.id}
+              variant="default"
+              className={u.isActive ? "" : "border-[#D94F3D]/40 bg-[#D94F3D]/5"}
+            >
               <div className="flex items-start justify-between gap-3">
                 <div className="space-y-1">
                   <div className="flex flex-wrap items-center gap-2">
-                    <Link to={`/support/users/${encodeURIComponent(u.id)}`} className="text-sm font-bold text-[#214031] hover:underline">
+                    <Link
+                      to={`/support/users/${encodeURIComponent(u.id)}`}
+                      className="text-sm font-bold text-[#214031] hover:underline"
+                    >
                       {u.fullName}
                     </Link>
-                    <Badge variant={u.isActive ? "success" : "danger"} size="sm">
+                    <Badge
+                      variant={u.isActive ? "success" : "danger"}
+                      size="sm"
+                    >
                       {u.isActive ? "فعال" : "معلق"}
                     </Badge>
                   </div>
-                  <div dir="ltr" className="text-right font-mono text-xs text-[#4F6659]">{u.phoneNumber}</div>
+                  <div
+                    dir="ltr"
+                    className="text-right font-mono text-xs text-[#4F6659]"
+                  >
+                    {u.phoneNumber}
+                  </div>
                   <div className="text-[11px] text-[#4F6659]">
-                    {getRoleLabel(u.role)} · {u.stage === "INTERN" ? "کارورز" : "کارآموز"}
+                    {getRoleLabel(u.role)} ·{" "}
+                    {u.stage === "INTERN" ? "کارورز" : "کارآموز"}
                   </div>
                 </div>
                 <div className="flex flex-col gap-1.5">
@@ -460,7 +736,11 @@ export const SupportDirectorPortal: React.FC<SupportDirectorPortalProps> = ({ on
         <Modal
           isOpen
           onClose={() => setStatusModalUser(null)}
-          title={statusModalUser.isActive ? `تعلیق حساب ${statusModalUser.fullName}` : `فعال‌سازی حساب ${statusModalUser.fullName}`}
+          title={
+            statusModalUser.isActive
+              ? `تعلیق حساب ${statusModalUser.fullName}`
+              : `فعال‌سازی حساب ${statusModalUser.fullName}`
+          }
           maxWidth="md"
         >
           <form
@@ -482,8 +762,18 @@ export const SupportDirectorPortal: React.FC<SupportDirectorPortalProps> = ({ on
               />
             </label>
             <div className="flex justify-end gap-2 border-t border-[#214E3A]/10 pt-3">
-              <Button type="button" variant="ghost" onClick={() => setStatusModalUser(null)}>انصراف</Button>
-              <Button type="submit" variant={statusModalUser.isActive ? "danger" : "primary"} loading={isSubmitting}>
+              <Button
+                type="button"
+                variant="ghost"
+                onClick={() => setStatusModalUser(null)}
+              >
+                انصراف
+              </Button>
+              <Button
+                type="submit"
+                variant={statusModalUser.isActive ? "danger" : "primary"}
+                loading={isSubmitting}
+              >
                 تأیید و ثبت
               </Button>
             </div>

@@ -16,6 +16,13 @@ class MockReportingRepository implements ReportingRepositoryPort {
     return {
       provinceId,
       totalApplicants: 50,
+      applicantsByStatus: {
+        PENDING: 12,
+        IN_REVIEW: 8,
+        APPROVED: 25,
+        REJECTED: 5,
+      },
+      pendingSupervisorAllocation: 4,
       approvedApplicants: 25,
       totalApprentices: 20,
       totalInterns: 10,
@@ -81,18 +88,22 @@ class MockReportingRepository implements ReportingRepositoryPort {
 
   async getWorkflowMetrics(): Promise<WorkflowMetrics> {
     return {
-      averageStageCompletionDays: {
-        SOURCES: 14,
-        EXPLANATION: 21,
-        PRESCRIPTION: 14,
-        SCENARIO: 7,
-      },
       rollbackFrequencyByStage: {
         SOURCES: 1,
         EXPLANATION: 2,
         PRESCRIPTION: 0,
         SCENARIO: 0,
       },
+    };
+  }
+
+  async getSupervisorHealth() {
+    return {
+      inactiveSupervisorAssignmentsCount: 0,
+      revokedSupervisorAssignmentsCount: 0,
+      legacyCollaboratorAssignmentsCount: 0,
+      caseSupervisorMismatchCount: 0,
+      issues: [],
     };
   }
 }
@@ -134,8 +145,6 @@ describe("ReportingService Dashboards (FR-026, FR-027, FR-028, FR-031, AT-09, AT
     expect(summary.activeSupervisorsCount).toBe(12);
 
     const metrics = await service.getWorkflowMetrics();
-    expect(metrics.averageStageCompletionDays["EXPLANATION"]).toBe(21);
     expect(metrics.rollbackFrequencyByStage["EXPLANATION"]).toBe(2);
   });
 });
-

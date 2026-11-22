@@ -15,13 +15,21 @@ import type {
   SupportTicketRecord,
 } from "../application/ports/user.repository.port.js";
 import { extractSystemRoles } from "../domain/system-roles.js";
+import {
+  ApprovedApplicantLifetimeSupervisorConflictError,
+  InvalidApprovedApplicantSupervisorError,
+} from "../domain/user-errors.js";
 
 type StudyEvaluationWithUser = Prisma.ApprenticeEvaluationGetPayload<{
   include: { user: { include: { profile: true } } };
 }>;
 
-function mapStudyEvaluation(raw: StudyEvaluationWithUser): StudyEvaluationRecord {
-  const parsedDocuments = StudyDocumentSnapshotSchema.array().safeParse(raw.completedDocuments);
+function mapStudyEvaluation(
+  raw: StudyEvaluationWithUser,
+): StudyEvaluationRecord {
+  const parsedDocuments = StudyDocumentSnapshotSchema.array().safeParse(
+    raw.completedDocuments,
+  );
   return {
     id: raw.id,
     userId: raw.userId,
@@ -42,11 +50,16 @@ function mapStudyEvaluation(raw: StudyEvaluationWithUser): StudyEvaluationRecord
 @Injectable()
 export class PrismaUserRepository implements UserRepositoryPort {
   async findProvinceIdByUserId(userId: string): Promise<string | null> {
-    const user = await this.prisma.user.findUnique({ where: { id: userId }, select: { applicant: { select: { provinceId: true } } } });
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+      select: { applicant: { select: { provinceId: true } } },
+    });
     return user?.applicant?.provinceId ?? null;
   }
 
-  async findApplicantDetailsByUserId(userId: string): Promise<UserApplicantDetailsRecord | null> {
+  async findApplicantDetailsByUserId(
+    userId: string,
+  ): Promise<UserApplicantDetailsRecord | null> {
     const user = await this.prisma.user.findUnique({
       where: { id: userId },
       select: {
@@ -90,7 +103,9 @@ export class PrismaUserRepository implements UserRepositoryPort {
         phoneNumber: domainUser.phoneNumber,
         stage: domainUser.stage,
         role: (domainUser.role ?? domainUser.stage) as DirectoryUserDto["role"],
-        roles: (domainUser.roles?.length ? domainUser.roles : [domainUser.stage]) as DirectoryUserDto["roles"],
+        roles: (domainUser.roles?.length
+          ? domainUser.roles
+          : [domainUser.stage]) as DirectoryUserDto["roles"],
         isActive: domainUser.isActive,
         provinceId: row.applicant?.provinceId ?? null,
         createdAt: domainUser.createdAt.toISOString(),
@@ -99,7 +114,11 @@ export class PrismaUserRepository implements UserRepositoryPort {
   }
   constructor(@Inject(PrismaService) private readonly prisma: PrismaService) {}
 
-  async createSession(input: { userId: string; tokenHash: string; expiresAt: Date }): Promise<void> {
+  async createSession(input: {
+    userId: string;
+    tokenHash: string;
+    expiresAt: Date;
+  }): Promise<void> {
     await this.prisma.userSession.create({ data: input });
   }
 
@@ -176,7 +195,21 @@ export class PrismaUserRepository implements UserRepositoryPort {
     const rows = await this.prisma.user.findMany({
       where: {
         stage: "INTERN",
-        userRoles: { none: { role: { name: { in: ["TRACKING_DIRECTOR", "PROVINCIAL_DIRECTOR", "SCIENTIFIC_SUPERVISOR", "SUPPORT_DIRECTOR", "SYSTEM_ADMIN"] } } } },
+        userRoles: {
+          none: {
+            role: {
+              name: {
+                in: [
+                  "TRACKING_DIRECTOR",
+                  "PROVINCIAL_DIRECTOR",
+                  "SCIENTIFIC_SUPERVISOR",
+                  "SUPPORT_DIRECTOR",
+                  "SYSTEM_ADMIN",
+                ],
+              },
+            },
+          },
+        },
       },
       include: { profile: true, userRoles: { include: { role: true } } },
       orderBy: { createdAt: "desc" },
@@ -225,7 +258,10 @@ export class PrismaUserRepository implements UserRepositoryPort {
     if (user.role) {
       if (user.role === "APPRENTICE" || user.role === "INTERN") {
         await this.prisma.userRole.deleteMany({
-          where: { userId: user.id, role: { name: { in: ["APPRENTICE", "INTERN"] } } },
+          where: {
+            userId: user.id,
+            role: { name: { in: ["APPRENTICE", "INTERN"] } },
+          },
         });
       }
       const roleRecord = await this.prisma.role.upsert({
@@ -247,6 +283,85 @@ export class PrismaUserRepository implements UserRepositoryPort {
         update: {},
       });
     }
+  }
+
+  async saveApprovedApplicantWithSupervisor(input: {
+    user: User;
+    supervisorId: string;
+    assignedById: string;
+  }): Promise<void> {
+    const user = input.user;
+    const activeSupervisor = await this.prisma.user.findFirst({
+      where: {
+        id: input.supervisorId,
+        isActive: true,
+        userRoles: { some: { role: { name: "SCIENTIFIC_SUPERVISOR" } } },
+      },
+      select: { id: true },
+    });
+    if (!activeSupervisor) throw new InvalidApprovedApplicantSupervisorError();
+    const role = await this.prisma.role.upsert({
+      where: { name: "APPRENTICE" },
+      create: { name: "APPRENTICE" },
+      update: {},
+    });
+    await this.prisma.user.upsert({
+      where: { id: user.id },
+      create: {
+        id: user.id,
+        applicantId: user.applicantId ?? null,
+        phoneNumber: user.phoneNumber,
+        email: user.email ?? null,
+        passwordHash: user.passwordHash ?? null,
+        stage: user.stage as any,
+        isActive: user.isActive,
+        isMfaEnabled: user.isMfaEnabled,
+      },
+      update: {},
+    });
+    if (user.fullName) {
+      const [firstName, ...rest] = user.fullName.trim().split(" ");
+      await this.prisma.profile.upsert({
+        where: { userId: user.id },
+        create: {
+          userId: user.id,
+          firstName: firstName || user.fullName,
+          lastName: rest.join(" ") || " ",
+        },
+        update: {},
+      });
+    }
+    await this.prisma.userRole.upsert({
+      where: { userId_roleId: { userId: user.id, roleId: role.id } },
+      create: { userId: user.id, roleId: role.id },
+      update: {},
+    });
+    const previous = await this.prisma.scientificSupervisorAssignment.findFirst(
+      { where: { userId: user.id } },
+    );
+    if (previous && previous.supervisorId !== input.supervisorId) {
+      throw new ApprovedApplicantLifetimeSupervisorConflictError();
+    }
+    await this.prisma.scientificSupervisorAssignment.upsert({
+      where: {
+        userId_supervisorId: {
+          userId: user.id,
+          supervisorId: input.supervisorId,
+        },
+      },
+      create: {
+        userId: user.id,
+        supervisorId: input.supervisorId,
+        assignedById: input.assignedById,
+        isPrimary: true,
+      },
+      update: {
+        revokedAt: null,
+        assignedById: input.assignedById,
+        assignedAt: new Date(),
+        isPrimary: true,
+      },
+    });
   }
 
   async createStudyEvaluation(
@@ -285,7 +400,9 @@ export class PrismaUserRepository implements UserRepositoryPort {
     return list.map(mapStudyEvaluation);
   }
 
-  async getStudyEvaluationByUserId(userId: string): Promise<StudyEvaluationRecord | null> {
+  async getStudyEvaluationByUserId(
+    userId: string,
+  ): Promise<StudyEvaluationRecord | null> {
     const raw = await this.prisma.apprenticeEvaluation.findFirst({
       where: { userId },
       include: {

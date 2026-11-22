@@ -4,6 +4,7 @@ import type {
   TrackingDirectorBacklog,
   GeneralDirectorSummary,
   WorkflowMetrics,
+  SupervisorHealth,
 } from "@tstaff/contracts";
 
 export interface ReportingRepositoryPort {
@@ -14,5 +15,5 @@ export interface ReportingRepositoryPort {
   getTrackingDirectorBacklog(): Promise<TrackingDirectorBacklog>;
   getGeneralDirectorSummary(): Promise<GeneralDirectorSummary>;
   getWorkflowMetrics(): Promise<WorkflowMetrics>;
+  getSupervisorHealth(): Promise<SupervisorHealth>;
 }
-

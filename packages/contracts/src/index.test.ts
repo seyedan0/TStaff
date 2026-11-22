@@ -16,14 +16,17 @@ import {
 describe("Contracts & Validation Schemas (M1 & M2 Baseline)", () => {
   describe("Library documents and study evaluation (FR-006, FR-007, AT-35–AT-37)", () => {
     it("accepts an evaluation request with notes only", () => {
-      expect(RequestStudyEvaluationDtoSchema.parse({ notes: "مطالعه انجام شد" }))
-        .toEqual({ notes: "مطالعه انجام شد" });
+      expect(
+        RequestStudyEvaluationDtoSchema.parse({ notes: "مطالعه انجام شد" }),
+      ).toEqual({ notes: "مطالعه انجام شد" });
     });
 
     it("does not accept client-asserted completed document names", () => {
-      expect(() => RequestStudyEvaluationDtoSchema.parse({
-        completedGuidelines: ["عنوان ساختگی"],
-      })).toThrow();
+      expect(() =>
+        RequestStudyEvaluationDtoSchema.parse({
+          completedGuidelines: ["عنوان ساختگی"],
+        }),
+      ).toThrow();
     });
 
     it("validates library version metadata separately from the required-at-publish choice", () => {
@@ -33,9 +36,15 @@ describe("Contracts & Validation Schemas (M1 & M2 Baseline)", () => {
         category: "آموزش",
       };
       expect(CreateLibraryDocumentDtoSchema.parse(value)).toEqual(value);
-      expect(() => CreateLibraryDocumentDtoSchema.parse({ ...value, required: "true" })).toThrow();
-      expect(PublishLibraryDocumentVersionDtoSchema.parse({ isRequired: true })).toEqual({ isRequired: true });
-      expect(() => PublishLibraryDocumentVersionDtoSchema.parse({ isRequired: "true" })).toThrow();
+      expect(() =>
+        CreateLibraryDocumentDtoSchema.parse({ ...value, required: "true" }),
+      ).toThrow();
+      expect(
+        PublishLibraryDocumentVersionDtoSchema.parse({ isRequired: true }),
+      ).toEqual({ isRequired: true });
+      expect(() =>
+        PublishLibraryDocumentVersionDtoSchema.parse({ isRequired: "true" }),
+      ).toThrow();
     });
   });
 
@@ -69,13 +78,21 @@ describe("Contracts & Validation Schemas (M1 & M2 Baseline)", () => {
       provinceId: "123e4567-e89b-12d3-a456-426614174000",
       education: "کارشناسی ارشد",
       fieldOfStudy: "علوم سیاسی",
-      initialSupervisorId: "123e4567-e89b-12d3-a456-426614174001",
     };
 
     it("accepts valid applicant data with integer age", () => {
-      expect(CreateApplicantDtoSchema.parse(validApplicant)).toMatchObject(
+      expect(CreateApplicantDtoSchema.parse(validApplicant)).toEqual(
         validApplicant,
       );
+    });
+
+    it("rejects client attempts to assign the scientific supervisor at registration (AT-01)", () => {
+      expect(() =>
+        CreateApplicantDtoSchema.parse({
+          ...validApplicant,
+          initialSupervisorId: "123e4567-e89b-12d3-a456-426614174001",
+        }),
+      ).toThrow();
     });
 
     it("rejects invalid national ID (not 10 digits)", () => {

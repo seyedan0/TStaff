@@ -19,12 +19,15 @@ export interface ApplicantProps {
   age: number;
   provinceId?: string | null | undefined;
   initialSupervisorId?: string | null | undefined;
+  initialSupervisorAssignedById?: string | null | undefined;
+  initialSupervisorAssignedAt?: Date | null | undefined;
   createdById?: string | null | undefined;
   educationLevel?: string | null | undefined;
   fieldOfStudy?: string | null | undefined;
   status: ApplicantStatusType;
   notes?: string | null | undefined;
   rejectionReason?: string | null | undefined;
+  archivedAt?: Date | null | undefined;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -82,6 +85,13 @@ export class Applicant {
     return this.props.initialSupervisorId;
   }
 
+  public get initialSupervisorAssignedById(): string | null | undefined {
+    return this.props.initialSupervisorAssignedById;
+  }
+  public get initialSupervisorAssignedAt(): Date | null | undefined {
+    return this.props.initialSupervisorAssignedAt;
+  }
+
   public get createdById(): string | null | undefined {
     return this.props.createdById;
   }
@@ -104,6 +114,10 @@ export class Applicant {
 
   public get rejectionReason(): string | null | undefined {
     return this.props.rejectionReason;
+  }
+
+  public get archivedAt(): Date | null | undefined {
+    return this.props.archivedAt;
   }
 
   public get createdAt(): Date {
@@ -157,6 +171,7 @@ export class Applicant {
       ...this.props,
       status: "REJECTED",
       rejectionReason: reason,
+      archivedAt: new Date(),
       updatedAt: new Date(),
     });
   }
@@ -172,6 +187,7 @@ export class Applicant {
       ...this.props,
       status: "REOPEN_REQUESTED",
       rejectionReason: `درخواست بازگشایی: ${reason}`,
+      archivedAt: null,
       updatedAt: new Date(),
     });
   }

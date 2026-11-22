@@ -2,7 +2,7 @@ import { describe, it, expect } from "vitest";
 import { ResearchAssignment } from "./assignment.entity.js";
 import {
   MainSupervisorAlreadyAssignedError,
-  CollaboratorSupervisorAlreadyAssignedError,
+  SingleSupervisorPerResearchError,
 } from "./assignment-errors.js";
 
 describe("ResearchAssignment Domain Entity (D-02)", () => {
@@ -51,26 +51,11 @@ describe("ResearchAssignment Domain Entity (D-02)", () => {
       ResearchAssignment.validateCanAssign("MAIN_SUPERVISOR", [activeMain]),
     ).toThrow(MainSupervisorAlreadyAssignedError);
 
-    // Allows adding a COLLABORATOR_SUPERVISOR when only MAIN is active
+    // D-09 supersedes D-02: collaborator managers are no longer valid.
     expect(() =>
       ResearchAssignment.validateCanAssign("COLLABORATOR_SUPERVISOR", [
         activeMain,
       ]),
-    ).not.toThrow();
-
-    const activeCollab = ResearchAssignment.create({
-      id: "assign-2",
-      researchCaseId: "case-1",
-      userId: "user-2",
-      role: "COLLABORATOR_SUPERVISOR",
-    });
-
-    // Throws if trying to add another COLLABORATOR when one is already active
-    expect(() =>
-      ResearchAssignment.validateCanAssign("COLLABORATOR_SUPERVISOR", [
-        activeMain,
-        activeCollab,
-      ]),
-    ).toThrow(CollaboratorSupervisorAlreadyAssignedError);
+    ).toThrow(SingleSupervisorPerResearchError);
   });
 });

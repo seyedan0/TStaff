@@ -4,7 +4,7 @@
 **تاریخ مبنا:** ۱۶ آبان ۱۴۰۵ / ۷ نوامبر ۲۰۲۶  
 **مرجع محصول:** TStaff — سند نهایی نیازمندی‌های اجرایی، نسخه ۱.۰  
 **مخاطب:** مالک محصول، مسئول فنی، تیم Frontend، Backend، زیرساخت، امنیت، آزمون و عملیات  
-**وضعیت تصمیم‌ها:** قواعد RFP مصوب‌اند؛ انتخاب‌های فنی این سند «پیشنهاد» هستند مگر در دفتر تصمیم به‌صراحت مصوب معرفی شوند.
+**وضعیت تصمیم‌ها:** این پیش‌نویس نسخه ۰.۱ سندی تاریخی است. برای جریان پذیرش و انتساب علمی، تصمیم D-09 مورخ ۲۰۲۶-۱۱-۲۲ بر متن این سند و تفسیرهای متعارض RFP v1.0 تقدم دارد؛ بقیه مفاد فقط تا جایی معتبرند که با D-09 تعارض نداشته باشند.
 
 > هدف این سند تبدیل RFP به مبنای قابل اجرا، قابل آزمون و قابل توسعه برای تیم داخلی است. این سند قرارداد پیمانکاری، برآورد مالی یا تعهد زمانی نیست. اعداد مربوط به ظرفیت، RPO/RTO و حدود فایل تا پیش از آزمون و تصویب نهایی، هدف طراحی‌اند.
 
@@ -12,7 +12,7 @@
 
 TStaff یک سامانه مدیریت شبکه پژوهشگران و گردش‌کار انسانی/علمی است. معماری پیشنهادی، **Modular Monolith + API-First** در یک **pnpm Monorepo** با **React + Vite + TypeScript** برای رابط، **NestJS + TypeScript** برای API، **PostgreSQL** برای داده تراکنشی و **Object Storage سازگار با S3** برای فایل‌هاست. ذخیره‌سازی، احراز هویت پیامکی، اعلان‌ها و لاگ‌ها با Adapter طراحی می‌شوند تا تعویض ارائه‌دهنده ایرانی بدون تغییر منطق دامنه ممکن باشد.
 
-- **مصوب محصول:** پرونده متقاضی قبل از ایجاد حساب؛ وضعیت کارآموز/کارورز جدا از نقش؛ امکان چند پژوهش؛ مدیر علمی اصلی و حداکثر یک همکار فعال برای هر پژوهش؛ تأیید یک مدیر علمی کافی؛ هر منبع حداکثر یک مصاحبه و هنگام اتمام دقیقاً یک مصاحبه و گزارش اصلی؛ نسخه‌بندی و حفظ تاریخچه؛ بازبینی خروجی‌های وابسته؛ چت خصوصی یک‌به‌یک؛ آرشیو امن؛ نظارت و اعلان گزینشی.
+- **مصوب محصول جاری:** پرونده متقاضی قبل از ایجاد حساب؛ تخصیص مدیر علمی توسط مدیر پیگیری؛ یک مدیر علمی در کل عمر هر فرد و بدون مدیر همکار/جایگزین (D-09)؛ امکان چند پژوهش؛ کنترل نسخه و حفظ تاریخچه؛ هر منبع حداکثر یک مصاحبه و هنگام اتمام دقیقاً یک مصاحبه و گزارش اصلی؛ بازبینی خروجی‌های وابسته؛ چت خصوصی یک‌به‌یک؛ آرشیو امن؛ نظارت و اعلان گزینشی.
 - **انتخاب کاربر در این گفت‌وگو:** تیم TypeScript/Node.js/React؛ میزبانی در ابر یا VPS داخل ایران.
 - **پیشنهاد معماری:** Modular Monolith با کنترل دسترسی در سطح رکورد و انتساب، تراکنش PostgreSQL، Transactional Outbox، State Machine صریح، ماژول‌های قابل جداشدن در آینده؛ بدون Microservices و Kubernetes در MVP.
 - **فرضیه استقرار نیازمند تصویب:** دو ماشین منطقی برای برنامه و پایگاه داده، به‌علاوه Object Storage و مخزن پشتیبان مستقل؛ محیط توسعه می‌تواند تک‌ماشینه باشد.
@@ -83,49 +83,49 @@ modules/<module>/
 
 ### ۳.۴. ماژول‌های MVP و مرز مالکیت
 
-| ماژول | مسئولیت و داده مالک | وابستگی مجاز |
-|---|---|---|
-| identity | حساب، Session، احراز هویت با گذرواژه (OTP موکول به فاز بعد)، وضعیت تعلیق | notifications, audit از طریق port/event |
-| applicants | متقاضی قبل از حساب، ارجاع پذیرش، رد و بازگشایی | identity در هنگام تأیید؛ assignments |
-| organization | استان/شهرستان، مجموعه‌ها، داده مرجع | بدون خواندن جدول پرونده |
-| authorization | نقش، مجوز، Scope، تفویض و Policy Decision | identity, assignments از طریق port |
-| assignments | انتساب مدیر علمی/استانی/معاون، دوره اعتبار و انتقال | authorization, research ports |
-| research | پژوهش، مسئله، Stage State، تغییر مرحله و قواعد وابستگی | review, files از طریق port |
-| resources | منبع، فرد مصاحبه‌شونده، مصاحبه یکتا، گزارش نسخه‌دار | research, files |
-| reviews | submission نسخه‌دار، review، تصمیم معتبر، درخواست اصلاح | research, audit |
-| scenarios | پیش‌نویس سناریو، داوری، بانک داخلی تأییدشده | research, reviews |
-| documents | شیوه‌نامه‌ها و نسخه انتشار | storage |
-| files | متادیتا، شناسه blob، ACL، scan، لینک موقت | object storage adapter |
-| messaging | مکالمه خصوصی یک‌به‌یک، پیام، خوانده‌شدن و آرشیو | authorization, files |
-| notifications | Inbox درون‌سامانه و delivery | event/outbox |
-| audit | رویدادهای غیرقابل‌ویرایش عادی و جست‌وجو | append-only API |
-| archival | سیاست نگهداری، انتقال/بازگردانی کنترل‌شده | owners via archive ports |
-| reporting | projection/read model و گزارش مدیریتی | مجوز سطح رکورد + نماهای محدود |
-| settings | دسته‌بندی‌ها، پارامترهای قابل تنظیم و ثبت تغییر | audit |
+| ماژول         | مسئولیت و داده مالک                                                      | وابستگی مجاز                            |
+| ------------- | ------------------------------------------------------------------------ | --------------------------------------- |
+| identity      | حساب، Session، احراز هویت با گذرواژه (OTP موکول به فاز بعد)، وضعیت تعلیق | notifications, audit از طریق port/event |
+| applicants    | متقاضی قبل از حساب، ارجاع پذیرش، رد و بازگشایی                           | identity در هنگام تأیید؛ assignments    |
+| organization  | استان/شهرستان، مجموعه‌ها، داده مرجع                                      | بدون خواندن جدول پرونده                 |
+| authorization | نقش، مجوز، Scope، تفویض و Policy Decision                                | identity, assignments از طریق port      |
+| assignments   | انتساب مدیر علمی/استانی/معاون، دوره اعتبار و انتقال                      | authorization, research ports           |
+| research      | پژوهش، مسئله، Stage State، تغییر مرحله و قواعد وابستگی                   | review, files از طریق port              |
+| resources     | منبع، فرد مصاحبه‌شونده، مصاحبه یکتا، گزارش نسخه‌دار                      | research, files                         |
+| reviews       | submission نسخه‌دار، review، تصمیم معتبر، درخواست اصلاح                  | research, audit                         |
+| scenarios     | پیش‌نویس سناریو، داوری، بانک داخلی تأییدشده                              | research, reviews                       |
+| documents     | شیوه‌نامه‌ها و نسخه انتشار                                               | storage                                 |
+| files         | متادیتا، شناسه blob، ACL، scan، لینک موقت                                | object storage adapter                  |
+| messaging     | مکالمه خصوصی یک‌به‌یک، پیام، خوانده‌شدن و آرشیو                          | authorization, files                    |
+| notifications | Inbox درون‌سامانه و delivery                                             | event/outbox                            |
+| audit         | رویدادهای غیرقابل‌ویرایش عادی و جست‌وجو                                  | append-only API                         |
+| archival      | سیاست نگهداری، انتقال/بازگردانی کنترل‌شده                                | owners via archive ports                |
+| reporting     | projection/read model و گزارش مدیریتی                                    | مجوز سطح رکورد + نماهای محدود           |
+| settings      | دسته‌بندی‌ها، پارامترهای قابل تنظیم و ثبت تغییر                          | audit                                   |
 
 مرزهای `research/resources/reviews/scenarios` از روز اول در کد جدا می‌شوند، هرچند همگی در یک فرایند NestJS اجرا شوند.
 
 ## ۴. انتخاب پشته، نسخه و سیاست وابستگی
 
-| لایه | پیشنهاد اصلی | توضیح انتخاب و قید |
-|---|---|---|
-| Runtime | Node.js LTS مورد پشتیبانی در زمان شروع | نسخه دقیق در ADR-TECH-001 و engines قفل شود؛ از نسخه آزمایشی پرهیز |
-| زبان | TypeScript strict | noImplicitAny، exactOptionalPropertyTypes، noUncheckedIndexedAccess با تصمیم تیم |
-| Frontend | React + Vite، React Router/TanStack Router طبق PoC | پنل عمدتاً احراز هویت‌شده؛ SSR الزام MVP نیست؛ Router از ابتدا یکی انتخاب شود |
-| UI | Tailwind CSS، shadcn/ui، Design Tokens | RTL و فونت فارسی؛ تست دسترسی‌پذیری |
-| Server State | TanStack Query | Cache بر اساس session + scope؛ invalidation پس از mutation |
-| Forms | React Hook Form + Zod | draft سمت سرور، validation دوطرفه |
-| Backend | NestJS | REST + OpenAPI؛ Guard تنها لایه UI نیست |
-| ORM | Prisma ORM (انتخاب مصوب ساختار) | مدل‌سازی یکپارچه داده، کلاینت کامپایل‌شده Type-Safe و مدیریت Migrations در PostgreSQL |
-| Database | PostgreSQL نسخه پشتیبانی‌شده | تراکنش، FK، ایندکس شرطی، WAL/PITR |
-| Realtime | Socket.IO برای چت خصوصی | room authorization و reconnect/replay |
-| Jobs | Worker درون Repo، Outbox در PostgreSQL | Redis/BullMQ فقط هنگام نیاز اثبات‌شده |
-| Storage | Object Storage S3-compatible | Adapter + presigned link کوتاه‌عمر + ACL API |
-| SMS | SmsGateway abstraction | Provider ایرانی بعد از آزمون مسیر، ظرفیت و قرارداد |
-| Testing | Vitest/Jest مطابق سازگاری Nest، Playwright | integration با PostgreSQL واقعی، e2e API/UI |
-| Repository | pnpm Workspaces + Turbo اختیاری | شروع با pnpm، Turbo تنها پس از نیاز به cache build |
-| Deployment | Docker, Compose, Caddy/Nginx | Managed database در صورت توافق؛ بدون Kubernetes در MVP |
-| Observability | Structured JSON logs, OpenTelemetry, Prometheus/Grafana در صورت توجیه | عدم ثبت PII/OTP/فایل در لاگ |
+| لایه          | پیشنهاد اصلی                                                          | توضیح انتخاب و قید                                                                    |
+| ------------- | --------------------------------------------------------------------- | ------------------------------------------------------------------------------------- |
+| Runtime       | Node.js LTS مورد پشتیبانی در زمان شروع                                | نسخه دقیق در ADR-TECH-001 و engines قفل شود؛ از نسخه آزمایشی پرهیز                    |
+| زبان          | TypeScript strict                                                     | noImplicitAny، exactOptionalPropertyTypes، noUncheckedIndexedAccess با تصمیم تیم      |
+| Frontend      | React + Vite، React Router/TanStack Router طبق PoC                    | پنل عمدتاً احراز هویت‌شده؛ SSR الزام MVP نیست؛ Router از ابتدا یکی انتخاب شود         |
+| UI            | Tailwind CSS، shadcn/ui، Design Tokens                                | RTL و فونت فارسی؛ تست دسترسی‌پذیری                                                    |
+| Server State  | TanStack Query                                                        | Cache بر اساس session + scope؛ invalidation پس از mutation                            |
+| Forms         | React Hook Form + Zod                                                 | draft سمت سرور، validation دوطرفه                                                     |
+| Backend       | NestJS                                                                | REST + OpenAPI؛ Guard تنها لایه UI نیست                                               |
+| ORM           | Prisma ORM (انتخاب مصوب ساختار)                                       | مدل‌سازی یکپارچه داده، کلاینت کامپایل‌شده Type-Safe و مدیریت Migrations در PostgreSQL |
+| Database      | PostgreSQL نسخه پشتیبانی‌شده                                          | تراکنش، FK، ایندکس شرطی، WAL/PITR                                                     |
+| Realtime      | Socket.IO برای چت خصوصی                                               | room authorization و reconnect/replay                                                 |
+| Jobs          | Worker درون Repo، Outbox در PostgreSQL                                | Redis/BullMQ فقط هنگام نیاز اثبات‌شده                                                 |
+| Storage       | Object Storage S3-compatible                                          | Adapter + presigned link کوتاه‌عمر + ACL API                                          |
+| SMS           | SmsGateway abstraction                                                | Provider ایرانی بعد از آزمون مسیر، ظرفیت و قرارداد                                    |
+| Testing       | Vitest/Jest مطابق سازگاری Nest، Playwright                            | integration با PostgreSQL واقعی، e2e API/UI                                           |
+| Repository    | pnpm Workspaces + Turbo اختیاری                                       | شروع با pnpm، Turbo تنها پس از نیاز به cache build                                    |
+| Deployment    | Docker, Compose, Caddy/Nginx                                          | Managed database در صورت توافق؛ بدون Kubernetes در MVP                                |
+| Observability | Structured JSON logs, OpenTelemetry, Prometheus/Grafana در صورت توجیه | عدم ثبت PII/OTP/فایل در لاگ                                                           |
 
 **سیاست قفل نسخه:** همه نسخه‌ها در lockfile ثبت، Imageها با digest برای Production قفل و به‌روزرسانی‌ها از مسیر PR/آزمون امنیت عبور کنند. این سند عمداً اعداد نسخه فریم‌ورک‌ها را تحمیل نمی‌کند، چون نسخه دقیق باید با ماتریس سازگاری روز شروع توسعه تعیین شود.
 
@@ -227,22 +227,22 @@ tstaff/
 
 ### ۶.۲. جداول هسته پیشنهادی
 
-| محدوده | موجودیت‌های اصلی | قاعده کلیدی |
-|---|---|---|
-| پذیرش | applicants, admission_reviews, applicant_reopen_requests | applicant قبل از user و رد بدون ساخت user |
-| هویت | users, profiles, login_challenges, user_sessions, mfa_factors, membership_transitions | role با stage رشد یکی نیست |
-| مجوز | roles, permissions, role_grants, scopes, delegated_grants | دامنه استان/پرونده + انقضا/لغو تفویض |
-| انتساب | research_assignments, provincial_assignments, assignment_history | دقیقاً یک MAIN و حداکثر یک COLLAB فعال برای هر پژوهش |
-| پژوهش | research_cases, stage_instances, stage_transitions, stage_dependencies | مرحله جاری و وضعیت اعتبار وابستگی جدا |
-| منابع | resources, interviewees, organizations, interviews | UNIQUE(interviews.resource_id) |
-| گزارش | interview_reports, report_revisions, stage_submissions, stage_submission_files | هر منبع هنگام اتمام گزارش اصلی نسخه‌دار دارد |
-| داوری | review_decisions, change_requests, invalidation_events | تصمیم فقط روی revision جاری؛ first valid decision wins |
-| سناریو | scenarios, scenario_revisions, scenario_categories, tags, scenario_tags | بانک داخلی فقط revision تأییدشده |
-| فایل | stored_objects, file_links, upload_sessions, malware_scan_events | object_key غیرقابل حدس و private |
-| چت | conversations, conversation_participants, messages, message_attachments | یک‌به‌یک با مدیر مرتبط؛ مجوز هر اتصال |
-| اعلان | notifications, notification_receipts | فوری فقط رخداد نیازمند رسیدگی |
-| ممیزی/صف | audit_events, outbox_events, processed_event_keys | immutability و idempotency |
-| آرشیو | archive_jobs, archive_manifests, retention_policies, restore_requests | آرشیو ≠ بکاپ |
+| محدوده   | موجودیت‌های اصلی                                                                      | قاعده کلیدی                                            |
+| -------- | ------------------------------------------------------------------------------------- | ------------------------------------------------------ |
+| پذیرش    | applicants, admission_reviews, applicant_reopen_requests                              | applicant قبل از user و رد بدون ساخت user              |
+| هویت     | users, profiles, login_challenges, user_sessions, mfa_factors, membership_transitions | role با stage رشد یکی نیست                             |
+| مجوز     | roles, permissions, role_grants, scopes, delegated_grants                             | دامنه استان/پرونده + انقضا/لغو تفویض                   |
+| انتساب   | research_assignments, provincial_assignments, assignment_history                      | دقیقاً یک MAIN و حداکثر یک COLLAB فعال برای هر پژوهش   |
+| پژوهش    | research_cases, stage_instances, stage_transitions, stage_dependencies                | مرحله جاری و وضعیت اعتبار وابستگی جدا                  |
+| منابع    | resources, interviewees, organizations, interviews                                    | UNIQUE(interviews.resource_id)                         |
+| گزارش    | interview_reports, report_revisions, stage_submissions, stage_submission_files        | هر منبع هنگام اتمام گزارش اصلی نسخه‌دار دارد           |
+| داوری    | review_decisions, change_requests, invalidation_events                                | تصمیم فقط روی revision جاری؛ first valid decision wins |
+| سناریو   | scenarios, scenario_revisions, scenario_categories, tags, scenario_tags               | بانک داخلی فقط revision تأییدشده                       |
+| فایل     | stored_objects, file_links, upload_sessions, malware_scan_events                      | object_key غیرقابل حدس و private                       |
+| چت       | conversations, conversation_participants, messages, message_attachments               | یک‌به‌یک با مدیر مرتبط؛ مجوز هر اتصال                  |
+| اعلان    | notifications, notification_receipts                                                  | فوری فقط رخداد نیازمند رسیدگی                          |
+| ممیزی/صف | audit_events, outbox_events, processed_event_keys                                     | immutability و idempotency                             |
+| آرشیو    | archive_jobs, archive_manifests, retention_policies, restore_requests                 | آرشیو ≠ بکاپ                                           |
 
 ### ۶.۳. قیود دیتابیس غیرقابل واگذاری به UI
 
@@ -324,18 +324,18 @@ If identical retry: return idempotent prior response; do not duplicate decision.
 
 هر تصمیم مجوز حاصل **role × action × target × assigned_scope × current_state × delegation** است. Guard در NestJS، Policy Service و Query Scope همگی لازم‌اند. Frontend تنها کنترل نمایش UX است. تغییر انتساب باید در درخواست بعدی اثر داشته باشد؛ برای Socket نیز قطع/بازاعتبارسنجی room اتفاق بیفتد.
 
-| نقش | دسترسی معمول | منع/شرط اساسی |
-|---|---|---|
-| متقاضی | بدون حساب و ورود | فقط پرونده پذیرش داخلی |
-| کارآموز | اسناد مرحله و گفت‌وگوی مجاز | API پژوهش مسدود |
-| کارورز | پژوهش‌های خود و ارسال اصلاح | تصمیم علمی ممنوع |
-| مدیر استانی | کاربران استان + انتساب موردی خارج استان | سایر استان‌ها ممنوع |
-| مدیر علمی اصلی | پرونده‌های منتسب، تصمیم علمی، تعلیق/بازگشت | سایر پژوهش‌ها ممنوع |
-| مدیر علمی همکار | برابر با اصلی در پژوهش منتسب | صرف نقش، دسترسی عمومی نمی‌دهد |
-| مدیر پیگیری | کنترل انتساب، تفویض و ممیزی | تصمیم علمی به‌طور خودکار فرض نشود |
-| معاون پیگیری | فقط قلمرو/مجوز صریح تفویض‌شده | اختیار ذاتی سراسری ندارد |
-| پشتیبانی | چت کاربران مرتبط | دسترسی پیش‌فرض به محتوای پژوهش ندارد |
-| مدیر کل | پایش سراسری و تنظیمات فنی مجاز | قدرت فنی ≠ اختیار داوری علمی |
+| نقش             | دسترسی معمول                                                       | منع/شرط اساسی                        |
+| --------------- | ------------------------------------------------------------------ | ------------------------------------ |
+| متقاضی          | بدون حساب و ورود                                                   | فقط پرونده پذیرش داخلی               |
+| کارآموز         | اسناد مرحله و گفت‌وگوی مجاز                                        | API پژوهش مسدود                      |
+| کارورز          | پژوهش‌های خود و ارسال اصلاح                                        | تصمیم علمی ممنوع                     |
+| مدیر استانی     | کاربران استان + انتساب موردی خارج استان                            | سایر استان‌ها ممنوع                  |
+| مدیر علمی اصلی  | پرونده‌های منتسب، تصمیم علمی، تعلیق/بازگشت                         | سایر پژوهش‌ها ممنوع                  |
+| مدیر علمی همکار | اصطلاح و نقش انتسابی تاریخی؛ برای رفتار جاری D-09 پشتیبانی نمی‌شود | صرف نقش علمی دسترسی یا داوری نمی‌دهد |
+| مدیر پیگیری     | کنترل انتساب، تفویض و ممیزی                                        | تصمیم علمی به‌طور خودکار فرض نشود    |
+| معاون پیگیری    | فقط قلمرو/مجوز صریح تفویض‌شده                                      | اختیار ذاتی سراسری ندارد             |
+| پشتیبانی        | چت کاربران مرتبط                                                   | دسترسی پیش‌فرض به محتوای پژوهش ندارد |
+| مدیر کل         | پایش سراسری و تنظیمات فنی مجاز                                     | قدرت فنی ≠ اختیار داوری علمی         |
 
 ### ۸.۳. حفاظت داده و ممیزی
 
@@ -354,23 +354,23 @@ REST با پیشوند `/api/v1`، مستند OpenAPI، JSON با نام‌گذ�
 
 ### ۹.۲. کاتالوگ Endpoint پیشنهادی
 
-| بخش | مسیر نمونه | عملیات و کنترل |
-|---|---|---|
-| Auth | POST `/auth/login`, `/auth/logout`, `/auth/me` (مسیرهای OTP موکول به فاز بعد) | rate limit, session revoke |
-| Applicants | POST/GET `/applicants`; POST `/:id/decisions`; POST `/:id/reopen-requests` | مدیر استانی/علمی/پیگیری با scope |
-| Users | GET `/users/:id`, PATCH `/:id/status`; POST `/:id/promotions` | stage و account status مستقل |
-| Assignments | POST `/assignments`, DELETE `/:id`, GET `/assignments` | تفویض/اصالت مدیر پیگیری |
-| Research | POST/GET `/research-cases`; GET `/:id/timeline`; POST `/:id/return-stage` | فرایند و scope |
-| Resources | POST `/research-cases/:id/resources`; POST `/resources/:id/interview` | یک مصاحبه به ازای منبع |
-| Reports | POST `/interviews/:id/report-revisions` | upload جدا از interview form |
-| Reviews | POST `/stage-submissions`; POST `/review-decisions` | CAS + idempotency |
-| Changes | POST `/change-requests`; POST `/:id/decisions` | نسخه معتبر بدون تغییر تا تأیید |
-| Scenarios | POST `/scenarios`; POST `/:id/submissions`; GET `/scenario-bank` | بانک فقط داخلی/مجاز |
-| Files | POST `/uploads/initiate`, `/uploads/:id/complete`; GET `/files/:id/download` | scan/private/policy |
-| Chat | GET `/conversations`; GET `/:id/messages`; POST `/:id/messages` | یک‌به‌یک، cursor، idempotency |
-| Notifications | GET `/notifications`; POST `/:id/read` | فقط گیرنده مجاز |
-| Oversight | GET `/audit-events`; GET `/reports/...` | filter + authorization + pagination |
-| Archive | POST `/archive-requests`, POST `/:id/restore` | approval, job, audit |
+| بخش           | مسیر نمونه                                                                    | عملیات و کنترل                      |
+| ------------- | ----------------------------------------------------------------------------- | ----------------------------------- |
+| Auth          | POST `/auth/login`, `/auth/logout`, `/auth/me` (مسیرهای OTP موکول به فاز بعد) | rate limit, session revoke          |
+| Applicants    | POST/GET `/applicants`; POST `/:id/decisions`; POST `/:id/reopen-requests`    | مدیر استانی/علمی/پیگیری با scope    |
+| Users         | GET `/users/:id`, PATCH `/:id/status`; POST `/:id/promotions`                 | stage و account status مستقل        |
+| Assignments   | POST `/assignments`, DELETE `/:id`, GET `/assignments`                        | تفویض/اصالت مدیر پیگیری             |
+| Research      | POST/GET `/research-cases`; GET `/:id/timeline`; POST `/:id/return-stage`     | فرایند و scope                      |
+| Resources     | POST `/research-cases/:id/resources`; POST `/resources/:id/interview`         | یک مصاحبه به ازای منبع              |
+| Reports       | POST `/interviews/:id/report-revisions`                                       | upload جدا از interview form        |
+| Reviews       | POST `/stage-submissions`; POST `/review-decisions`                           | CAS + idempotency                   |
+| Changes       | POST `/change-requests`; POST `/:id/decisions`                                | نسخه معتبر بدون تغییر تا تأیید      |
+| Scenarios     | POST `/scenarios`; POST `/:id/submissions`; GET `/scenario-bank`              | بانک فقط داخلی/مجاز                 |
+| Files         | POST `/uploads/initiate`, `/uploads/:id/complete`; GET `/files/:id/download`  | scan/private/policy                 |
+| Chat          | GET `/conversations`; GET `/:id/messages`; POST `/:id/messages`               | یک‌به‌یک، cursor، idempotency       |
+| Notifications | GET `/notifications`; POST `/:id/read`                                        | فقط گیرنده مجاز                     |
+| Oversight     | GET `/audit-events`; GET `/reports/...`                                       | filter + authorization + pagination |
+| Archive       | POST `/archive-requests`, POST `/:id/restore`                                 | approval, job, audit                |
 
 **نکته:** این‌ها نمونه قراردادند، نه جدول نهایی مسیرهای مصوب. قبل از پیاده‌سازی هر ماژول OpenAPI، DTOها، کدهای خطا و مجوزهای آن در Definition of Ready قفل می‌شوند.
 
@@ -416,15 +416,15 @@ Archive با هدف بازیابی سازمانی و جست‌وجوی مجاز�
 
 ### ۱۱.۱. پیشنهاد Production اولیه (هنوز تصویب نشده)
 
-| جزء | مکان/پیکربندی اولیه | قید |
-|---|---|---|
-| Web/API/Worker/Proxy | VPS-A داخل ایران، ۴ vCPU / ۸GB RAM به‌عنوان نقطه شروع | سرور داده‌محور نیست؛ فقط 80/443 عمومی |
-| PostgreSQL | VPS-B یا DB مدیریت‌شده داخل ایران، ۲–۴ vCPU / ۸GB و NVMe | دسترسی تنها از شبکه خصوصی/VPN، نه اینترنت عمومی |
-| Object Storage | سرویس S3-compatible با موقعیت واقعی داده در ایران | Bucket خصوصی، credentials محدود، lifecycle کنترل‌شده |
-| Backup | مخزن مستقل ترجیحاً failure domain متفاوت داخل ایران | رمزگذاری، off-host، تست restore |
-| SMS | ارائه‌دهنده داخلی با Adapter | SLA و مسیر ارسال/پیامک الگو بررسی شود |
-| DNS/TLS | DNS و گواهی معتبر، reverse proxy | تمدید خودکار با مسیر دسترس‌پذیر |
-| Monitoring | ترکیب metrics، log و alert | حساسیت داده و نگهداری log کنترل شود |
+| جزء                  | مکان/پیکربندی اولیه                                      | قید                                                  |
+| -------------------- | -------------------------------------------------------- | ---------------------------------------------------- |
+| Web/API/Worker/Proxy | VPS-A داخل ایران، ۴ vCPU / ۸GB RAM به‌عنوان نقطه شروع    | سرور داده‌محور نیست؛ فقط 80/443 عمومی                |
+| PostgreSQL           | VPS-B یا DB مدیریت‌شده داخل ایران، ۲–۴ vCPU / ۸GB و NVMe | دسترسی تنها از شبکه خصوصی/VPN، نه اینترنت عمومی      |
+| Object Storage       | سرویس S3-compatible با موقعیت واقعی داده در ایران        | Bucket خصوصی، credentials محدود، lifecycle کنترل‌شده |
+| Backup               | مخزن مستقل ترجیحاً failure domain متفاوت داخل ایران      | رمزگذاری، off-host، تست restore                      |
+| SMS                  | ارائه‌دهنده داخلی با Adapter                             | SLA و مسیر ارسال/پیامک الگو بررسی شود                |
+| DNS/TLS              | DNS و گواهی معتبر، reverse proxy                         | تمدید خودکار با مسیر دسترس‌پذیر                      |
+| Monitoring           | ترکیب metrics، log و alert                               | حساسیت داده و نگهداری log کنترل شود                  |
 
 این پیشنهاد «High Availability» چنددیتاسنتری نیست؛ دو VPS در یک دیتاسنتر نقطه خرابی مشترک دارند. اگر بودجه/فنی تنها یک VPS را مجاز کند، یک VPS برای شروع آزمایشی قابل قبول است ولی برای Production باید ریسک و بکاپ مستقل کتبی تصویب شود. نام ارائه‌دهنده ایران و ظرفیت نهایی پس از PoC شبکه، کیفیت دیسک، پشتیبانی S3 و هزینه تثبیت می‌شود.
 
@@ -453,14 +453,14 @@ PostgreSQL base backup + WAL archiving/PITR؛ نگهداری بکاپ فایل�
 
 ### ۱۲.۳. ماتریس سناریوی بازیابی
 
-| رخداد | روش بازیابی | شواهد لازم |
-|---|---|---|
-| خرابی API | redeploy image سالم | health، contract smoke |
-| خرابی PostgreSQL | restore base + WAL تا point-in-time | شمارش داده، workflow consistency، RPO واقعی |
-| حذف/خرابی Object | restore نسخه شیء + manifest | hash و مجوز دانلود |
-| خطای migration | rollback سازگار یا restore با تایید | dry-run و backup قبل از migration |
-| قطع ارائه‌دهنده اصلی | انتقال با runbook به تامین‌کننده دیگر | تست DNS/TLS/S3/DB، زمان واقعی |
-| تخریب/باج‌افزار | restore از بکاپ مجزا/غیرقابل تغییر | isolation و integrity verification |
+| رخداد                | روش بازیابی                           | شواهد لازم                                  |
+| -------------------- | ------------------------------------- | ------------------------------------------- |
+| خرابی API            | redeploy image سالم                   | health، contract smoke                      |
+| خرابی PostgreSQL     | restore base + WAL تا point-in-time   | شمارش داده، workflow consistency، RPO واقعی |
+| حذف/خرابی Object     | restore نسخه شیء + manifest           | hash و مجوز دانلود                          |
+| خطای migration       | rollback سازگار یا restore با تایید   | dry-run و backup قبل از migration           |
+| قطع ارائه‌دهنده اصلی | انتقال با runbook به تامین‌کننده دیگر | تست DNS/TLS/S3/DB، زمان واقعی               |
+| تخریب/باج‌افزار      | restore از بکاپ مجزا/غیرقابل تغییر    | isolation و integrity verification          |
 
 ## ۱۳. Observability، عملکرد و توسعه ظرفیت
 
@@ -474,14 +474,14 @@ PostgreSQL base backup + WAL archiving/PITR؛ نگهداری بکاپ فایل�
 
 ### ۱۳.۳. مسیر مقیاس‌پذیری
 
-| محرک افزایش بار | اقدام اول | اقدام بعدی |
-|---|---|---|
-| query کند | index، EXPLAIN ANALYZE، pagination | read model/materialized projection |
-| CPU API بالا | profiling و محدودسازی عملیات گران | چند instance Stateless پشت Load Balancer |
-| صف اعلان/آرشیو | worker isolation، retry و backpressure | Redis/BullMQ یا queue مستقل |
-| حجم فایل | lifecycle، multipart/resumable برای فایل بزرگ | storage tiering، CDN فقط برای محتوای مجاز |
-| chat connection زیاد | connection benchmark و sticky/realtime adapter | scaling gateway و message broker مناسب |
-| افزایش داده تاریخی | partition/index و archiving | DB replication / separate reporting store |
+| محرک افزایش بار      | اقدام اول                                      | اقدام بعدی                                |
+| -------------------- | ---------------------------------------------- | ----------------------------------------- |
+| query کند            | index، EXPLAIN ANALYZE، pagination             | read model/materialized projection        |
+| CPU API بالا         | profiling و محدودسازی عملیات گران              | چند instance Stateless پشت Load Balancer  |
+| صف اعلان/آرشیو       | worker isolation، retry و backpressure         | Redis/BullMQ یا queue مستقل               |
+| حجم فایل             | lifecycle، multipart/resumable برای فایل بزرگ  | storage tiering، CDN فقط برای محتوای مجاز |
+| chat connection زیاد | connection benchmark و sticky/realtime adapter | scaling gateway و message broker مناسب    |
+| افزایش داده تاریخی   | partition/index و archiving                    | DB replication / separate reporting store |
 
 مهاجرت به Microservices تنها زمانی مجاز است که شواهد اندازه‌گیری‌شده، نیاز سازمانی و ADR هزینه/فایده آن را اثبات کند؛ تقسیم زودهنگام صرفاً به خاطر واژه «Scalable» ممنوع.
 
@@ -533,15 +533,15 @@ PostgreSQL base backup + WAL archiving/PITR؛ نگهداری بکاپ فایل�
 
 نقشه راه «ترتیب وابستگی‌ها» است؛ هفته و هزینه قطعی ندارد. هر مرحله یک Demo، شواهد تست و Gate تصویب دارد. آماده‌سازی فنی و UX می‌توانند تا حد کنترل‌شده همپوشانی داشته باشند.
 
-| گام | Epicهای اصلی | خروجی قابل تحویل | گیت خروج |
-|---|---|---|---|
-| M0: تثبیت معماری | ADR، مدل تهدید، permission matrix، domain glossary، انتخاب provider | Architecture Baseline 1.0 + قراردادهای حساس | تأیید مالک محصول/مسئول فنی |
-| M1: Foundation | pnpm monorepo، CI، Docker، DB migrations، logging، OpenAPI، design system | نسخه اجراشدنی health+CI | راه‌اندازی تکرارپذیر Local/Staging |
-| M2: Identity & Admission | applicants، password login (OTP deferred)، role/stage، admission/reopen | پذیرش تا کارآموز | AT-01/02/03، تست negative |
-| M3: Assignment & Core Research | assignments/scope، research issue، resources/interview/report، drafts | منابع و داوری | AT-04، تعارض همزمان، منحصر به فرد بودن مصاحبه |
-| M4: Scientific Lifecycle | تبیین، تجویز، سناریو، change request، dependency invalidation | چرخه پژوهش کامل | AT-05/06/07/08/13/16/29/33 |
-| M5: Management & Communications | پنل‌ها، audit view، chat، notifications، archive workflow | عملیات مدیریتی کامل | AT-09/10/11/12/14/15/31/32/34 |
-| M6: Hardening & Launch | performance، security، backup restore، UAT، آموزش | Release Candidate و Production | دروازه D-06 و Go/No-Go |
+| گام                             | Epicهای اصلی                                                              | خروجی قابل تحویل                            | گیت خروج                                      |
+| ------------------------------- | ------------------------------------------------------------------------- | ------------------------------------------- | --------------------------------------------- |
+| M0: تثبیت معماری                | ADR، مدل تهدید، permission matrix، domain glossary، انتخاب provider       | Architecture Baseline 1.0 + قراردادهای حساس | تأیید مالک محصول/مسئول فنی                    |
+| M1: Foundation                  | pnpm monorepo، CI، Docker، DB migrations، logging، OpenAPI، design system | نسخه اجراشدنی health+CI                     | راه‌اندازی تکرارپذیر Local/Staging            |
+| M2: Identity & Admission        | applicants، password login (OTP deferred)، role/stage، admission/reopen   | پذیرش تا کارآموز                            | AT-01/02/03، تست negative                     |
+| M3: Assignment & Core Research  | assignments/scope، research issue، resources/interview/report، drafts     | منابع و داوری                               | AT-04، تعارض همزمان، منحصر به فرد بودن مصاحبه |
+| M4: Scientific Lifecycle        | تبیین، تجویز، سناریو، change request، dependency invalidation             | چرخه پژوهش کامل                             | AT-05/06/07/08/13/16/29/33                    |
+| M5: Management & Communications | پنل‌ها، audit view، chat، notifications، archive workflow                 | عملیات مدیریتی کامل                         | AT-09/10/11/12/14/15/31/32/34                 |
+| M6: Hardening & Launch          | performance، security، backup restore، UAT، آموزش                         | Release Candidate و Production              | دروازه D-06 و Go/No-Go                        |
 
 ### ۱۶.۱. ترتیب کارهای حیاتی و وابستگی
 
@@ -554,55 +554,55 @@ PostgreSQL base backup + WAL archiving/PITR؛ نگهداری بکاپ فایل�
 
 ### ۱۶.۲. بسته‌های کار با شناسه اجرایی
 
-| Work package | نمونه Story/Task قابل شکست | پیش‌نیاز | معیار قبولی |
-|---|---|---|---|
-| WP-01 Foundation | workspace, TypeScript strict, ESLint, format, Codeowners | M0 | `pnpm verify` موفق |
-| WP-02 DevOps | compose local, registry, staging, migrations, health | WP-01 | deploy repeatable |
-| WP-03 Identity | OTP challenge, MFA, session/revoke, suspension | WP-01 | OTP replay/expired rejected |
-| WP-04 Permission | policies, delegation, scope query, audit | WP-03 | 403/404 unauthorized test |
-| WP-05 Admission | applicant draft, review, reject/archive/reopen | WP-03/04 | بدون user تا approval |
-| WP-06 Research | research create, owner assignment, stage state | WP-04 | پژوهش‌های موازی مستقل |
-| WP-07 Resource | resource, person, org, interview unique | WP-06 | دومی rejected even API |
-| WP-08 Files/Reports | upload, antivirus/scan, revisions, reports | WP-02/07 | گزارش در فرم جدا، private |
-| WP-09 Review | submission, approve/rework, CAS, invalidation | WP-06/08 | only one valid decision |
-| WP-10 Scenario | register, review, internal bank | WP-09 | فقط approved published internally |
-| WP-11 Messaging | private conversation, socket, archive | WP-03/04/02 | no cross-scope read |
-| WP-12 Oversight | audit search, notification, action dashboards | WP-04/09 | actor trace and selective alerts |
-| WP-13 Archive/DR | close, archive, backup/PITR, restore | WP-02/11 | recovery drill proven |
-| WP-14 Final UAT | end-to-end, security, load, docs, handover | all | sign-off evidence |
+| Work package        | نمونه Story/Task قابل شکست                               | پیش‌نیاز    | معیار قبولی                       |
+| ------------------- | -------------------------------------------------------- | ----------- | --------------------------------- |
+| WP-01 Foundation    | workspace, TypeScript strict, ESLint, format, Codeowners | M0          | `pnpm verify` موفق                |
+| WP-02 DevOps        | compose local, registry, staging, migrations, health     | WP-01       | deploy repeatable                 |
+| WP-03 Identity      | OTP challenge, MFA, session/revoke, suspension           | WP-01       | OTP replay/expired rejected       |
+| WP-04 Permission    | policies, delegation, scope query, audit                 | WP-03       | 403/404 unauthorized test         |
+| WP-05 Admission     | applicant draft, review, reject/archive/reopen           | WP-03/04    | بدون user تا approval             |
+| WP-06 Research      | research create, owner assignment, stage state           | WP-04       | پژوهش‌های موازی مستقل             |
+| WP-07 Resource      | resource, person, org, interview unique                  | WP-06       | دومی rejected even API            |
+| WP-08 Files/Reports | upload, antivirus/scan, revisions, reports               | WP-02/07    | گزارش در فرم جدا، private         |
+| WP-09 Review        | submission, approve/rework, CAS, invalidation            | WP-06/08    | only one valid decision           |
+| WP-10 Scenario      | register, review, internal bank                          | WP-09       | فقط approved published internally |
+| WP-11 Messaging     | private conversation, socket, archive                    | WP-03/04/02 | no cross-scope read               |
+| WP-12 Oversight     | audit search, notification, action dashboards            | WP-04/09    | actor trace and selective alerts  |
+| WP-13 Archive/DR    | close, archive, backup/PITR, restore                     | WP-02/11    | recovery drill proven             |
+| WP-14 Final UAT     | end-to-end, security, load, docs, handover               | all         | sign-off evidence                 |
 
 ## ۱۷. ریسک‌ها، پاسخ و تصمیم‌های باز
 
-| ریسک | احتمال/اثر کیفی | کنترل/اقدام |
-|---|---|---|
-| تغییر دامنه پنهان و افزودن فاز آینده | زیاد/زیاد | FR traceability، CR رسمی، feature flags |
-| ناسازگاری تصمیم دو مدیر | متوسط/زیاد | transaction/CAS، unique، idempotency، race test |
-| افشای داده استان/پرونده | متوسط/بسیار زیاد | server-side scope، negative tests، audit |
-| از بین رفتن فایل یا چت آرشیوی | متوسط/بسیار زیاد | S3 private، manifest، backup جدا، restore drill |
-| وابستگی به ارائه‌دهنده ایرانی | متوسط/زیاد | adapter، export/runbook، آزمون switching |
-| قطع شبکه/سرویس SMS | متوسط/متوسط | SMS adapter، monitoring، retry controlled |
-| مهاجرت مخرب دیتابیس | متوسط/زیاد | expand-contract migrations، staging، restore plan |
-| پایش و لاگ حاوی داده حساس | متوسط/زیاد | redaction و ACL، retention policy |
-| رشد اتصال چت/فایل | نامعلوم/متوسط | load test، worker isolation، queue on demand |
+| ریسک                                 | احتمال/اثر کیفی  | کنترل/اقدام                                       |
+| ------------------------------------ | ---------------- | ------------------------------------------------- |
+| تغییر دامنه پنهان و افزودن فاز آینده | زیاد/زیاد        | FR traceability، CR رسمی، feature flags           |
+| ناسازگاری تصمیم دو مدیر              | متوسط/زیاد       | transaction/CAS، unique، idempotency، race test   |
+| افشای داده استان/پرونده              | متوسط/بسیار زیاد | server-side scope، negative tests، audit          |
+| از بین رفتن فایل یا چت آرشیوی        | متوسط/بسیار زیاد | S3 private، manifest، backup جدا، restore drill   |
+| وابستگی به ارائه‌دهنده ایرانی        | متوسط/زیاد       | adapter، export/runbook، آزمون switching          |
+| قطع شبکه/سرویس SMS                   | متوسط/متوسط      | SMS adapter، monitoring، retry controlled         |
+| مهاجرت مخرب دیتابیس                  | متوسط/زیاد       | expand-contract migrations، staging، restore plan |
+| پایش و لاگ حاوی داده حساس            | متوسط/زیاد       | redaction و ACL، retention policy                 |
+| رشد اتصال چت/فایل                    | نامعلوم/متوسط    | load test، worker isolation، queue on demand      |
 
 ### ۱۷.۱. دفتر تصمیم معماری و وضعیت
 
-| ID | تصمیم | وضعیت | اقدام لازم |
-|---|---|---|---|
-| DEC-001 | میزبانی داخل ایران | انتخاب‌شده توسط کاربر | بررسی تعهد محل داده در قرارداد |
-| ADR-001 | Modular Monolith + API-First | پیشنهادی | تصویب مسئول فنی |
-| ADR-002 | React + Vite برای پنل، NestJS برای API | پیشنهادی | PoC و سازگاری تیم |
-| ADR-003 | PostgreSQL + Prisma ORM | مصوب | مدل‌سازی متمرکز و مایگریشن‌های ساختاریافته |
-| ADR-004 | pnpm Monorepo، مرز ماژول و OpenAPI client | پیشنهادی | تثبیت tooling |
-| ADR-005 | دو VPS برای Production، Object Storage مستقل | پیشنهادی (تأیید نشده) | مقایسه VPS/Managed، قیمت و شبکه |
-| ADR-006 | Outbox + DB-backed Worker در شروع | پیشنهادی | آزمون حجم و نیاز Redis |
-| ADR-007 | Session و MFA مستقل برای مدیران | پیشنهاد اجرایی مطابق RFP | تصویب روش و سیاست بازیابی عامل |
-| ADR-008 | RPO ۱ ساعت و RTO ۴ ساعت | هدف پیشنهادی، نه تعهد | Restore Drill و تصویب |
-| ADR-009 | تفکیک منطقی آرشیو از داده فعال | پیشنهادی مطابق الزام RFP | Retention/ACL/Restore approval |
-| ADR-010 | حد ۲۵MB برای فایل معمولی | فقط هدف اولیه RFP | تصویب limits بر حسب MIME/use case |
-| ADR-011 | دوره نگهداری/حذف داده مصاحبه و چت | باز؛ نیاز حقوقی/محصولی | سیاست رسمی پیش از Production |
-| ADR-012 | SMS، VPS و S3 Provider ایرانی | باز | PoC کیفیت، قرارداد، انتقال‌پذیری |
-| ADR-013 | انتخاب دقیق Router، Test Runner و Node LTS | باز اجرایی | ADR+lockfile نخستین Sprint |
+| ID      | تصمیم                                        | وضعیت                    | اقدام لازم                                 |
+| ------- | -------------------------------------------- | ------------------------ | ------------------------------------------ |
+| DEC-001 | میزبانی داخل ایران                           | انتخاب‌شده توسط کاربر    | بررسی تعهد محل داده در قرارداد             |
+| ADR-001 | Modular Monolith + API-First                 | پیشنهادی                 | تصویب مسئول فنی                            |
+| ADR-002 | React + Vite برای پنل، NestJS برای API       | پیشنهادی                 | PoC و سازگاری تیم                          |
+| ADR-003 | PostgreSQL + Prisma ORM                      | مصوب                     | مدل‌سازی متمرکز و مایگریشن‌های ساختاریافته |
+| ADR-004 | pnpm Monorepo، مرز ماژول و OpenAPI client    | پیشنهادی                 | تثبیت tooling                              |
+| ADR-005 | دو VPS برای Production، Object Storage مستقل | پیشنهادی (تأیید نشده)    | مقایسه VPS/Managed، قیمت و شبکه            |
+| ADR-006 | Outbox + DB-backed Worker در شروع            | پیشنهادی                 | آزمون حجم و نیاز Redis                     |
+| ADR-007 | Session و MFA مستقل برای مدیران              | پیشنهاد اجرایی مطابق RFP | تصویب روش و سیاست بازیابی عامل             |
+| ADR-008 | RPO ۱ ساعت و RTO ۴ ساعت                      | هدف پیشنهادی، نه تعهد    | Restore Drill و تصویب                      |
+| ADR-009 | تفکیک منطقی آرشیو از داده فعال               | پیشنهادی مطابق الزام RFP | Retention/ACL/Restore approval             |
+| ADR-010 | حد ۲۵MB برای فایل معمولی                     | فقط هدف اولیه RFP        | تصویب limits بر حسب MIME/use case          |
+| ADR-011 | دوره نگهداری/حذف داده مصاحبه و چت            | باز؛ نیاز حقوقی/محصولی   | سیاست رسمی پیش از Production               |
+| ADR-012 | SMS، VPS و S3 Provider ایرانی                | باز                      | PoC کیفیت، قرارداد، انتقال‌پذیری           |
+| ADR-013 | انتخاب دقیق Router، Test Runner و Node LTS   | باز اجرایی               | ADR+lockfile نخستین Sprint                 |
 
 ### ۱۷.۲. تصویب‌های اجباری قبل از Production
 
@@ -644,82 +644,82 @@ PostgreSQL base backup + WAL archiving/PITR؛ نگهداری بکاپ فایل�
 
 این ماتریس از **عناوین RFP v1.0** استخراج و با ماژول و گام اجرایی پیشنهادی نگاشت شده است؛ عنوان‌ها متعلق به RFP، نگاشت‌ها و گیت‌ها پیشنهاد فنی‌اند. ارجاع AT در صورت وجود از آزمون‌های RFP است و جایگزین تست‌های ریزتر نمی‌شود.
 
-| شناسه | عنوان نیازمندی RFP | ماژول مالک پیشنهادی | گام | شاهد UAT |
-|---|---|---|---|---|
-| FR-001 | ثبت متقاضی توسط مدیر استانی | `applicants` | M2 | AT-01 |
-| FR-002 | ارجاع برای مصاحبه/تأیید علمی | `applicants/reviews` | M2 | تست اختصاصی + بازبینی FR |
-| FR-003 | شروع فعالیت در وضعیت کارآموز | `identity/documents/messaging` | M2 | AT-02 |
-| FR-004 | تأیید ارتقا به کارورز | `identity` | M2 | AT-03 |
-| FR-005 | ارتقا به مسئله‌پژوه | `OUT-OF-MVP` | Future | تست اختصاصی + بازبینی FR |
-| FR-006 | کتابخانه منابع و شیوه‌نامه‌ها | `documents/files` | M2 | تست اختصاصی + بازبینی FR |
-| FR-007 | مدیریت نسخه اسناد | `documents/files` | M2 | تست اختصاصی + بازبینی FR |
-| FR-008 | تعریف مسئله توسط مدیر علمی | `research/assignments` | M3 | تست اختصاصی + بازبینی FR |
-| FR-009 | پرونده و وضعیت پژوهش | `research` | M3 | تست اختصاصی + بازبینی FR |
-| FR-010 | ثبت منابع بدون سقف تجاری ثابت | `resources` | M3 | تست اختصاصی + بازبینی FR |
-| FR-011 | اطلاعات فرد مصاحبه‌شونده | `resources` | M3 | تست اختصاصی + بازبینی FR |
-| FR-012 | اطلاعات مجموعه وابسته | `organization/resources` | M3 | تست اختصاصی + بازبینی FR |
-| FR-013 | ثبت مشخصات مصاحبه | `resources` | M3 | AT-04, AT-30 |
-| FR-014 | گزارش و فایل‌های هر منبع | `resources/files` | M3 | AT-04, AT-30 |
-| FR-015 | ورود به تبیین پس از تکمیل منابع | `research/reviews` | M3 | AT-04 |
-| FR-016 | ارسال گزارش تبیین | `research/reviews` | M4 | تست اختصاصی + بازبینی FR |
-| FR-017 | بازخورد و اصلاح تبیین | `research/reviews` | M4 | AT-05 |
-| FR-018 | تأیید تبیین | `research/reviews` | M4 | AT-06 |
-| FR-019 | ارسال/اصلاح گزارش تجویز | `research/reviews` | M4 | AT-07 |
-| FR-020 | تأیید تجویز و شروع سناریو | `research/reviews` | M4 | AT-07 |
-| FR-021 | ایجاد سناریو | `scenarios` | M4 | AT-08 |
-| FR-022 | بایگانی پژوهش‌ها و درخواست تغییر | `reviews/change-requests` | M4 | AT-13 |
-| FR-023 | آماده‌سازی داده سناریو برای بانک آینده | `scenarios` | M4 | تست اختصاصی + بازبینی FR |
-| FR-024 | چت‌روم کاربران | `messaging` | M5 | AT-10 |
-| FR-025 | نگهداری تاریخچه و بایگانی چت | `messaging/archival` | M5 | AT-14 |
-| FR-026 | پنل مدیر استانی | `reporting/authorization` | M5 | AT-09/15 |
-| FR-027 | کارتابل مدیر علمی | `reviews/reporting` | M5 | تست اختصاصی + بازبینی FR |
-| FR-028 | داشبورد مدیر پیگیری | `assignments/audit/reporting` | M5 | تست اختصاصی + بازبینی FR |
-| FR-029 | ارجاع به معاونان پیگیری | `authorization/assignments` | M5 | AT-11 |
-| FR-030 | چت مدیر پشتیبانی | `messaging` | M5 | تست اختصاصی + بازبینی FR |
-| FR-031 | پنل مدیر کل | `reporting/settings` | M5 | تست اختصاصی + بازبینی FR |
-| FR-032 | ممیزی تصمیم‌ها و رویدادهای حساس | `audit` | M1+M5 | AT-29/31/32 |
-| FR-033 | آرشیو متقاضی ردشده و بررسی مجدد | `applicants` | M2 | تست اختصاصی + بازبینی FR |
-| FR-034 | چرخه داوری منابع | `reviews` | M3 | تست اختصاصی + بازبینی FR |
-| FR-035 | تعلیق حساب و بازگشت مرحله | `identity/research` | M4 | AT-12 |
-| FR-036 | تأیید اصلاح محتوای بایگانی‌شده | `reviews/change-requests` | M4 | تست اختصاصی + بازبینی FR |
-| FR-037 | انتساب بین‌استانی مدیر استانی | `assignments/authorization` | M3 | AT-15 |
-| FR-038 | دسترسی عملیاتی معاون پیگیری | `authorization` | M3 | تست اختصاصی + بازبینی FR |
-| FR-039 | آرشیو پایدار چت خصوصی | `archival/messaging` | M5 | تست اختصاصی + بازبینی FR |
-| FR-040 | داوری علمی سناریو و درج در بانک | `scenarios/reviews` | M4 | AT-16 |
-| FR-041 | چند پژوهش همزمان و مدیران علمی هم‌سطح | `research/assignments` | M3 | تست اختصاصی + بازبینی FR |
-| FR-042 | فیلد سن اجباری | `applicants/resources` | M2+M3 | تست اختصاصی + بازبینی FR |
-| FR-043 | گام مستقل بارگذاری گزارش مصاحبه | `resources/files` | M3 | تست اختصاصی + بازبینی FR |
-| FR-044 | ذخیره پیش‌نویس و فرم‌های چندمرحله‌ای | `applicants/resources/scenarios` | M3+M4 | تست اختصاصی + بازبینی FR |
-| FR-045 | انتساب مدیر علمی اصلی و همکار | `assignments/reviews` | M3 | تست اختصاصی + بازبینی FR |
-| FR-046 | کنترل مرکز انتساب‌ها | `assignments` | M3 | تست اختصاصی + بازبینی FR |
-| FR-047 | لاگ تصمیم علمی برای پیگیری | `audit` | M1+M5 | تست اختصاصی + بازبینی FR |
-| FR-048 | داشبوردهای ساده نقش‌محور | `reporting` | M5 | تست اختصاصی + بازبینی FR |
-| FR-049 | ورود امن کاربران و مدیران (OTP موکول به فاز بعد) | `identity` | M2 (ورود گذرواژه) | AT-01 |
-| FR-050 | مرکز اعلان درون‌سامانه‌ای | `notifications` | M5 | تست اختصاصی + بازبینی FR |
-| FR-051 | تایم‌لاین پرونده | `audit/research` | M4 | تست اختصاصی + بازبینی FR |
-| FR-052 | تنظیمات قابل مدیریت | `settings` | M5 | تست اختصاصی + بازبینی FR |
-| FR-053 | درخواست تغییر روی داده تأییدشده | `reviews/change-requests` | M4 | تست اختصاصی + بازبینی FR |
-| FR-054 | تغییر مدیر علمی بدون اختلال | `assignments/research` | M3 | تست اختصاصی + بازبینی FR |
-| FR-055 | آرشیو امن و توسعه‌پذیر | `archival/files` | M5 | تست اختصاصی + بازبینی FR |
-| FR-056 | ثبت سن فقط به‌صورت عددی | `applicants/resources` | M2+M3 | AT-28 |
-| FR-057 | کفایت یک تصمیم علمی معتبر | `reviews` | M4 | AT-29 |
-| FR-058 | رابطه یکتای منبع و مصاحبه | `resources` | M3 | AT-30 |
-| FR-059 | حدود انتساب مدیر علمی همکار | `assignments` | M3 | AT-31 |
-| FR-060 | سیاست نظارت و اعلان گزینشی | `audit/notifications` | M5 | AT-32 |
-| FR-061 | بازبینی مراحل وابسته پس از بازگشت | `research/reviews` | M4 | AT-33 |
-| FR-062 | آرشیو پایدار و دروازه تصویب زیرساخت | `archival/operations` | M5+M6 | AT-34 |
+| شناسه  | عنوان نیازمندی RFP                               | ماژول مالک پیشنهادی              | گام               | شاهد UAT                 |
+| ------ | ------------------------------------------------ | -------------------------------- | ----------------- | ------------------------ |
+| FR-001 | ثبت متقاضی توسط مدیر استانی                      | `applicants`                     | M2                | AT-01                    |
+| FR-002 | ارجاع برای مصاحبه/تأیید علمی                     | `applicants/reviews`             | M2                | تست اختصاصی + بازبینی FR |
+| FR-003 | شروع فعالیت در وضعیت کارآموز                     | `identity/documents/messaging`   | M2                | AT-02                    |
+| FR-004 | تأیید ارتقا به کارورز                            | `identity`                       | M2                | AT-03                    |
+| FR-005 | ارتقا به مسئله‌پژوه                              | `OUT-OF-MVP`                     | Future            | تست اختصاصی + بازبینی FR |
+| FR-006 | کتابخانه منابع و شیوه‌نامه‌ها                    | `documents/files`                | M2                | تست اختصاصی + بازبینی FR |
+| FR-007 | مدیریت نسخه اسناد                                | `documents/files`                | M2                | تست اختصاصی + بازبینی FR |
+| FR-008 | تعریف مسئله توسط مدیر علمی                       | `research/assignments`           | M3                | تست اختصاصی + بازبینی FR |
+| FR-009 | پرونده و وضعیت پژوهش                             | `research`                       | M3                | تست اختصاصی + بازبینی FR |
+| FR-010 | ثبت منابع بدون سقف تجاری ثابت                    | `resources`                      | M3                | تست اختصاصی + بازبینی FR |
+| FR-011 | اطلاعات فرد مصاحبه‌شونده                         | `resources`                      | M3                | تست اختصاصی + بازبینی FR |
+| FR-012 | اطلاعات مجموعه وابسته                            | `organization/resources`         | M3                | تست اختصاصی + بازبینی FR |
+| FR-013 | ثبت مشخصات مصاحبه                                | `resources`                      | M3                | AT-04, AT-30             |
+| FR-014 | گزارش و فایل‌های هر منبع                         | `resources/files`                | M3                | AT-04, AT-30             |
+| FR-015 | ورود به تبیین پس از تکمیل منابع                  | `research/reviews`               | M3                | AT-04                    |
+| FR-016 | ارسال گزارش تبیین                                | `research/reviews`               | M4                | تست اختصاصی + بازبینی FR |
+| FR-017 | بازخورد و اصلاح تبیین                            | `research/reviews`               | M4                | AT-05                    |
+| FR-018 | تأیید تبیین                                      | `research/reviews`               | M4                | AT-06                    |
+| FR-019 | ارسال/اصلاح گزارش تجویز                          | `research/reviews`               | M4                | AT-07                    |
+| FR-020 | تأیید تجویز و شروع سناریو                        | `research/reviews`               | M4                | AT-07                    |
+| FR-021 | ایجاد سناریو                                     | `scenarios`                      | M4                | AT-08                    |
+| FR-022 | بایگانی پژوهش‌ها و درخواست تغییر                 | `reviews/change-requests`        | M4                | AT-13                    |
+| FR-023 | آماده‌سازی داده سناریو برای بانک آینده           | `scenarios`                      | M4                | تست اختصاصی + بازبینی FR |
+| FR-024 | چت‌روم کاربران                                   | `messaging`                      | M5                | AT-10                    |
+| FR-025 | نگهداری تاریخچه و بایگانی چت                     | `messaging/archival`             | M5                | AT-14                    |
+| FR-026 | پنل مدیر استانی                                  | `reporting/authorization`        | M5                | AT-09/15                 |
+| FR-027 | کارتابل مدیر علمی                                | `reviews/reporting`              | M5                | تست اختصاصی + بازبینی FR |
+| FR-028 | داشبورد مدیر پیگیری                              | `assignments/audit/reporting`    | M5                | تست اختصاصی + بازبینی FR |
+| FR-029 | ارجاع به معاونان پیگیری                          | `authorization/assignments`      | M5                | AT-11                    |
+| FR-030 | چت مدیر پشتیبانی                                 | `messaging`                      | M5                | تست اختصاصی + بازبینی FR |
+| FR-031 | پنل مدیر کل                                      | `reporting/settings`             | M5                | تست اختصاصی + بازبینی FR |
+| FR-032 | ممیزی تصمیم‌ها و رویدادهای حساس                  | `audit`                          | M1+M5             | AT-29/31/32              |
+| FR-033 | آرشیو متقاضی ردشده و بررسی مجدد                  | `applicants`                     | M2                | تست اختصاصی + بازبینی FR |
+| FR-034 | چرخه داوری منابع                                 | `reviews`                        | M3                | تست اختصاصی + بازبینی FR |
+| FR-035 | تعلیق حساب و بازگشت مرحله                        | `identity/research`              | M4                | AT-12                    |
+| FR-036 | تأیید اصلاح محتوای بایگانی‌شده                   | `reviews/change-requests`        | M4                | تست اختصاصی + بازبینی FR |
+| FR-037 | انتساب بین‌استانی مدیر استانی                    | `assignments/authorization`      | M3                | AT-15                    |
+| FR-038 | دسترسی عملیاتی معاون پیگیری                      | `authorization`                  | M3                | تست اختصاصی + بازبینی FR |
+| FR-039 | آرشیو پایدار چت خصوصی                            | `archival/messaging`             | M5                | تست اختصاصی + بازبینی FR |
+| FR-040 | داوری علمی سناریو و درج در بانک                  | `scenarios/reviews`              | M4                | AT-16                    |
+| FR-041 | چند پژوهش همزمان و مدیران علمی هم‌سطح            | `research/assignments`           | M3                | تست اختصاصی + بازبینی FR |
+| FR-042 | فیلد سن اجباری                                   | `applicants/resources`           | M2+M3             | تست اختصاصی + بازبینی FR |
+| FR-043 | گام مستقل بارگذاری گزارش مصاحبه                  | `resources/files`                | M3                | تست اختصاصی + بازبینی FR |
+| FR-044 | ذخیره پیش‌نویس و فرم‌های چندمرحله‌ای             | `applicants/resources/scenarios` | M3+M4             | تست اختصاصی + بازبینی FR |
+| FR-045 | یک مدیر علمی مادام‌العمر برای فرد و مالک پژوهش   | `assignments/research/reviews`   | M3                | D-09 / AT-39             |
+| FR-046 | کنترل مرکز انتساب‌ها                             | `assignments`                    | M3                | تست اختصاصی + بازبینی FR |
+| FR-047 | لاگ تصمیم علمی برای پیگیری                       | `audit`                          | M1+M5             | تست اختصاصی + بازبینی FR |
+| FR-048 | داشبوردهای ساده نقش‌محور                         | `reporting`                      | M5                | تست اختصاصی + بازبینی FR |
+| FR-049 | ورود امن کاربران و مدیران (OTP موکول به فاز بعد) | `identity`                       | M2 (ورود گذرواژه) | AT-01                    |
+| FR-050 | مرکز اعلان درون‌سامانه‌ای                        | `notifications`                  | M5                | تست اختصاصی + بازبینی FR |
+| FR-051 | تایم‌لاین پرونده                                 | `audit/research`                 | M4                | تست اختصاصی + بازبینی FR |
+| FR-052 | تنظیمات قابل مدیریت                              | `settings`                       | M5                | تست اختصاصی + بازبینی FR |
+| FR-053 | درخواست تغییر روی داده تأییدشده                  | `reviews/change-requests`        | M4                | تست اختصاصی + بازبینی FR |
+| FR-054 | حفظ سابقه و جلوگیری از تغییر مدیر علمی همان فرد  | `assignments/research`           | M3                | D-09 / AT-39             |
+| FR-055 | آرشیو امن و توسعه‌پذیر                           | `archival/files`                 | M5                | تست اختصاصی + بازبینی FR |
+| FR-056 | ثبت سن فقط به‌صورت عددی                          | `applicants/resources`           | M2+M3             | AT-28                    |
+| FR-057 | کفایت یک تصمیم علمی معتبر                        | `reviews`                        | M4                | AT-29                    |
+| FR-058 | رابطه یکتای منبع و مصاحبه                        | `resources`                      | M3                | AT-30                    |
+| FR-059 | ممنوعیت مدیر همکار یا جایگزین برای فرد           | `assignments`                    | M3                | D-09 / AT-39             |
+| FR-060 | سیاست نظارت و اعلان گزینشی                       | `audit/notifications`            | M5                | AT-32                    |
+| FR-061 | بازبینی مراحل وابسته پس از بازگشت                | `research/reviews`               | M4                | AT-33                    |
+| FR-062 | آرشیو پایدار و دروازه تصویب زیرساخت              | `archival/operations`            | M5+M6             | AT-34                    |
 
 ## پیوست B. کنترل اختلاف تفسیر و اولویت منابع
 
-| موضوع | برداشت اجرایی درست | مرجع و کنترل |
-|---|---|---|
+| موضوع                                 | برداشت اجرایی درست                                                                                                                                                                                          | مرجع و کنترل                        |
+| ------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------- |
 | اعلان‌های FR-050 در برابر D-04/FR-060 | اعلان مرتبط با اقدام کاربر مقصد می‌تواند در Inbox او ثبت شود؛ **اعلان فوری نظارتی مدیر پیگیری** فقط تعلیق، انتقال مسئول و رخدادهای نیازمند رسیدگی را پوشش دهد. تأیید عادی در Audit Search قابل بازیابی است. | RFP FR-050 و D-04/FR-060؛ تست AT-32 |
-| هر پژوهش چند مدیر علمی | دقیقاً یک مدیر اصلی فعال، حداکثر یک همکار فعال در MVP؛ اختیار داوری برابر؛ تأیید یکی کافی؛ انتساب با پیگیری/تفویض صریح. | D-02, D-03, BR-13, FR-057/059 |
-| رابطه منبع و مصاحبه | Draft می‌تواند فاقد مصاحبه باشد؛ هنگام «اتمام» دقیقاً یک مصاحبه و یک گزارش اصلی با revision؛ مصاحبه دوم در API و DB ممنوع. | D-07, BR-16, FR-058 |
-| برگشت مرحله پس از تأیید | خروجی‌های تاریخی محفوظ؛ خروجی وابسته جاری غیرنهایی و نیازمند بازبینی؛ بانک سناریو نباید نسخه نامعتبر را منتشر کند. | D-05, BR-18, FR-061 |
-| حد فایل و ظرفیت | ۲۵MB، ۱۰۰ کاربر همزمان و P95<2s هدف آزمون است، نه تعهد/سقف کلی دائمی؛ صدور SLA پس از تست. | RFP بخش‌های ۲ و ۹، D-06 |
-| نقش مدیر کل در برابر تصمیم علمی | مدیر کل به‌صورت پیش‌فرض مسئول تصمیم علمی پرونده نیست؛ کنترل فنی با داوری علمی تفکیک شود. | RFP FR-031 و فصل نقش‌ها |
-| آرشیو و حذف داده | دوام آرشیو و دسترسی محدود الزام است؛ زمان نگهداری و حذف قانونی عدد مصوب ندارد و باید قبل از داده واقعی تصویب شود. | D-06, FR-025/039/062 |
+| مدیران علمی                           | هر فرد یک مدیر علمی مادام‌العمر؛ پرونده از همان مالک-مدیر تبعیت می‌کند؛ مدیر دوم و جایگزینی ممنوع. نقش سیستمی به‌تنهایی دسترسی نمی‌دهد.                                                                     | D-09؛ supersedes D-03 / FR-045/059  |
+| رابطه منبع و مصاحبه                   | Draft می‌تواند فاقد مصاحبه باشد؛ هنگام «اتمام» دقیقاً یک مصاحبه و یک گزارش اصلی با revision؛ مصاحبه دوم در API و DB ممنوع.                                                                                  | D-07, BR-16, FR-058                 |
+| برگشت مرحله پس از تأیید               | خروجی‌های تاریخی محفوظ؛ خروجی وابسته جاری غیرنهایی و نیازمند بازبینی؛ بانک سناریو نباید نسخه نامعتبر را منتشر کند.                                                                                          | D-05, BR-18, FR-061                 |
+| حد فایل و ظرفیت                       | ۲۵MB، ۱۰۰ کاربر همزمان و P95<2s هدف آزمون است، نه تعهد/سقف کلی دائمی؛ صدور SLA پس از تست.                                                                                                                   | RFP بخش‌های ۲ و ۹، D-06             |
+| نقش مدیر کل در برابر تصمیم علمی       | مدیر کل به‌صورت پیش‌فرض مسئول تصمیم علمی پرونده نیست؛ کنترل فنی با داوری علمی تفکیک شود.                                                                                                                    | RFP FR-031 و فصل نقش‌ها             |
+| آرشیو و حذف داده                      | دوام آرشیو و دسترسی محدود الزام است؛ زمان نگهداری و حذف قانونی عدد مصوب ندارد و باید قبل از داده واقعی تصویب شود.                                                                                           | D-06, FR-025/039/062                |
 
 ## پیوست C. دستورهای مبنا برای تیم توسعه
 
@@ -748,20 +748,20 @@ pnpm db:migrate
 
 این پیوست پیشنهاد اجراست و هیچ فناوری یا زمان‌بندی جدیدی را به مصوبات محصول تحمیل نمی‌کند. مسئول فنی پس از تأیید اولیه، هر ردیف را در ابزار مدیریت پروژه به Epic/Story/Task با مالک و معیار پذیرش تبدیل می‌کند.
 
-| ترتیب | اقدام واقعی | خروجی کنترل‌پذیر | معیار توقف/قبولی |
-|---|---|---|---|
-| D0-01 | ثبت RFP v1.0 در مخزن مستندات و تعیین Product Owner | شناسه منبع حقیقت و Change Request template | لینک مستقیم FR/BR/D در هر Story |
-| D0-02 | تصویب ADR معماری و انتخاب‌های تکنولوژی | ADR-001 تا ADR-004 با مسئول و تاریخ | بدون ADR، هیچ سرویس نهایی انتخاب نشود |
-| D0-03 | نهایی‌سازی سیاست Role/Scope/Delegation | ماتریس CRUD/Action برای هر نقش و پرونده | تست منفی برای مدیر غیرمنتسب |
-| D0-04 | PoC همزمانی دو مدیر علمی | تراکنش تصمیم نمونه + تست Race واقعی در PostgreSQL | تنها یک تصمیم معتبر، دیگری 409 |
-| D0-05 | PoC Applicant بدون User | مدل پذیرش + تأیید/رد + ساخت حساب | قبل از approval هیچ user ایجاد نشود |
-| D0-06 | PoC یکتایی مصاحبه | UNIQUE و اعتبارسنجی تکمیل منابع | مصاحبه دوم از API رد شود |
-| D0-07 | ارزیابی Provider داخل ایران | برگه امتیاز VPS/DB/S3/SMS و تست شبکه | موقعیت داده، پشتیبانی و Backup مستند |
-| D0-08 | Bootstrap واقعی Monorepo | pnpm lockfile، NestJS، Vite و migrations | CI سبز و یک فرمان اجرای محلی |
-| D0-09 | تعریف قرارداد OpenAPI + client generator | API sample versioned و client تولیدشده | Frontend بدون import از ORM کار کند |
-| D0-10 | ساخت Audit/Outbox پایه | یک عملیات حساس اتمیک + Worker mock | قطع Worker تصمیم اصلی را خراب نکند |
-| D0-11 | آماده‌سازی داده مصنوعی، UX و UAT | Fixture roles/cases و سناریوهای انتها به انتها | آزمون بدون داده واقعی |
-| D0-12 | طراحی Release Gate و عملیات | Runbook، Backup/Restore برنامه‌ریزی‌شده | معیارهای Go/No-Go کتبی |
+| ترتیب | اقدام واقعی                                        | خروجی کنترل‌پذیر                                           | معیار توقف/قبولی                                                      |
+| ----- | -------------------------------------------------- | ---------------------------------------------------------- | --------------------------------------------------------------------- |
+| D0-01 | ثبت RFP v1.0 در مخزن مستندات و تعیین Product Owner | شناسه منبع حقیقت و Change Request template                 | لینک مستقیم FR/BR/D در هر Story                                       |
+| D0-02 | تصویب ADR معماری و انتخاب‌های تکنولوژی             | ADR-001 تا ADR-004 با مسئول و تاریخ                        | بدون ADR، هیچ سرویس نهایی انتخاب نشود                                 |
+| D0-03 | نهایی‌سازی سیاست Role/Scope/Delegation             | ماتریس CRUD/Action برای هر نقش و پرونده                    | تست منفی برای مدیر غیرمنتسب                                           |
+| D0-04 | PoC کنترل نسخه و قیود انتساب D-09                  | تراکنش تصمیم + تست Race و unique index واقعی در PostgreSQL | یک انتساب مادام‌العمر؛ تنها یک تصمیم معتبر در نسخه، تلاش stale با 409 |
+| D0-05 | PoC Applicant بدون User                            | مدل پذیرش + تأیید/رد + ساخت حساب                           | قبل از approval هیچ user ایجاد نشود                                   |
+| D0-06 | PoC یکتایی مصاحبه                                  | UNIQUE و اعتبارسنجی تکمیل منابع                            | مصاحبه دوم از API رد شود                                              |
+| D0-07 | ارزیابی Provider داخل ایران                        | برگه امتیاز VPS/DB/S3/SMS و تست شبکه                       | موقعیت داده، پشتیبانی و Backup مستند                                  |
+| D0-08 | Bootstrap واقعی Monorepo                           | pnpm lockfile، NestJS، Vite و migrations                   | CI سبز و یک فرمان اجرای محلی                                          |
+| D0-09 | تعریف قرارداد OpenAPI + client generator           | API sample versioned و client تولیدشده                     | Frontend بدون import از ORM کار کند                                   |
+| D0-10 | ساخت Audit/Outbox پایه                             | یک عملیات حساس اتمیک + Worker mock                         | قطع Worker تصمیم اصلی را خراب نکند                                    |
+| D0-11 | آماده‌سازی داده مصنوعی، UX و UAT                   | Fixture roles/cases و سناریوهای انتها به انتها             | آزمون بدون داده واقعی                                                 |
+| D0-12 | طراحی Release Gate و عملیات                        | Runbook، Backup/Restore برنامه‌ریزی‌شده                    | معیارهای Go/No-Go کتبی                                                |
 
 **تعریف خروجی Sprint نخست:** یک مخزن قابل نصب و اجرا با Frontend پوسته، API سلامت، PostgreSQL محلی، migration نمونه، احراز هویت آزمایشی (نه واقعی Production)، مستند OpenAPI، CI سالم، آزمایش تعارض تصمیم علمی و تست سطح دسترسی منفی؛ هیچ ادعایی درباره تکمیل قابلیت‌های محصول مطرح نشود.
 
@@ -771,15 +771,15 @@ pnpm db:migrate
 
 این بخش باید پس از بازبینی با اطلاعات واقعی تکمیل شود. «موافقت کلی با پروپزال» جایگزین گیت‌های امنیت و بهره‌برداری نیست؛ تصویب هر مورد مهم باید دارای نام مسئول، تاریخ، نسخه مستند و شواهد آزمون باشد.
 
-| موضوع مصوبه | مسئول تصویب | سند یا شاهد موردنیاز | وضعیت در نسخه ۰.۱ |
-|---|---|---|---|
-| مرز محصول و Traceability | مالک محصول | RFP v1.0 + ماتریس FR | مبنا مشخص؛ امضا لازم |
-| معماری و پشته نهایی | مسئول فنی | ADR، PoC و ریسک‌ها | پیشنهادی |
-| سیاست نقش و انتساب | مالک محصول + امنیت | Permission Matrix و تست منفی | نیازمند بررسی جزئی |
-| میزبانی و محل داده ایران | زیرساخت + مدیریت | قرارداد Provider و طرح شبکه | موقعیت ایران انتخاب‌شده؛ توپولوژی باز |
-| امنیت هویت و اطلاعات | مسئول امنیت | Threat Model، ASVS، MFA، اسکن فایل | نیازمند تصویب اجرایی |
-| آرشیو، حذف قانونی و بکاپ | مسئول داده + عملیات | Retention Policy و Restore Drill | مقادیر باز |
-| انتشار نسخه MVP | مالک محصول + مسئول فنی | گزارش UAT، بار، امنیت و Go/No-Go | فقط پس از M6 |
+| موضوع مصوبه              | مسئول تصویب            | سند یا شاهد موردنیاز               | وضعیت در نسخه ۰.۱                     |
+| ------------------------ | ---------------------- | ---------------------------------- | ------------------------------------- |
+| مرز محصول و Traceability | مالک محصول             | RFP v1.0 + ماتریس FR               | مبنا مشخص؛ امضا لازم                  |
+| معماری و پشته نهایی      | مسئول فنی              | ADR، PoC و ریسک‌ها                 | پیشنهادی                              |
+| سیاست نقش و انتساب       | مالک محصول + امنیت     | Permission Matrix و تست منفی       | نیازمند بررسی جزئی                    |
+| میزبانی و محل داده ایران | زیرساخت + مدیریت       | قرارداد Provider و طرح شبکه        | موقعیت ایران انتخاب‌شده؛ توپولوژی باز |
+| امنیت هویت و اطلاعات     | مسئول امنیت            | Threat Model، ASVS، MFA، اسکن فایل | نیازمند تصویب اجرایی                  |
+| آرشیو، حذف قانونی و بکاپ | مسئول داده + عملیات    | Retention Policy و Restore Drill   | مقادیر باز                            |
+| انتشار نسخه MVP          | مالک محصول + مسئول فنی | گزارش UAT، بار، امنیت و Go/No-Go   | فقط پس از M6                          |
 
 **مسئولیت تداوم مستندات:** مالک محصول قواعد FR/BR و تغییر دامنه را نگهداری می‌کند؛ مسئول فنی ADRها، نقشه ماژول‌ها و قرارداد API را به‌روز نگه می‌دارد؛ مسئول DB/DevOps مالک Migration، Backup و Runbook است؛ QA مالک شواهد سناریوهای پذیرش است. هیچ انتقال مسئولیتی نباید بدون دسترسی به Repository، اسرار سازمانی از مسیر امن، رویه استقرار و شیوه بازیابی انجام شود.
 

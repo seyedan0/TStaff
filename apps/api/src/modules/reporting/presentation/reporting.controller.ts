@@ -34,7 +34,8 @@ export class ReportingController {
   constructor(
     @Inject(ReportingService)
     private readonly reportingService: ReportingService,
-    @Optional() @Inject(OrganizationService)
+    @Optional()
+    @Inject(OrganizationService)
     private readonly organization?: OrganizationService,
   ) {}
 
@@ -49,23 +50,38 @@ export class ReportingController {
     status: 200,
     description: "شاخص‌های مدیر استانی با موفقیت بازگردانده شد",
   })
-  async getProvincialDirectorMetrics(@Query("provinceId") provinceId: string | undefined, @Req() request: any) {
-    const roles: string[] = request.user?.roles ?? (request.user?.role ? [request.user.role] : []);
-    if (roles.includes("PROVINCIAL_DIRECTOR") && !roles.includes("TRACKING_DIRECTOR") && !roles.includes("SYSTEM_ADMIN") && this.organization) {
+  async getProvincialDirectorMetrics(
+    @Query("provinceId") provinceId: string | undefined,
+    @Req() request: any,
+  ) {
+    const roles: string[] =
+      request.user?.roles ?? (request.user?.role ? [request.user.role] : []);
+    if (
+      roles.includes("PROVINCIAL_DIRECTOR") &&
+      !roles.includes("TRACKING_DIRECTOR") &&
+      !roles.includes("SYSTEM_ADMIN") &&
+      this.organization
+    ) {
       const allowed = await this.organization.provinceIds(request.user.id);
       if (provinceId && !allowed.includes(provinceId)) {
-        throw new ForbiddenException("دسترسی به آمار استان انتخاب‌شده مجاز نیست");
+        throw new ForbiddenException(
+          "دسترسی به آمار استان انتخاب‌شده مجاز نیست",
+        );
       }
       if (!provinceId && allowed.length === 0) {
         return {
           totalApplicants: 0,
+          applicantsByStatus: {},
+          pendingSupervisorAllocation: 0,
           approvedApplicants: 0,
           totalApprentices: 0,
           totalInterns: 0,
           activeResearchCases: 0,
         };
       }
-      return this.reportingService.getProvincialDirectorMetrics(provinceId ?? allowed[0]);
+      return this.reportingService.getProvincialDirectorMetrics(
+        provinceId ?? allowed[0],
+      );
     }
     return this.reportingService.getProvincialDirectorMetrics(provinceId);
   }
@@ -86,7 +102,8 @@ export class ReportingController {
     @Query("supervisorId") querySupervisorId: string | undefined,
     @Req() request: any,
   ) {
-    const roles: string[] = request.user?.roles ?? (request.user?.role ? [request.user.role] : []);
+    const roles: string[] =
+      request.user?.roles ?? (request.user?.role ? [request.user.role] : []);
     if (
       roles.includes("SCIENTIFIC_SUPERVISOR") &&
       !roles.includes("TRACKING_DIRECTOR") &&
@@ -145,5 +162,16 @@ export class ReportingController {
   })
   async getWorkflowMetrics() {
     return this.reportingService.getWorkflowMetrics();
+  }
+
+  @Get("supervisor-health")
+  @RequireRoles("TRACKING_DIRECTOR", "SYSTEM_ADMIN")
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({
+    summary:
+      "هشدارهای زنده درباره مدیر غیرفعال، همکار قدیمی و ناسازگاری پرونده (D-09, AT-39)",
+  })
+  async getSupervisorHealth() {
+    return this.reportingService.getSupervisorHealth();
   }
 }
