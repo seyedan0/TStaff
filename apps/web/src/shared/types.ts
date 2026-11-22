@@ -19,11 +19,7 @@ export interface CurrentUser {
 }
 
 export type NavigationTab =
-  | "research"
-  | "applicants"
-  | "reviews"
-  | "messages"
-  | "admin";
+  "research" | "applicants" | "reviews" | "messages" | "admin";
 
 export interface ToastMessage {
   id: string;
@@ -45,6 +41,7 @@ export interface ApplicantItem {
   fieldOfStudy: string;
   status: ApplicantStatus;
   rejectionReason?: string | null;
+  archivedAt?: string | null;
   notes?: string | null;
   createdAt?: string;
   updatedAt?: string;
@@ -91,7 +88,12 @@ export interface InterviewItem {
   mode?: string | null;
   location?: string | null;
   notes?: string | null;
-  latestReport?: { id: string; title: string; storedObjectId?: string | null; version: number } | null;
+  latestReport?: {
+    id: string;
+    title: string;
+    storedObjectId?: string | null;
+    version: number;
+  } | null;
 }
 
 export interface ResourceItem {
@@ -106,7 +108,12 @@ export interface ResourceItem {
   provinceId?: string | null;
   province?: string | null;
   county?: string | null;
-  organization?: { name: string; educationLevel?: string | null; organizationType?: string | null; description?: string | null } | null;
+  organization?: {
+    name: string;
+    educationLevel?: string | null;
+    organizationType?: string | null;
+    description?: string | null;
+  } | null;
   hasInterview?: boolean;
   interview?: InterviewItem | null;
   createdAt?: string;

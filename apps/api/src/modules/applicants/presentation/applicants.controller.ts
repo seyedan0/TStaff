@@ -20,9 +20,13 @@ import {
   CreateApplicantDtoSchema,
   ReviewApplicantDecisionDtoSchema,
   ApplicantReopenRequestDtoSchema,
+  AllocateApplicantSupervisorDtoSchema,
 } from "@tstaff/contracts";
 import { ApplicantsService } from "../application/applicants.service.js";
-import { RequireRoles, StageGuard } from "../../../platform/security/stage.guard.js";
+import {
+  RequireRoles,
+  StageGuard,
+} from "../../../platform/security/stage.guard.js";
 import { OrganizationService } from "../../organization/application/organization.service.js";
 import { ResourceBankService } from "../../resources/application/resource-bank.service.js";
 
@@ -33,9 +37,11 @@ export class ApplicantsController {
   constructor(
     @Inject(ApplicantsService)
     private readonly applicantsService: ApplicantsService,
-    @Optional() @Inject(OrganizationService)
+    @Optional()
+    @Inject(OrganizationService)
     private readonly organizationService?: OrganizationService,
-    @Optional() @Inject(forwardRef(() => ResourceBankService))
+    @Optional()
+    @Inject(forwardRef(() => ResourceBankService))
     private readonly resourceBankService?: ResourceBankService,
   ) {}
 
@@ -56,26 +62,79 @@ export class ApplicantsController {
         throw new BadRequestException("استان انتخاب‌شده معتبر نیست");
       }
       const roles = this.roles(request);
-      if (roles.includes("PROVINCIAL_DIRECTOR") && !roles.includes("SYSTEM_ADMIN")) {
-        if (!(await this.organizationService.canAccessProvince(request.user.id, validated.provinceId))) {
+      if (
+        roles.includes("PROVINCIAL_DIRECTOR") &&
+        !roles.includes("SYSTEM_ADMIN")
+      ) {
+        if (
+          !(await this.organizationService.canAccessProvince(
+            request.user.id,
+            validated.provinceId,
+          ))
+        ) {
           throw new ForbiddenException("استان متقاضی در قلمرو دسترسی شما نیست");
         }
       }
     }
-    const applicant = await this.applicantsService.createDraft(validated, request.user.id);
+    const applicant = await this.applicantsService.createDraft(
+      validated,
+      request.user.id,
+    );
     return applicant.toJSON();
   }
 
   @Post(":id/submit")
-  @RequireRoles("PROVINCIAL_DIRECTOR", "SYSTEM_ADMIN")
+  @RequireRoles("SCIENTIFIC_SUPERVISOR", "SYSTEM_ADMIN")
   @HttpCode(HttpStatus.OK)
   @ApiOperation({
-    summary: "ارسال پرونده متقاضی برای داوری و ارزیابی علمی (FR-002)",
+    summary: "شروع بررسی علمی پرونده توسط مدیر علمی منتسب (FR-002, D-09)",
   })
   async submitForReview(@Param("id") id: string, @Req() request: any) {
-    await this.assertProvincialScope(id, request);
-    const applicant = await this.applicantsService.submitForReview(id);
+    const roles = this.roles(request);
+    const applicant = await this.applicantsService.submitForReview(
+      id,
+      request.user.id,
+      roles.includes("SYSTEM_ADMIN") ? undefined : request.user.id,
+    );
     return applicant.toJSON();
+  }
+
+  @Get("pending-supervisor-allocation")
+  @RequireRoles("TRACKING_DIRECTOR", "SYSTEM_ADMIN")
+  @ApiOperation({
+    summary: "صف متقاضیان بدون مدیر علمی برای مدیر پیگیری (FR-001, AT-01)",
+  })
+  async pendingSupervisorAllocation() {
+    return (await this.applicantsService.getPendingAllocationQueue()).map(
+      (applicant) => ({
+        ...applicant.toJSON(),
+        waitingDays: Math.max(
+          0,
+          Math.floor((Date.now() - applicant.createdAt.getTime()) / 86_400_000),
+        ),
+      }),
+    );
+  }
+
+  @Post(":id/assign-supervisor")
+  @RequireRoles("TRACKING_DIRECTOR", "SYSTEM_ADMIN")
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({
+    summary: "تخصیص اتمی مدیر علمی اولیه توسط مدیر پیگیری (FR-001, AT-01)",
+  })
+  async assignInitialSupervisor(
+    @Param("id") id: string,
+    @Req() request: any,
+    @Body() body: unknown,
+  ) {
+    const { supervisorId } = AllocateApplicantSupervisorDtoSchema.parse(body);
+    return (
+      await this.applicantsService.assignInitialSupervisor(
+        id,
+        supervisorId,
+        request.user.id,
+      )
+    ).toJSON();
   }
 
   @Post(":id/decisions")
@@ -84,12 +143,19 @@ export class ApplicantsController {
   @ApiOperation({
     summary: "ثبت تصمیم ارزیابی علمی: تأیید یا رد متقاضی (FR-002, AT-01)",
   })
-  async reviewDecision(@Param("id") id: string, @Req() request: any, @Body() body: unknown) {
+  async reviewDecision(
+    @Param("id") id: string,
+    @Req() request: any,
+    @Body() body: unknown,
+  ) {
     const validated = ReviewApplicantDecisionDtoSchema.parse(body);
     const applicant = await this.applicantsService.reviewDecision(
       id,
       validated,
-      (request.user.roles ?? [request.user.role]).includes("SYSTEM_ADMIN") ? undefined : request.user.id,
+      (request.user.roles ?? [request.user.role]).includes("SYSTEM_ADMIN")
+        ? undefined
+        : request.user.id,
+      request.user.id,
     );
     return applicant.toJSON();
   }
@@ -98,31 +164,54 @@ export class ApplicantsController {
   @RequireRoles("PROVINCIAL_DIRECTOR", "SYSTEM_ADMIN")
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: "درخواست بازگشایی پرونده متقاضی ردشده (FR-033)" })
-  async requestReopen(@Param("id") id: string, @Req() request: any, @Body() body: unknown) {
+  async requestReopen(
+    @Param("id") id: string,
+    @Req() request: any,
+    @Body() body: unknown,
+  ) {
     await this.assertProvincialScope(id, request);
     const validated = ApplicantReopenRequestDtoSchema.parse(body);
     const applicant = await this.applicantsService.requestReopen(
       id,
       validated.reason,
+      request.user.id,
     );
     return applicant.toJSON();
   }
 
   @Get(":id")
-  @RequireRoles("PROVINCIAL_DIRECTOR", "SCIENTIFIC_SUPERVISOR", "SYSTEM_ADMIN")
+  @RequireRoles(
+    "PROVINCIAL_DIRECTOR",
+    "SCIENTIFIC_SUPERVISOR",
+    "TRACKING_DIRECTOR",
+    "SYSTEM_ADMIN",
+  )
   @ApiOperation({ summary: "مشاهده مشخصات پرونده متقاضی" })
   async getApplicant(@Param("id") id: string, @Req() request: any) {
     const applicant = await this.applicantsService.getById(id);
     const roles = this.roles(request);
     if (!roles.includes("SYSTEM_ADMIN")) {
-      if (roles.includes("SCIENTIFIC_SUPERVISOR") && !roles.includes("PROVINCIAL_DIRECTOR")) {
+      if (
+        roles.includes("SCIENTIFIC_SUPERVISOR") &&
+        !roles.includes("PROVINCIAL_DIRECTOR")
+      ) {
         if (applicant.initialSupervisorId !== request.user.id) {
-          throw new ForbiddenException("این متقاضی به مدیر علمی دیگری ارجاع شده است");
+          throw new ForbiddenException(
+            "این متقاضی به مدیر علمی دیگری ارجاع شده است",
+          );
         }
       } else if (roles.includes("PROVINCIAL_DIRECTOR")) {
-        const hasProvince = await this.organizationService?.canAccessProvince(request.user.id, applicant.provinceId ?? null);
-        const hasReferral = await this.resourceBankService?.canReadApplicant(request.user.id, applicant.id);
-        const sameSupervisor = roles.includes("SCIENTIFIC_SUPERVISOR") && applicant.initialSupervisorId === request.user.id;
+        const hasProvince = await this.organizationService?.canAccessProvince(
+          request.user.id,
+          applicant.provinceId ?? null,
+        );
+        const hasReferral = await this.resourceBankService?.canReadApplicant(
+          request.user.id,
+          applicant.id,
+        );
+        const sameSupervisor =
+          roles.includes("SCIENTIFIC_SUPERVISOR") &&
+          applicant.initialSupervisorId === request.user.id;
         if (!hasProvince && !hasReferral && !sameSupervisor) {
           throw new ForbiddenException("این متقاضی در قلمرو استانی شما نیست");
         }
@@ -132,7 +221,12 @@ export class ApplicantsController {
   }
 
   @Get()
-  @RequireRoles("PROVINCIAL_DIRECTOR", "SCIENTIFIC_SUPERVISOR", "SYSTEM_ADMIN")
+  @RequireRoles(
+    "PROVINCIAL_DIRECTOR",
+    "SCIENTIFIC_SUPERVISOR",
+    "TRACKING_DIRECTOR",
+    "SYSTEM_ADMIN",
+  )
   @ApiOperation({
     summary: "فهرست متقاضیان با امکان فیلتر بر اساس استان و وضعیت",
   })
@@ -142,29 +236,66 @@ export class ApplicantsController {
     @Query("status") status?: string,
   ) {
     const roles = this.roles(request);
-    if (provinceId && roles.includes("PROVINCIAL_DIRECTOR") && !roles.includes("SYSTEM_ADMIN") && this.organizationService) {
-      if (!(await this.organizationService.canAccessProvince(request.user.id, provinceId))) {
+    if (
+      provinceId &&
+      roles.includes("PROVINCIAL_DIRECTOR") &&
+      !roles.includes("SYSTEM_ADMIN") &&
+      this.organizationService
+    ) {
+      if (
+        !(await this.organizationService.canAccessProvince(
+          request.user.id,
+          provinceId,
+        ))
+      ) {
         throw new ForbiddenException("این استان در قلمرو دسترسی شما نیست");
       }
     }
-    const supervisorFilter = roles.includes("SCIENTIFIC_SUPERVISOR") && !roles.includes("SYSTEM_ADMIN") && !roles.includes("PROVINCIAL_DIRECTOR")
-      ? request.user.id
-      : undefined;
-    const applicants = await this.applicantsService.list({
-      provinceId,
-      status,
-    }, supervisorFilter);
-    if (roles.includes("SYSTEM_ADMIN") || !roles.includes("PROVINCIAL_DIRECTOR") || !this.organizationService) {
+    const supervisorFilter =
+      roles.includes("SCIENTIFIC_SUPERVISOR") &&
+      !roles.includes("SYSTEM_ADMIN") &&
+      !roles.includes("PROVINCIAL_DIRECTOR")
+        ? request.user.id
+        : undefined;
+    const applicants = await this.applicantsService.list(
+      {
+        provinceId,
+        status,
+      },
+      supervisorFilter,
+    );
+    if (
+      roles.includes("SYSTEM_ADMIN") ||
+      !roles.includes("PROVINCIAL_DIRECTOR") ||
+      !this.organizationService
+    ) {
       return applicants.map((a) => a.toJSON());
     }
-    const allowedProvinces = new Set(await this.organizationService.provinceIds(request.user.id));
-    const filtered = await Promise.all(applicants.map(async (applicant) => {
-      if (applicant.provinceId && allowedProvinces.has(applicant.provinceId)) return applicant;
-      if (await this.resourceBankService?.canReadApplicant(request.user.id, applicant.id)) return applicant;
-      if (roles.includes("SCIENTIFIC_SUPERVISOR") && applicant.initialSupervisorId === request.user.id) return applicant;
-      return null;
-    }));
-    return filtered.filter((item): item is NonNullable<typeof item> => item !== null).map((a) => a.toJSON());
+    const allowedProvinces = new Set(
+      await this.organizationService.provinceIds(request.user.id),
+    );
+    const filtered = await Promise.all(
+      applicants.map(async (applicant) => {
+        if (applicant.provinceId && allowedProvinces.has(applicant.provinceId))
+          return applicant;
+        if (
+          await this.resourceBankService?.canReadApplicant(
+            request.user.id,
+            applicant.id,
+          )
+        )
+          return applicant;
+        if (
+          roles.includes("SCIENTIFIC_SUPERVISOR") &&
+          applicant.initialSupervisorId === request.user.id
+        )
+          return applicant;
+        return null;
+      }),
+    );
+    return filtered
+      .filter((item): item is NonNullable<typeof item> => item !== null)
+      .map((a) => a.toJSON());
   }
 
   private roles(request: any): string[] {
@@ -173,10 +304,21 @@ export class ApplicantsController {
 
   private async assertProvincialScope(applicantId: string, request: any) {
     const roles = this.roles(request);
-    if (roles.includes("SYSTEM_ADMIN") || !roles.includes("PROVINCIAL_DIRECTOR") || !this.organizationService) return;
+    if (
+      roles.includes("SYSTEM_ADMIN") ||
+      !roles.includes("PROVINCIAL_DIRECTOR") ||
+      !this.organizationService
+    )
+      return;
     const applicant = await this.applicantsService.getById(applicantId);
-    const hasProvince = await this.organizationService.canAccessProvince(request.user.id, applicant.provinceId ?? null);
-    const hasReferral = await this.resourceBankService?.canReadApplicant(request.user.id, applicant.id);
+    const hasProvince = await this.organizationService.canAccessProvince(
+      request.user.id,
+      applicant.provinceId ?? null,
+    );
+    const hasReferral = await this.resourceBankService?.canReadApplicant(
+      request.user.id,
+      applicant.id,
+    );
     if (!hasProvince && !hasReferral) {
       throw new ForbiddenException("این متقاضی در قلمرو استانی شما نیست");
     }

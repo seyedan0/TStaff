@@ -37,3 +37,21 @@ export class UserAlreadyPromotedError extends DomainError {
     );
   }
 }
+
+export class InvalidApprovedApplicantSupervisorError extends DomainError {
+  constructor() {
+    super(
+      "مدیر علمی اولیهٔ متقاضی فعال نیست یا نقش مدیر علمی ندارد",
+      "BAD_REQUEST",
+    );
+  }
+}
+
+export class ApprovedApplicantLifetimeSupervisorConflictError extends DomainError {
+  constructor() {
+    super(
+      "مدیر علمی سابقه‌دار این فرد با مدیر اولیه پذیرش یکسان نیست؛ ساخت حساب متوقف شد",
+      "CONFLICT",
+    );
+  }
+}

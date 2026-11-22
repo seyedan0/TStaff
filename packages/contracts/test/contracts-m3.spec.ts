@@ -33,8 +33,8 @@ describe("Contracts M3: Research, Assignments & Resources", () => {
     });
   });
 
-  describe("AssignSupervisorDtoSchema (D-02)", () => {
-    it("validates supervisor assignment for MAIN_SUPERVISOR and COLLABORATOR_SUPERVISOR", () => {
+  describe("AssignSupervisorDtoSchema (D-09)", () => {
+    it("accepts a main supervisor and rejects legacy collaborator assignments (AT-39)", () => {
       const validMain = {
         userId: "11111111-1111-1111-1111-111111111111",
         role: "MAIN_SUPERVISOR",
@@ -42,12 +42,12 @@ describe("Contracts M3: Research, Assignments & Resources", () => {
       const result = AssignSupervisorDtoSchema.safeParse(validMain);
       expect(result.success).toBe(true);
 
-      const validCollab = {
+      const legacyCollab = {
         userId: "22222222-2222-2222-2222-222222222222",
         role: "COLLABORATOR_SUPERVISOR",
       };
-      expect(AssignSupervisorDtoSchema.safeParse(validCollab).success).toBe(
-        true,
+      expect(AssignSupervisorDtoSchema.safeParse(legacyCollab).success).toBe(
+        false,
       );
     });
 

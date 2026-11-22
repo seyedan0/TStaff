@@ -1,11 +1,29 @@
 import React, { useCallback, useEffect, useState } from "react";
-import { Activity, Archive, Clock, Database, RefreshCw, Save, Search, UserPlus } from "lucide-react";
-import { useNavigate, useSearchParams } from "react-router-dom";
-import type { ArchiveJobDto, ArchiveTargetType, HealthResponse, SystemSetting } from "@tstaff/contracts";
+import {
+  Activity,
+  Archive,
+  Clock,
+  Database,
+  RefreshCw,
+  Save,
+  Search,
+  UserPlus,
+} from "lucide-react";
+import { Link, useNavigate, useSearchParams } from "react-router-dom";
+import type {
+  ArchiveJobDto,
+  ArchiveTargetType,
+  GeneralDirectorSummary,
+  HealthResponse,
+  SupervisorHealth,
+  SystemSetting,
+  TrackingDirectorBacklog,
+} from "@tstaff/contracts";
 import { getRoleLabel } from "../../app/navigation.js";
 import { usePortalSection } from "../../app/usePortalSection.js";
 import { useAuth } from "../../features/auth/AuthContext.js";
 import { apiClient } from "../../shared/api-client.js";
+import { supervisorIssueLabel } from "../../shared/supervisor-health.js";
 import type { ResearchCaseItem } from "../../shared/types.js";
 import { useUnsavedChanges } from "../../shared/useUnsavedChanges.js";
 import { Badge } from "../../shared/ui/Badge.js";
@@ -14,8 +32,13 @@ import { Card } from "../../shared/ui/Card.js";
 import { Input } from "../../shared/ui/Input.js";
 import { Modal } from "../../shared/ui/Modal.js";
 import { PageHeader } from "../../shared/ui/PageHeader.js";
-import { EmptyState, ErrorState, LoadingState } from "../../shared/ui/StateFeedback.js";
+import {
+  EmptyState,
+  ErrorState,
+  LoadingState,
+} from "../../shared/ui/StateFeedback.js";
 import { UnsavedChangesDialog } from "../../shared/ui/UnsavedChangesDialog.js";
+import { MetricStrip } from "../../shared/ui/MetricStrip.js";
 
 interface SystemAdminPortalProps {
   onNotify: (
@@ -35,17 +58,43 @@ interface ManagerRow {
 }
 
 const DEADLINE_KEYS = [
-  { key: "deadline_days.SOURCES", label: "مهلت مرحله ۱: منابع و مصاحبه‌ها (روز)", fallback: "14" },
-  { key: "deadline_days.EXPLANATION", label: "مهلت مرحله ۲: تبیین مسئله (روز)", fallback: "21" },
-  { key: "deadline_days.PRESCRIPTION", label: "مهلت مرحله ۳: تجویز راهکار (روز)", fallback: "21" },
-  { key: "deadline_days.SCENARIO", label: "مهلت مرحله ۴: سناریونویسی (روز)", fallback: "14" },
+  {
+    key: "deadline_days.SOURCES",
+    label: "مهلت مرحله ۱: منابع و مصاحبه‌ها (روز)",
+    fallback: "14",
+  },
+  {
+    key: "deadline_days.EXPLANATION",
+    label: "مهلت مرحله ۲: تبیین مسئله (روز)",
+    fallback: "21",
+  },
+  {
+    key: "deadline_days.PRESCRIPTION",
+    label: "مهلت مرحله ۳: تجویز راهکار (روز)",
+    fallback: "21",
+  },
+  {
+    key: "deadline_days.SCENARIO",
+    label: "مهلت مرحله ۴: سناریونویسی (روز)",
+    fallback: "14",
+  },
 ] as const;
 
-export const SystemAdminPortal: React.FC<SystemAdminPortalProps> = ({ onNotify }) => {
+export const SystemAdminPortal: React.FC<SystemAdminPortalProps> = ({
+  onNotify,
+}) => {
   const { currentUser } = useAuth();
-  const activeTab = usePortalSection<"settings" | "archive" | "managers" | "health">(
-    { "/management/settings": "settings", "/management/archive": "archive", "/management/managers": "managers", "/management/health": "health" },
-    "settings",
+  const activeTab = usePortalSection<
+    "overview" | "settings" | "archive" | "managers" | "health"
+  >(
+    {
+      "/management/overview": "overview",
+      "/management/settings": "settings",
+      "/management/archive": "archive",
+      "/management/managers": "managers",
+      "/management/health": "health",
+    },
+    "overview",
   );
   const [query] = useSearchParams();
   const navigate = useNavigate();
@@ -56,13 +105,16 @@ export const SystemAdminPortal: React.FC<SystemAdminPortalProps> = ({ onNotify }
     "deadline_days.PRESCRIPTION": "21",
     "deadline_days.SCENARIO": "14",
   });
-  const [savedDeadlines, setSavedDeadlines] = useState<Record<string, string>>({ ...deadlines });
+  const [savedDeadlines, setSavedDeadlines] = useState<Record<string, string>>({
+    ...deadlines,
+  });
   const [extraSettings, setExtraSettings] = useState<SystemSetting[]>([]);
   const [savingSettings, setSavingSettings] = useState(false);
 
   const [archiveJobs, setArchiveJobs] = useState<ArchiveJobDto[]>([]);
   const [caseOptions, setCaseOptions] = useState<ResearchCaseItem[]>([]);
-  const [archiveTargetType, setArchiveTargetType] = useState<ArchiveTargetType>("RESEARCH_CASE");
+  const [archiveTargetType, setArchiveTargetType] =
+    useState<ArchiveTargetType>("RESEARCH_CASE");
   const [archiveTargetId, setArchiveTargetId] = useState("");
   const [runningArchive, setRunningArchive] = useState(false);
 
@@ -75,30 +127,56 @@ export const SystemAdminPortal: React.FC<SystemAdminPortalProps> = ({ onNotify }
   const [creatingMgr, setCreatingMgr] = useState(false);
 
   const [health, setHealth] = useState<HealthResponse | null>(null);
+  const [summary, setSummary] = useState<GeneralDirectorSummary | null>(null);
+  const [backlog, setBacklog] = useState<TrackingDirectorBacklog | null>(null);
+  const [supervisorHealth, setSupervisorHealth] =
+    useState<SupervisorHealth | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   const settingsDirty =
-    activeTab === "settings" && JSON.stringify(deadlines) !== JSON.stringify(savedDeadlines);
+    activeTab === "settings" &&
+    JSON.stringify(deadlines) !== JSON.stringify(savedDeadlines);
   const blocker = useUnsavedChanges(settingsDirty);
 
   const loadTab = useCallback(async () => {
     setLoading(true);
     setError(null);
     try {
-      if (activeTab === "settings") {
+      if (activeTab === "overview") {
+        const [nextSummary, nextBacklog, nextHealth, nextSupervisorHealth] =
+          await Promise.all([
+            apiClient.get<GeneralDirectorSummary>(
+              "/reporting/general-director-summary",
+            ),
+            apiClient.get<TrackingDirectorBacklog>(
+              "/reporting/tracking-director-backlog",
+            ),
+            apiClient.get<HealthResponse>("/health"),
+            apiClient.get<SupervisorHealth>("/reporting/supervisor-health"),
+          ]);
+        setSummary(nextSummary);
+        setBacklog(nextBacklog);
+        setHealth(nextHealth);
+        setSupervisorHealth(nextSupervisorHealth);
+      } else if (activeTab === "settings") {
         const list = await apiClient.get<SystemSetting[]>("/settings");
         const next: Record<string, string> = {};
         for (const item of DEADLINE_KEYS) {
-          next[item.key] = list.find((s) => s.key === item.key)?.value ?? item.fallback;
+          next[item.key] =
+            list.find((s) => s.key === item.key)?.value ?? item.fallback;
         }
         setDeadlines(next);
         setSavedDeadlines(next);
-        setExtraSettings(list.filter((s) => !DEADLINE_KEYS.some((k) => k.key === s.key)));
+        setExtraSettings(
+          list.filter((s) => !DEADLINE_KEYS.some((k) => k.key === s.key)),
+        );
       } else if (activeTab === "archive") {
         const [jobs, cases] = await Promise.all([
           apiClient.get<ArchiveJobDto[]>("/archives/jobs"),
-          apiClient.get<ResearchCaseItem[]>("/research-cases/directory").catch(() => []),
+          apiClient
+            .get<ResearchCaseItem[]>("/research-cases/directory")
+            .catch(() => []),
         ]);
         setArchiveJobs(jobs);
         setCaseOptions(cases);
@@ -109,7 +187,11 @@ export const SystemAdminPortal: React.FC<SystemAdminPortalProps> = ({ onNotify }
         setHealth(await apiClient.get<HealthResponse>("/health"));
       }
     } catch (err) {
-      setError(err instanceof Error ? err.message : "دریافت داده‌های مدیریتی ناموفق بود.");
+      setError(
+        err instanceof Error
+          ? err.message
+          : "دریافت داده‌های مدیریتی ناموفق بود.",
+      );
     } finally {
       setLoading(false);
     }
@@ -132,9 +214,17 @@ export const SystemAdminPortal: React.FC<SystemAdminPortalProps> = ({ onNotify }
         ),
       );
       setSavedDeadlines({ ...deadlines });
-      onNotify("success", "تنظیمات زمان‌بندی ذخیره شد", "مقادیر مهلت مراحل در پایگاه‌داده ثبت گردید (FR-052).");
+      onNotify(
+        "success",
+        "تنظیمات زمان‌بندی ذخیره شد",
+        "مقادیر مهلت مراحل در پایگاه‌داده ثبت گردید (FR-052).",
+      );
     } catch (err) {
-      onNotify("error", "ذخیره تنظیمات ناموفق بود", err instanceof Error ? err.message : undefined);
+      onNotify(
+        "error",
+        "ذخیره تنظیمات ناموفق بود",
+        err instanceof Error ? err.message : undefined,
+      );
     } finally {
       setSavingSettings(false);
     }
@@ -149,10 +239,18 @@ export const SystemAdminPortal: React.FC<SystemAdminPortalProps> = ({ onNotify }
         targetType: archiveTargetType,
         targetId: archiveTargetId.trim(),
       });
-      onNotify("success", "فرایند آرشیو اجرا شد", "اسنپ‌شات تغییرناپذیر بدون حذف فیزیکی رکورد ذخیره گردید (BR-19).");
+      onNotify(
+        "success",
+        "فرایند آرشیو اجرا شد",
+        "اسنپ‌شات تغییرناپذیر بدون حذف فیزیکی رکورد ذخیره گردید (BR-19).",
+      );
       await loadTab();
     } catch (err) {
-      onNotify("error", "اجرای آرشیو ناموفق بود", err instanceof Error ? err.message : undefined);
+      onNotify(
+        "error",
+        "اجرای آرشیو ناموفق بود",
+        err instanceof Error ? err.message : undefined,
+      );
     } finally {
       setRunningArchive(false);
     }
@@ -169,14 +267,22 @@ export const SystemAdminPortal: React.FC<SystemAdminPortalProps> = ({ onNotify }
         role: newMgrRole,
         password: newMgrPassword,
       });
-      onNotify("success", "حساب مدیر جدید ایجاد شد", `کاربر «${newMgrName}» فعال گردید.`);
+      onNotify(
+        "success",
+        "حساب مدیر جدید ایجاد شد",
+        `کاربر «${newMgrName}» فعال گردید.`,
+      );
       setIsCreateOpen(false);
       setNewMgrName("");
       setNewMgrPhone("");
       setNewMgrPassword("");
       await loadTab();
     } catch (err) {
-      onNotify("error", "ایجاد حساب مدیر انجام نشد", err instanceof Error ? err.message : undefined);
+      onNotify(
+        "error",
+        "ایجاد حساب مدیر انجام نشد",
+        err instanceof Error ? err.message : undefined,
+      );
     } finally {
       setCreatingMgr(false);
     }
@@ -184,7 +290,11 @@ export const SystemAdminPortal: React.FC<SystemAdminPortalProps> = ({ onNotify }
 
   const searchTerm = (query.get("q") ?? "").trim().toLowerCase();
   const filteredManagers = managers.filter(
-    (m) => !searchTerm || `${m.fullName} ${m.phoneNumber} ${m.role}`.toLowerCase().includes(searchTerm),
+    (m) =>
+      !searchTerm ||
+      `${m.fullName} ${m.phoneNumber} ${m.role}`
+        .toLowerCase()
+        .includes(searchTerm),
   );
 
   return (
@@ -192,14 +302,29 @@ export const SystemAdminPortal: React.FC<SystemAdminPortalProps> = ({ onNotify }
       <UnsavedChangesDialog blocker={blocker} />
       <PageHeader
         title={`مدیریت سامانه · ${currentUser?.fullName || "مدیر کل"}`}
-        subtitle="تنظیمات پویای مهلت‌ها، بایگانی و اسنپ‌شات تغییرناپذیر (BR-19)، مدیران و پایش سلامت زیرساخت"
+        subtitle={
+          activeTab === "overview"
+            ? "شاخص‌های عملیاتی زنده، موارد نیازمند توجه و سلامت زیرساخت"
+            : "تنظیمات پویای مهلت‌ها، بایگانی و اسنپ‌شات تغییرناپذیر (BR-19)، مدیران و پایش سلامت زیرساخت"
+        }
         actions={
           <div className="flex flex-wrap items-center gap-2">
-            <Button variant="secondary" size="sm" icon={<RefreshCw className="h-3.5 w-3.5" />} loading={loading} onClick={() => void loadTab()}>
+            <Button
+              variant="secondary"
+              size="sm"
+              icon={<RefreshCw className="h-3.5 w-3.5" />}
+              loading={loading}
+              onClick={() => void loadTab()}
+            >
               به‌روزرسانی
             </Button>
             {activeTab === "managers" && (
-              <Button variant="primary" size="sm" icon={<UserPlus className="h-3.5 w-3.5" />} onClick={() => setIsCreateOpen(true)}>
+              <Button
+                variant="primary"
+                size="sm"
+                icon={<UserPlus className="h-3.5 w-3.5" />}
+                onClick={() => setIsCreateOpen(true)}
+              >
                 تعریف مدیر جدید
               </Button>
             )}
@@ -211,10 +336,214 @@ export const SystemAdminPortal: React.FC<SystemAdminPortalProps> = ({ onNotify }
         <LoadingState message="در حال دریافت داده‌های مدیریتی..." />
       ) : error ? (
         <ErrorState message={error} onRetry={() => void loadTab()} />
+      ) : activeTab === "overview" &&
+        summary &&
+        backlog &&
+        health &&
+        supervisorHealth ? (
+        <div className="space-y-5">
+          <MetricStrip
+            label="شاخص‌های زنده سامانه"
+            items={[
+              {
+                label: "کل کاربران",
+                value: summary.totalUsers,
+                detail: "حساب‌های ثبت‌شده",
+              },
+              {
+                label: "پرونده‌های پذیرش",
+                value: summary.totalApplicants,
+                detail: "بدون ساخت حساب پیش از تأیید",
+              },
+              {
+                label: "پرونده‌های پژوهش",
+                value: summary.totalResearchCases,
+                detail: "همه مراحل",
+              },
+              {
+                label: "مدیران علمی فعال",
+                value: summary.activeSupervisorsCount,
+                detail: "دارای انتساب فعال",
+                tone: "success",
+              },
+              {
+                label: "نیازمند بازبینی",
+                value: backlog.reviewRequiredCasesCount,
+                detail: "خروجی وابسته به پیش‌نیاز",
+                tone: backlog.reviewRequiredCasesCount ? "warning" : "success",
+              },
+              {
+                label: "پرونده‌های معطل",
+                value: backlog.delayedCasesCount,
+                detail: "بیش از ۳۰ روز در مرحله",
+                tone: backlog.delayedCasesCount ? "warning" : "success",
+              },
+            ]}
+          />
+
+          <section
+            aria-label="وضعیت سرویس‌های اصلی"
+            className="flex flex-wrap items-center gap-x-6 gap-y-2 border-b border-[var(--line)] py-3 text-sm"
+          >
+            <span className="font-semibold">سلامت سامانه</span>
+            <span className="inline-flex items-center gap-2">
+              API{" "}
+              <Badge
+                variant={health.status === "ok" ? "success" : "danger"}
+                size="sm"
+              >
+                {health.status === "ok" ? "فعال" : "نیازمند بررسی"}
+              </Badge>
+            </span>
+            <span className="inline-flex items-center gap-2">
+              PostgreSQL{" "}
+              <Badge
+                variant={health.database === "connected" ? "success" : "danger"}
+                size="sm"
+              >
+                {health.database === "connected" ? "متصل" : "قطع"}
+              </Badge>
+            </span>
+            <Link
+              to="/management/health"
+              className="font-semibold text-[var(--forest)] underline"
+            >
+              جزئیات سلامت
+            </Link>
+          </section>
+
+          <section
+            aria-label="سلامت انتساب مدیران علمی"
+            className="space-y-2 rounded-xl border border-[var(--line)] bg-[var(--surface)] p-4"
+          >
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <h2 className="text-sm font-bold text-[var(--ink)]">
+                سلامت انتساب مدیران علمی
+              </h2>
+              <Link
+                to="/management/health"
+                className="text-xs font-semibold text-[var(--forest)] underline"
+              >
+                وضعیت زیرساخت
+              </Link>
+            </div>
+            <MetricStrip
+              label="تعداد هشدارهای انتساب"
+              items={[
+                {
+                  label: "مدیر غیرفعال یا بدون نقش",
+                  value: supervisorHealth.inactiveSupervisorAssignmentsCount,
+                  tone: supervisorHealth.inactiveSupervisorAssignmentsCount
+                    ? "warning"
+                    : "success",
+                },
+                {
+                  label: "انتساب لغوشده",
+                  value: supervisorHealth.revokedSupervisorAssignmentsCount,
+                  tone: supervisorHealth.revokedSupervisorAssignmentsCount
+                    ? "warning"
+                    : "success",
+                },
+                {
+                  label: "همکار قدیمی",
+                  value: supervisorHealth.legacyCollaboratorAssignmentsCount,
+                  tone: supervisorHealth.legacyCollaboratorAssignmentsCount
+                    ? "warning"
+                    : "success",
+                },
+                {
+                  label: "پرونده ناسازگار",
+                  value: supervisorHealth.caseSupervisorMismatchCount,
+                  tone: supervisorHealth.caseSupervisorMismatchCount
+                    ? "warning"
+                    : "success",
+                },
+              ]}
+            />
+            {supervisorHealth.issues.length > 0 ? (
+              <div className="divide-y divide-[var(--line)] text-xs">
+                {supervisorHealth.issues.slice(0, 8).map((issue, index) => (
+                  <div
+                    key={`${issue.type}-${issue.entityId}-${index}`}
+                    className="flex flex-wrap items-center justify-between gap-2 py-2"
+                  >
+                    <span>{supervisorIssueLabel(issue.type)}</span>
+                    {issue.type.startsWith("CASE_") ||
+                    issue.type === "LEGACY_COLLABORATOR_ASSIGNMENT" ? (
+                      <Link
+                        className="font-mono text-[var(--forest)] underline"
+                        to={`/projects/${encodeURIComponent(issue.entityId)}`}
+                      >
+                        {issue.caseCode ?? issue.entityId}
+                      </Link>
+                    ) : (
+                      <Link
+                        className="font-mono text-[var(--forest)] underline"
+                        to={`/tracking/assignments?userId=${encodeURIComponent(issue.entityId)}`}
+                      >
+                        {issue.entityId}
+                      </Link>
+                    )}
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <p className="text-xs text-[var(--muted)]">
+                ناسازگاری فعالی پیدا نشد.
+              </p>
+            )}
+          </section>
+
+          <section aria-labelledby="system-actions-title" className="space-y-2">
+            <h2
+              id="system-actions-title"
+              className="text-sm font-bold text-[var(--ink)]"
+            >
+              موارد نیازمند پیگیری
+            </h2>
+            {backlog.backlogItems.length === 0 ? (
+              <p className="border-b border-[var(--line)] py-3 text-sm text-[var(--muted)]">
+                پرونده‌ای در صف معوقات ثبت نشده است.
+              </p>
+            ) : (
+              <div className="divide-y divide-[var(--line)]">
+                {backlog.backlogItems.map((item) => (
+                  <Link
+                    key={`${item.caseId}-${item.currentStage}`}
+                    to={`/projects/${encodeURIComponent(item.caseId)}`}
+                    className="flex flex-wrap items-center justify-between gap-2 py-3 text-sm hover:text-[var(--forest)]"
+                  >
+                    <span className="font-semibold">
+                      {item.caseCode} · {item.subject}
+                    </span>
+                    <span className="text-[var(--muted)]">
+                      {item.daysInCurrentStage} روز · {item.status}
+                    </span>
+                  </Link>
+                ))}
+              </div>
+            )}
+          </section>
+
+          <nav
+            aria-label="دسترسی‌های مدیریتی"
+            className="flex flex-wrap gap-x-5 gap-y-2 border-t border-[var(--line)] pt-3 text-sm font-semibold text-[var(--forest)]"
+          >
+            <Link to="/management/managers">مدیریت حساب‌های مدیران</Link>
+            <Link to="/management/settings">تنظیمات سامانه</Link>
+            <Link to="/management/archive">آرشیو داده‌ها</Link>
+          </nav>
+        </div>
       ) : activeTab === "settings" ? (
         <div className="space-y-4">
-          <Card variant="default" title="پیکربندی مهلت استاندارد مراحل پژوهش (FR-052)">
-            <form onSubmit={(e) => void handleSaveDeadlines(e)} className="max-w-2xl space-y-4">
+          <Card
+            variant="default"
+            title="پیکربندی مهلت استاندارد مراحل پژوهش (FR-052)"
+          >
+            <form
+              onSubmit={(e) => void handleSaveDeadlines(e)}
+              className="max-w-2xl space-y-4"
+            >
               <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                 {DEADLINE_KEYS.map((item) => (
                   <Input
@@ -226,11 +555,21 @@ export const SystemAdminPortal: React.FC<SystemAdminPortalProps> = ({ onNotify }
                     dir="ltr"
                     required
                     value={deadlines[item.key] ?? item.fallback}
-                    onChange={(e) => setDeadlines((prev) => ({ ...prev, [item.key]: e.target.value }))}
+                    onChange={(e) =>
+                      setDeadlines((prev) => ({
+                        ...prev,
+                        [item.key]: e.target.value,
+                      }))
+                    }
                   />
                 ))}
               </div>
-              <Button type="submit" variant="primary" loading={savingSettings} icon={<Save className="h-4 w-4" />}>
+              <Button
+                type="submit"
+                variant="primary"
+                loading={savingSettings}
+                icon={<Save className="h-4 w-4" />}
+              >
                 ذخیره تنظیمات در سرور
               </Button>
             </form>
@@ -240,12 +579,26 @@ export const SystemAdminPortal: React.FC<SystemAdminPortalProps> = ({ onNotify }
             <Card variant="default" title="سایر تنظیمات ثبت‌شده">
               <div className="divide-y divide-[#214E3A]/10 text-xs">
                 {extraSettings.map((setting) => (
-                  <div key={setting.key} className="flex flex-wrap items-center justify-between gap-2 py-2.5">
+                  <div
+                    key={setting.key}
+                    className="flex flex-wrap items-center justify-between gap-2 py-2.5"
+                  >
                     <div>
-                      <div dir="ltr" className="font-mono font-semibold text-[#214031]">{setting.key}</div>
-                      {setting.description && <div className="text-[#4F6659]">{setting.description}</div>}
+                      <div
+                        dir="ltr"
+                        className="font-mono font-semibold text-[#214031]"
+                      >
+                        {setting.key}
+                      </div>
+                      {setting.description && (
+                        <div className="text-[#4F6659]">
+                          {setting.description}
+                        </div>
+                      )}
                     </div>
-                    <Badge variant="neutral" size="sm">{setting.value}</Badge>
+                    <Badge variant="neutral" size="sm">
+                      {setting.value}
+                    </Badge>
                   </div>
                 ))}
               </div>
@@ -254,13 +607,21 @@ export const SystemAdminPortal: React.FC<SystemAdminPortalProps> = ({ onNotify }
         </div>
       ) : activeTab === "archive" ? (
         <div className="space-y-4">
-          <Card variant="default" title="انجماد و آرشیو داده‌ها بدون حذف فیزیکی (BR-19)">
-            <form onSubmit={(e) => void handleRunArchive(e)} className="grid gap-3 md:grid-cols-3 md:items-end">
+          <Card
+            variant="default"
+            title="انجماد و آرشیو داده‌ها بدون حذف فیزیکی (BR-19)"
+          >
+            <form
+              onSubmit={(e) => void handleRunArchive(e)}
+              className="grid gap-3 md:grid-cols-3 md:items-end"
+            >
               <label className="block space-y-1 text-xs font-medium text-[#214031]">
                 نوع موجودیت
                 <select
                   value={archiveTargetType}
-                  onChange={(e) => setArchiveTargetType(e.target.value as ArchiveTargetType)}
+                  onChange={(e) =>
+                    setArchiveTargetType(e.target.value as ArchiveTargetType)
+                  }
                   className="w-full rounded-xl border border-[#214E3A]/20 bg-[#FFFCF5] p-2.5 text-xs text-[#214031]"
                 >
                   <option value="RESEARCH_CASE">پرونده پژوهش</option>
@@ -269,7 +630,8 @@ export const SystemAdminPortal: React.FC<SystemAdminPortalProps> = ({ onNotify }
                 </select>
               </label>
 
-              {archiveTargetType === "RESEARCH_CASE" && caseOptions.length > 0 ? (
+              {archiveTargetType === "RESEARCH_CASE" &&
+              caseOptions.length > 0 ? (
                 <label className="block space-y-1 text-xs font-medium text-[#214031]">
                   انتخاب پرونده پژوهشی
                   <select
@@ -278,7 +640,9 @@ export const SystemAdminPortal: React.FC<SystemAdminPortalProps> = ({ onNotify }
                     className="w-full rounded-xl border border-[#214E3A]/20 bg-[#FFFCF5] p-2.5 text-xs text-[#214031]"
                   >
                     {caseOptions.map((c) => (
-                      <option key={c.id} value={c.id}>{c.code} · {c.title}</option>
+                      <option key={c.id} value={c.id}>
+                        {c.code} · {c.title}
+                      </option>
                     ))}
                   </select>
                 </label>
@@ -293,34 +657,71 @@ export const SystemAdminPortal: React.FC<SystemAdminPortalProps> = ({ onNotify }
                 />
               )}
 
-              <Button type="submit" variant="primary" loading={runningArchive} icon={<Archive className="h-4 w-4" />}>
+              <Button
+                type="submit"
+                variant="primary"
+                loading={runningArchive}
+                icon={<Archive className="h-4 w-4" />}
+              >
                 ثبت کار آرشیو
               </Button>
             </form>
           </Card>
 
           {archiveJobs.length === 0 ? (
-            <EmptyState title="سابقه آرشیوی ثبت نشده است" description="هنوز عملیات انجمادی در سرور اجرا نشده است." />
+            <EmptyState
+              title="سابقه آرشیوی ثبت نشده است"
+              description="هنوز عملیات انجمادی در سرور اجرا نشده است."
+            />
           ) : (
-            <Card variant="default" title={`تاریخچه اسنپ‌شات‌ها (${archiveJobs.length})`}>
+            <Card
+              variant="default"
+              title={`تاریخچه اسنپ‌شات‌ها (${archiveJobs.length})`}
+            >
               <div className="space-y-2.5">
                 {archiveJobs.map((job) => (
-                  <div key={job.id} className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-[#214E3A]/15 bg-[#F3EBDD]/45 p-3 text-xs">
+                  <div
+                    key={job.id}
+                    className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-[#214E3A]/15 bg-[#F3EBDD]/45 p-3 text-xs"
+                  >
                     <div className="space-y-1">
                       <div className="flex items-center gap-2">
-                        <Badge variant={job.status === "COMPLETED" ? "success" : job.status === "FAILED" ? "danger" : "warning"} size="sm">
+                        <Badge
+                          variant={
+                            job.status === "COMPLETED"
+                              ? "success"
+                              : job.status === "FAILED"
+                                ? "danger"
+                                : "warning"
+                          }
+                          size="sm"
+                        >
                           {job.status}
                         </Badge>
-                        <span className="font-semibold text-[#214031]">{job.targetType}</span>
-                        <span dir="ltr" className="font-mono text-[11px] text-[#4F6659]">{job.targetId}</span>
+                        <span className="font-semibold text-[#214031]">
+                          {job.targetType}
+                        </span>
+                        <span
+                          dir="ltr"
+                          className="font-mono text-[11px] text-[#4F6659]"
+                        >
+                          {job.targetId}
+                        </span>
                       </div>
                       {job.storageLocation && (
-                        <div dir="ltr" className="font-mono text-[11px] text-[#4F6659]">{job.storageLocation}</div>
+                        <div
+                          dir="ltr"
+                          className="font-mono text-[11px] text-[#4F6659]"
+                        >
+                          {job.storageLocation}
+                        </div>
                       )}
                     </div>
                     <div className="flex items-center gap-1 text-[11px] text-[#4F6659]">
                       <Clock className="h-3.5 w-3.5" />
-                      <span>{new Date(job.createdAt).toLocaleString("fa-IR")}</span>
+                      <span>
+                        {new Date(job.createdAt).toLocaleString("fa-IR")}
+                      </span>
                     </div>
                   </div>
                 ))}
@@ -339,7 +740,9 @@ export const SystemAdminPortal: React.FC<SystemAdminPortalProps> = ({ onNotify }
                 value={query.get("q") ?? ""}
                 onChange={(e) => {
                   const next = new URLSearchParams(query);
-                  e.target.value ? next.set("q", e.target.value) : next.delete("q");
+                  e.target.value
+                    ? next.set("q", e.target.value)
+                    : next.delete("q");
                   navigate({ search: next.toString() }, { replace: true });
                 }}
                 placeholder="جست‌وجوی نام، شماره همراه یا نقش..."
@@ -349,20 +752,41 @@ export const SystemAdminPortal: React.FC<SystemAdminPortalProps> = ({ onNotify }
           </Card>
 
           {filteredManagers.length === 0 ? (
-            <EmptyState title="مدیری یافت نشد" description="عبارت جست‌وجو را تغییر دهید یا مدیر جدید بسازید." />
+            <EmptyState
+              title="مدیری یافت نشد"
+              description="عبارت جست‌وجو را تغییر دهید یا مدیر جدید بسازید."
+            />
           ) : (
             <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
               {filteredManagers.map((m) => (
                 <Card key={m.id} variant="default" className="space-y-2">
                   <div className="flex items-start justify-between gap-2">
                     <div>
-                      <h3 className="text-sm font-bold text-[#214031]">{m.fullName}</h3>
-                      <div dir="ltr" className="mt-0.5 text-right font-mono text-xs text-[#4F6659]">{m.phoneNumber}</div>
+                      <h3 className="text-sm font-bold text-[#214031]">
+                        {m.fullName}
+                      </h3>
+                      <div
+                        dir="ltr"
+                        className="mt-0.5 text-right font-mono text-xs text-[#4F6659]"
+                      >
+                        {m.phoneNumber}
+                      </div>
                     </div>
-                    <Badge variant="info" size="sm">{getRoleLabel(m.role as never)}</Badge>
+                    <Badge variant="info" size="sm">
+                      {getRoleLabel(m.role as never)}
+                    </Badge>
                   </div>
                   <div className="flex items-center justify-between border-t border-[#214E3A]/10 pt-2 text-[11px] text-[#4F6659]">
-                    <span>وضعیت: <strong className={m.isActive ? "text-[#214E3A]" : "text-[#D94F3D]"}>{m.isActive ? "فعال" : "معلق"}</strong></span>
+                    <span>
+                      وضعیت:{" "}
+                      <strong
+                        className={
+                          m.isActive ? "text-[#214E3A]" : "text-[#D94F3D]"
+                        }
+                      >
+                        {m.isActive ? "فعال" : "معلق"}
+                      </strong>
+                    </span>
                     <span>سطح: {m.stage}</span>
                   </div>
                 </Card>
@@ -375,17 +799,27 @@ export const SystemAdminPortal: React.FC<SystemAdminPortalProps> = ({ onNotify }
           <Card variant="default" className="space-y-3">
             <div className="flex items-center gap-2">
               <Database className="h-5 w-5 text-[#214E3A]" />
-              <h3 className="text-sm font-bold text-[#214031]">وضعیت پایگاه‌داده و هسته API</h3>
+              <h3 className="text-sm font-bold text-[#214031]">
+                وضعیت پایگاه‌داده و هسته API
+              </h3>
             </div>
             <div className="flex items-center gap-2 text-xs">
               <span>وضعیت سرویس:</span>
-              <Badge variant={health?.status === "ok" ? "success" : "danger"} size="sm">
+              <Badge
+                variant={health?.status === "ok" ? "success" : "danger"}
+                size="sm"
+              >
                 {health?.status === "ok" ? "سالم و فعال" : "نیازمند بررسی"}
               </Badge>
             </div>
             <div className="flex items-center gap-2 text-xs">
               <span>پایگاه‌داده PostgreSQL:</span>
-              <Badge variant={health?.database === "connected" ? "success" : "danger"} size="sm">
+              <Badge
+                variant={
+                  health?.database === "connected" ? "success" : "danger"
+                }
+                size="sm"
+              >
                 {health?.database === "connected" ? "متصل" : "قطع"}
               </Badge>
             </div>
@@ -399,16 +833,22 @@ export const SystemAdminPortal: React.FC<SystemAdminPortalProps> = ({ onNotify }
             <dl className="space-y-1.5 text-xs text-[#4F6659]">
               <div className="flex justify-between">
                 <dt>نسخه سرویس:</dt>
-                <dd className="font-mono font-semibold text-[#214031]">{health?.version ?? "-"}</dd>
+                <dd className="font-mono font-semibold text-[#214031]">
+                  {health?.version ?? "-"}
+                </dd>
               </div>
               <div className="flex justify-between">
                 <dt>مدت کارکرد پیوسته (ثانیه):</dt>
-                <dd className="font-mono font-semibold text-[#214031]">{health?.uptime ?? 0}</dd>
+                <dd className="font-mono font-semibold text-[#214031]">
+                  {health?.uptime ?? 0}
+                </dd>
               </div>
               <div className="flex justify-between">
                 <dt>آخرین بررسی:</dt>
                 <dd className="font-semibold text-[#214031]">
-                  {health?.timestamp ? new Date(health.timestamp).toLocaleString("fa-IR") : "-"}
+                  {health?.timestamp
+                    ? new Date(health.timestamp).toLocaleString("fa-IR")
+                    : "-"}
                 </dd>
               </div>
             </dl>
@@ -417,10 +857,31 @@ export const SystemAdminPortal: React.FC<SystemAdminPortalProps> = ({ onNotify }
       )}
 
       {isCreateOpen && (
-        <Modal isOpen onClose={() => setIsCreateOpen(false)} title="تعریف مدیر سیستمی جدید" maxWidth="md">
-          <form onSubmit={(e) => void handleCreateManager(e)} className="space-y-4 text-right">
-            <Input label="نام و نام خانوادگی" required value={newMgrName} onChange={(e) => setNewMgrName(e.target.value)} />
-            <Input label="شماره همراه" type="tel" dir="ltr" required value={newMgrPhone} onChange={(e) => setNewMgrPhone(e.target.value)} placeholder="09121234567" />
+        <Modal
+          isOpen
+          onClose={() => setIsCreateOpen(false)}
+          title="تعریف مدیر سیستمی جدید"
+          maxWidth="md"
+        >
+          <form
+            onSubmit={(e) => void handleCreateManager(e)}
+            className="space-y-4 text-right"
+          >
+            <Input
+              label="نام و نام خانوادگی"
+              required
+              value={newMgrName}
+              onChange={(e) => setNewMgrName(e.target.value)}
+            />
+            <Input
+              label="شماره همراه"
+              type="tel"
+              dir="ltr"
+              required
+              value={newMgrPhone}
+              onChange={(e) => setNewMgrPhone(e.target.value)}
+              placeholder="09121234567"
+            />
             <label className="block space-y-1 text-xs font-medium text-[#214031]">
               نقش سازمانی
               <select
@@ -435,10 +896,29 @@ export const SystemAdminPortal: React.FC<SystemAdminPortalProps> = ({ onNotify }
                 <option value="SYSTEM_ADMIN">مدیر سامانه</option>
               </select>
             </label>
-            <Input label="گذرواژه اولیه (حداقل ۸ کاراکتر)" type="password" dir="ltr" required minLength={8} value={newMgrPassword} onChange={(e) => setNewMgrPassword(e.target.value)} />
+            <Input
+              label="گذرواژه اولیه (حداقل ۸ کاراکتر)"
+              type="password"
+              dir="ltr"
+              required
+              minLength={8}
+              value={newMgrPassword}
+              onChange={(e) => setNewMgrPassword(e.target.value)}
+            />
             <div className="flex justify-end gap-2 border-t border-[#214E3A]/10 pt-3">
-              <Button type="button" variant="ghost" onClick={() => setIsCreateOpen(false)}>انصراف</Button>
-              <Button type="submit" variant="primary" loading={creatingMgr} icon={<UserPlus className="h-4 w-4" />}>
+              <Button
+                type="button"
+                variant="ghost"
+                onClick={() => setIsCreateOpen(false)}
+              >
+                انصراف
+              </Button>
+              <Button
+                type="submit"
+                variant="primary"
+                loading={creatingMgr}
+                icon={<UserPlus className="h-4 w-4" />}
+              >
                 ایجاد حساب
               </Button>
             </div>

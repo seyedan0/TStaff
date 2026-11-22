@@ -1,5 +1,13 @@
 import React, { createContext, useCallback, useContext, useState } from "react";
-import { createBrowserRouter, Link, Navigate, Outlet, RouterProvider, useLocation, useSearchParams } from "react-router-dom";
+import {
+  createBrowserRouter,
+  Link,
+  Navigate,
+  Outlet,
+  RouterProvider,
+  useLocation,
+  useSearchParams,
+} from "react-router-dom";
 import { AuthProvider, useAuth } from "../features/auth/AuthContext.js";
 import { LoginForm } from "../features/auth/LoginForm.js";
 import { AppHeader } from "./AppHeader.js";
@@ -13,9 +21,19 @@ import { ResourceBankView } from "../features/resources/ResourceBankView.js";
 import { LoadingState } from "../shared/ui/StateFeedback.js";
 import { Toast } from "../shared/ui/Toast.js";
 import type { ToastMessage } from "../shared/types.js";
-import { getHomePath, getNavigation, getRoleLabel, routeAccess, safeReturnTo } from "./navigation.js";
+import {
+  getHomePath,
+  getNavigation,
+  getRoleLabel,
+  routeAccess,
+  safeReturnTo,
+} from "./navigation.js";
 
-type Notify = (type: "success" | "error" | "info" | "warning", title: string, message?: string) => void;
+type Notify = (
+  type: "success" | "error" | "info" | "warning",
+  title: string,
+  message?: string,
+) => void;
 const NoticeContext = createContext<Notify>(() => undefined);
 
 function RouteContent() {
@@ -31,7 +49,9 @@ function RouteContent() {
       <Navigate
         replace
         to={
-          destination && routeAccess(currentUser.role, destination.split(/[?#]/)[0]!) === "allowed"
+          destination &&
+          routeAccess(currentUser.role, destination.split(/[?#]/)[0]!) ===
+            "allowed"
             ? destination
             : getHomePath(currentUser.role)
         }
@@ -42,10 +62,17 @@ function RouteContent() {
   const access = routeAccess(currentUser.role, pathname);
   if (access !== "allowed") {
     return (
-      <section role="alert" className="mx-auto max-w-lg rounded-3xl border border-[#214E3A]/15 bg-[#FFFCF5] p-10 text-center shadow-sm">
-        <p className="mb-3 text-4xl font-bold text-[#D94F3D]">{access === "forbidden" ? "۴۰۳" : "۴۰۴"}</p>
+      <section
+        role="alert"
+        className="mx-auto max-w-lg rounded-3xl border border-[#214E3A]/15 bg-[#FFFCF5] p-10 text-center shadow-sm"
+      >
+        <p className="mb-3 text-4xl font-bold text-[#D94F3D]">
+          {access === "forbidden" ? "۴۰۳" : "۴۰۴"}
+        </p>
         <h2 className="text-xl font-bold text-[#214031]">
-          {access === "forbidden" ? "دسترسی به این بخش مجاز نیست" : "صفحه پیدا نشد"}
+          {access === "forbidden"
+            ? "دسترسی به این بخش مجاز نیست"
+            : "صفحه پیدا نشد"}
         </h2>
         <p className="mt-2 text-xs text-[#4F6659]">
           {access === "forbidden"
@@ -62,8 +89,10 @@ function RouteContent() {
     );
   }
 
-  if (pathname.startsWith("/resource-bank")) return <ResourceBankView onNotify={notify} />;
-  if (/^\/projects\/new\/?$/.test(pathname)) return <ProjectCreatePage onNotify={notify} />;
+  if (pathname.startsWith("/resource-bank"))
+    return <ResourceBankView onNotify={notify} />;
+  if (/^\/projects\/new\/?$/.test(pathname))
+    return <ProjectCreatePage onNotify={notify} />;
   if (pathname.startsWith("/projects")) {
     return (
       <ResearchCasesView
@@ -73,21 +102,40 @@ function RouteContent() {
       />
     );
   }
-  if (/^\/admissions\/new\/?$/.test(pathname)) return <ApplicantCreatePage onNotify={notify} />;
-  if (/^\/admissions\/[^/]+\/?$/.test(pathname)) return <ApplicantDetailPage onNotify={notify} />;
-  if (pathname.startsWith("/admissions")) return <ApplicantsView onNotify={notify} />;
+  if (/^\/admissions\/new\/?$/.test(pathname))
+    return <ApplicantCreatePage onNotify={notify} />;
+  if (/^\/admissions\/[^/]+\/?$/.test(pathname))
+    return <ApplicantDetailPage onNotify={notify} />;
+  if (pathname.startsWith("/admissions"))
+    return <ApplicantsView onNotify={notify} />;
   return <AppPortalDispatcher onNotify={notify} />;
 }
 
 function AppContent() {
-  const { isAuthenticated, isLoading, currentUser, requiresRoleSelection, loggedOutExplicitly, chooseRole, logout } = useAuth();
+  const {
+    isAuthenticated,
+    isLoading,
+    currentUser,
+    requiresRoleSelection,
+    loggedOutExplicitly,
+    chooseRole,
+    logout,
+  } = useAuth();
   const [toasts, setToasts] = useState<ToastMessage[]>([]);
   const location = useLocation();
   const addToast = useCallback<Notify>(
-    (type, title, message) => setToasts((previous) => [...previous, { id: crypto.randomUUID(), type, title, message }]),
+    (type, title, message) =>
+      setToasts((previous) => [
+        ...previous,
+        { id: crypto.randomUUID(), type, title, message },
+      ]),
     [],
   );
-  const removeToast = useCallback((id: string) => setToasts((previous) => previous.filter((item) => item.id !== id)), []);
+  const removeToast = useCallback(
+    (id: string) =>
+      setToasts((previous) => previous.filter((item) => item.id !== id)),
+    [],
+  );
   const notices = (
     <div className="fixed bottom-6 left-6 z-50 flex max-w-[calc(100vw-3rem)] flex-col gap-2">
       {toasts.map((item) => (
@@ -98,7 +146,11 @@ function AppContent() {
 
   if (isLoading) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-[#F3EBDD]" aria-busy="true" aria-label="در حال بارگذاری حساب">
+      <div
+        className="flex min-h-screen items-center justify-center bg-[#F3EBDD]"
+        aria-busy="true"
+        aria-label="در حال بارگذاری حساب"
+      >
         <LoadingState message="در حال بررسی نشست کاربری..." />
       </div>
     );
@@ -107,7 +159,12 @@ function AppContent() {
   if (!isAuthenticated) {
     if (location.pathname !== "/login") {
       if (loggedOutExplicitly) return <Navigate replace to="/login" />;
-      return <Navigate replace to={`/login?returnTo=${encodeURIComponent(location.pathname + location.search)}`} />;
+      return (
+        <Navigate
+          replace
+          to={`/login?returnTo=${encodeURIComponent(location.pathname + location.search)}`}
+        />
+      );
     }
     return (
       <div className="flex min-h-screen flex-col justify-center bg-[#F3EBDD]">
@@ -122,7 +179,9 @@ function AppContent() {
       <div className="flex min-h-screen items-center justify-center bg-[#F3EBDD] p-6">
         <section className="w-full max-w-xl rounded-3xl border border-[#214E3A]/15 bg-[#FFFCF5] p-8 shadow-md">
           <h1 className="text-xl font-bold text-[#214031]">انتخاب فضای کاری</h1>
-          <p className="mt-2 text-sm text-[#4F6659]">یکی از نقش‌های مجاز حساب را انتخاب کنید.</p>
+          <p className="mt-2 text-sm text-[#4F6659]">
+            یکی از نقش‌های مجاز حساب را انتخاب کنید.
+          </p>
           <div className="mt-6 grid gap-3 sm:grid-cols-2">
             {currentUser.roles?.map((role) => (
               <button
@@ -131,12 +190,20 @@ function AppContent() {
                 onClick={() => chooseRole(role)}
                 className="rounded-2xl border border-[#214E3A]/20 bg-[#F3EBDD]/60 p-4 text-right transition hover:border-[#214E3A] hover:bg-[#214E3A]/10"
               >
-                <span className="block text-sm font-bold text-[#214031]">{getRoleLabel(role)}</span>
-                <span className="mt-1 block text-xs text-[#4F6659]">{getNavigation(role)[0]?.label ?? role}</span>
+                <span className="block text-sm font-bold text-[#214031]">
+                  {getRoleLabel(role)}
+                </span>
+                <span className="mt-1 block text-xs text-[#4F6659]">
+                  {getNavigation(role)[0]?.label ?? role}
+                </span>
               </button>
             ))}
           </div>
-          <button type="button" onClick={logout} className="mt-5 text-sm font-semibold text-[#D94F3D] hover:underline">
+          <button
+            type="button"
+            onClick={logout}
+            className="mt-5 text-sm font-semibold text-[#D94F3D] hover:underline"
+          >
             خروج از حساب
           </button>
         </section>
@@ -146,12 +213,12 @@ function AppContent() {
 
   return (
     <NoticeContext.Provider value={addToast}>
-      <div className="flex min-h-screen flex-col bg-[#F3EBDD] text-[#214031]">
+      <div className="app-shell flex flex-col">
         <AppHeader onNotify={addToast} />
-        <main id="main-content" className="mx-auto w-full max-w-7xl flex-1 space-y-6 p-4 md:p-8">
+        <main id="main-content" className="app-main flex-1 space-y-6">
           <Outlet />
         </main>
-        <footer className="border-t border-[#214E3A]/15 bg-[#FFFCF5]/60 px-4 py-5 text-center text-xs text-[#4F6659]">
+        <footer className="app-footer border-t px-4 py-5 text-center text-xs text-[var(--muted)]">
           TStaff · سامانه مدیریت و هدایت پژوهش
         </footer>
         {notices}
@@ -191,7 +258,16 @@ const paths = [
   "*",
 ];
 
-export const appRoutes = [{ element: <AuthProvider><AppContent /></AuthProvider>, children: paths.map((path) => ({ path, element: <RouteContent /> })) }];
+export const appRoutes = [
+  {
+    element: (
+      <AuthProvider>
+        <AppContent />
+      </AuthProvider>
+    ),
+    children: paths.map((path) => ({ path, element: <RouteContent /> })),
+  },
+];
 
 export const App: React.FC = () => {
   const [router] = useState(() => createBrowserRouter(appRoutes));

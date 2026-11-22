@@ -39,17 +39,21 @@ model Applicant {
   age             Int             @map("age") // D-01, FR-056: Strict positive integer, never derived
   provinceId      String?         @map("province_id")
   initialSupervisorId String?     @map("initial_supervisor_id")
+  initialSupervisorAssignedById String? @map("initial_supervisor_assigned_by_id")
+  initialSupervisorAssignedAt DateTime? @map("initial_supervisor_assigned_at")
   createdById     String?         @map("created_by_id")
   educationLevel  String?         @map("education_level")
   fieldOfStudy    String?         @map("field_of_study")
   status          ApplicantStatus @default(PENDING)
   notes           String?         @db.Text
   rejectionReason String?         @map("rejection_reason")
+  archivedAt      DateTime?       @map("archived_at")
   createdAt       DateTime        @default(now()) @map("created_at")
   updatedAt       DateTime        @updatedAt @map("updated_at")
 
   admissionReviews AdmissionReview[]
   user             User?
+  initialSupervisor User? @relation("ApplicantInitialSupervisor", fields: [initialSupervisorId], references: [id], onDelete: Restrict)
 
   @@map("applicants")
 }
@@ -93,6 +97,7 @@ model User {
   supportTickets        SupportTicket[]
   supervisedResearchers ScientificSupervisorAssignment[] @relation("ScientificSupervisorTrainee")
   supervisedUsers       ScientificSupervisorAssignment[] @relation("ScientificSupervisorManager")
+  assignedApplicants     Applicant[] @relation("ApplicantInitialSupervisor")
   researchCases         ResearchCase[]
   uploadedLibraryDocumentVersions LibraryDocumentVersion[] @relation("LibraryDocumentUploader")
   documentReadProgress DocumentReadProgress[] @relation("DocumentReadUser")
@@ -219,7 +224,7 @@ enum ResearchStatus {
 
 enum AssignmentRole {
   MAIN_SUPERVISOR // D-02: Exactly 1 active
-  COLLABORATOR_SUPERVISOR // D-02: At most 1 active
+  COLLABORATOR_SUPERVISOR // Legacy history only; blocked for new assignments by D-09
   PRIMARY_RESEARCHER
   ASSISTANT_RESEARCHER
 }
@@ -271,6 +276,7 @@ model ScientificSupervisorAssignment {
   supervisor User @relation("ScientificSupervisorManager", fields: [supervisorId], references: [id])
 
   @@unique([userId, supervisorId])
+  @@unique([userId]) // D-09: one lifetime supervisor, including revoked history
   @@index([supervisorId, revokedAt])
   @@index([userId, revokedAt])
   @@map("scientific_supervisor_assignments")

@@ -13,9 +13,19 @@ import { Modal } from "../../shared/ui/Modal.js";
 import { PageHeader } from "../../shared/ui/PageHeader.js";
 import { ErrorState, LoadingState } from "../../shared/ui/StateFeedback.js";
 
-type Notice = (type: "success" | "error" | "info" | "warning", title: string, message?: string) => void;
+type Notice = (
+  type: "success" | "error" | "info" | "warning",
+  title: string,
+  message?: string,
+) => void;
 
-const STATUS_BADGES: Record<ApplicantStatus, { label: string; variant: "success" | "warning" | "neutral" | "danger" | "info" }> = {
+const STATUS_BADGES: Record<
+  ApplicantStatus,
+  {
+    label: string;
+    variant: "success" | "warning" | "neutral" | "danger" | "info";
+  }
+> = {
   APPROVED: { label: "تأیید علمی (کارآموز فعال)", variant: "success" },
   IN_REVIEW: { label: "در انتظار داوری علمی", variant: "warning" },
   PENDING: { label: "پیش‌نویس استانی", variant: "neutral" },
@@ -24,17 +34,27 @@ const STATUS_BADGES: Record<ApplicantStatus, { label: string; variant: "success"
   REOPEN_REQUESTED: { label: "درخواست بازگشایی", variant: "info" },
 };
 
-export const ApplicantDetailPage: React.FC<{ onNotify: Notice }> = ({ onNotify }) => {
+export const ApplicantDetailPage: React.FC<{ onNotify: Notice }> = ({
+  onNotify,
+}) => {
   const { applicantId } = useParams();
   const { currentUser } = useAuth();
   const demoMode = isDemoMode();
-  const canProvinceAct = !demoMode && (currentUser?.role === "PROVINCIAL_DIRECTOR" || currentUser?.role === "SYSTEM_ADMIN");
-  const canDecide = !demoMode && (currentUser?.role === "SCIENTIFIC_SUPERVISOR" || currentUser?.role === "SYSTEM_ADMIN");
+  const canProvinceAct =
+    !demoMode &&
+    (currentUser?.role === "PROVINCIAL_DIRECTOR" ||
+      currentUser?.role === "SYSTEM_ADMIN");
+  const canDecide =
+    !demoMode &&
+    (currentUser?.role === "SCIENTIFIC_SUPERVISOR" ||
+      currentUser?.role === "SYSTEM_ADMIN");
 
   const [applicant, setApplicant] = useState<ApplicantItem | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [decisionOpen, setDecisionOpen] = useState<"APPROVED" | "REJECTED" | null>(null);
+  const [decisionOpen, setDecisionOpen] = useState<
+    "APPROVED" | "REJECTED" | null
+  >(null);
   const [decisionReason, setDecisionReason] = useState("");
   const [reopenOpen, setReopenOpen] = useState(false);
   const [reopenReason, setReopenReason] = useState("");
@@ -45,11 +65,17 @@ export const ApplicantDetailPage: React.FC<{ onNotify: Notice }> = ({ onNotify }
     setLoading(true);
     setError(null);
     try {
-      const data = await apiClient.get<ApplicantItem>(`/applicants/${encodeURIComponent(applicantId)}`);
+      const data = await apiClient.get<ApplicantItem>(
+        `/applicants/${encodeURIComponent(applicantId)}`,
+      );
       setApplicant(data);
     } catch (err) {
       setApplicant(null);
-      setError(err instanceof Error ? err.message : "دریافت جزئیات پرونده متقاضی ناموفق بود.");
+      setError(
+        err instanceof Error
+          ? err.message
+          : "دریافت جزئیات پرونده متقاضی ناموفق بود.",
+      );
     } finally {
       setLoading(false);
     }
@@ -63,11 +89,21 @@ export const ApplicantDetailPage: React.FC<{ onNotify: Notice }> = ({ onNotify }
     if (!applicant) return;
     setBusy(true);
     try {
-      await apiClient.post(`/applicants/${encodeURIComponent(applicant.id)}/submit`);
-      onNotify("success", "ارسال به داوری علمی", "پرونده به کارتابل داور علمی منتسب ارسال شد.");
+      await apiClient.post(
+        `/applicants/${encodeURIComponent(applicant.id)}/submit`,
+      );
+      onNotify(
+        "success",
+        "ارسال به داوری علمی",
+        "پرونده به کارتابل داور علمی منتسب ارسال شد.",
+      );
       await load();
     } catch (err) {
-      onNotify("error", "ارسال انجام نشد", err instanceof Error ? err.message : undefined);
+      onNotify(
+        "error",
+        "ارسال انجام نشد",
+        err instanceof Error ? err.message : undefined,
+      );
     } finally {
       setBusy(false);
     }
@@ -78,17 +114,22 @@ export const ApplicantDetailPage: React.FC<{ onNotify: Notice }> = ({ onNotify }
     if (!applicant || !decisionOpen) return;
     const reasonText =
       decisionReason.trim() ||
-      (decisionOpen === "APPROVED" ? "تأیید صلاحیت علمی و تشکیل حساب کارآموز" : "");
+      (decisionOpen === "APPROVED"
+        ? "تأیید صلاحیت علمی و تشکیل حساب کارآموز"
+        : "");
     if (decisionOpen === "REJECTED" && reasonText.length < 3) {
       onNotify("warning", "ذکر دلیل رد الزامی است");
       return;
     }
     setBusy(true);
     try {
-      await apiClient.post(`/applicants/${encodeURIComponent(applicant.id)}/decisions`, {
-        decision: decisionOpen,
-        reason: reasonText,
-      });
+      await apiClient.post(
+        `/applicants/${encodeURIComponent(applicant.id)}/decisions`,
+        {
+          decision: decisionOpen,
+          reason: reasonText,
+        },
+      );
       onNotify(
         decisionOpen === "APPROVED" ? "success" : "info",
         decisionOpen === "APPROVED" ? "متقاضی تأیید شد" : "پرونده متقاضی رد شد",
@@ -97,7 +138,11 @@ export const ApplicantDetailPage: React.FC<{ onNotify: Notice }> = ({ onNotify }
       setDecisionReason("");
       await load();
     } catch (err) {
-      onNotify("error", "ثبت تصمیم انجام نشد", err instanceof Error ? err.message : undefined);
+      onNotify(
+        "error",
+        "ثبت تصمیم انجام نشد",
+        err instanceof Error ? err.message : undefined,
+      );
     } finally {
       setBusy(false);
     }
@@ -111,72 +156,117 @@ export const ApplicantDetailPage: React.FC<{ onNotify: Notice }> = ({ onNotify }
     }
     setBusy(true);
     try {
-      await apiClient.post(`/applicants/${encodeURIComponent(applicant.id)}/reopen`, { reason: reopenReason.trim() });
+      await apiClient.post(
+        `/applicants/${encodeURIComponent(applicant.id)}/reopen`,
+        { reason: reopenReason.trim() },
+      );
       onNotify("success", "درخواست بازگشایی ثبت شد");
       setReopenOpen(false);
       setReopenReason("");
       await load();
     } catch (err) {
-      onNotify("error", "ثبت درخواست انجام نشد", err instanceof Error ? err.message : undefined);
+      onNotify(
+        "error",
+        "ثبت درخواست انجام نشد",
+        err instanceof Error ? err.message : undefined,
+      );
     } finally {
       setBusy(false);
     }
   };
 
-  if (loading) return <LoadingState message="در حال بارگذاری پرونده متقاضی..." />;
+  if (loading)
+    return <LoadingState message="در حال بارگذاری پرونده متقاضی..." />;
   if (error || !applicant) {
     return (
       <div className="space-y-4">
         <PageHeader
           title="جزئیات متقاضی"
-          breadcrumbs={[{ label: "پذیرش متقاضیان", to: "/admissions" }, { label: "جزئیات" }]}
+          breadcrumbs={[
+            { label: "پذیرش متقاضیان", to: "/admissions" },
+            { label: "جزئیات" },
+          ]}
           backTo={{ label: "بازگشت به فهرست پذیرش", to: "/admissions" }}
         />
-        <ErrorState message={error ?? "پرونده یافت نشد یا دسترسی ندارید."} onRetry={() => void load()} />
+        <ErrorState
+          message={error ?? "پرونده یافت نشد یا دسترسی ندارید."}
+          onRetry={() => void load()}
+        />
       </div>
     );
   }
 
-  const badge = STATUS_BADGES[applicant.status];
+  const badge =
+    applicant.status === "PENDING"
+      ? applicant.initialSupervisorId
+        ? {
+            label: "مدیر علمی تعیین شده · آماده ارسال",
+            variant: "info" as const,
+          }
+        : { label: "در انتظار تخصیص مدیر علمی", variant: "warning" as const }
+      : applicant.status === "REJECTED" && applicant.archivedAt
+        ? { label: "رد و بایگانی‌شده · بدون حساب", variant: "danger" as const }
+        : STATUS_BADGES[applicant.status];
 
   return (
     <div className="space-y-5">
       <PageHeader
         title={applicant.fullName}
         subtitle={`کد ملی: ${applicant.nationalId} · سن: ${applicant.age} سال`}
-        breadcrumbs={[{ label: "پذیرش متقاضیان", to: "/admissions" }, { label: applicant.fullName }]}
+        breadcrumbs={[
+          { label: "پذیرش متقاضیان", to: "/admissions" },
+          { label: applicant.fullName },
+        ]}
         backTo={{ label: "بازگشت به فهرست پذیرش", to: "/admissions" }}
-        actions={<Badge variant={badge.variant} dot>{badge.label}</Badge>}
+        actions={
+          <Badge variant={badge.variant} dot>
+            {badge.label}
+          </Badge>
+        }
       />
 
       <Card variant="default" className="space-y-4">
         <dl className="grid gap-3 text-sm sm:grid-cols-2 lg:grid-cols-3">
           <div className="rounded-xl bg-[#F3EBDD]/55 p-3">
             <dt className="text-xs text-[#4F6659]">کد ملی</dt>
-            <dd className="mt-1 font-mono font-semibold text-[#214031]">{applicant.nationalId}</dd>
+            <dd className="mt-1 font-mono font-semibold text-[#214031]">
+              {applicant.nationalId}
+            </dd>
           </div>
           <div className="rounded-xl bg-[#F3EBDD]/55 p-3">
             <dt className="text-xs text-[#4F6659]">شماره همراه</dt>
-            <dd dir="ltr" className="mt-1 text-right font-mono font-semibold text-[#214031]">{applicant.phoneNumber}</dd>
+            <dd
+              dir="ltr"
+              className="mt-1 text-right font-mono font-semibold text-[#214031]"
+            >
+              {applicant.phoneNumber}
+            </dd>
           </div>
           <div className="rounded-xl bg-[#F3EBDD]/55 p-3">
             <dt className="text-xs text-[#4F6659]">سن (عدد صحیح D-01)</dt>
-            <dd className="mt-1 font-semibold text-[#214031]">{applicant.age} سال</dd>
+            <dd className="mt-1 font-semibold text-[#214031]">
+              {applicant.age} سال
+            </dd>
           </div>
           <div className="rounded-xl bg-[#F3EBDD]/55 p-3">
             <dt className="text-xs text-[#4F6659]">استان</dt>
-            <dd className="mt-1 font-semibold text-[#214031]">{provinceNameFromId(applicant.provinceId) ?? applicant.provinceId}</dd>
+            <dd className="mt-1 font-semibold text-[#214031]">
+              {provinceNameFromId(applicant.provinceId) ?? applicant.provinceId}
+            </dd>
           </div>
           <div className="rounded-xl bg-[#F3EBDD]/55 p-3">
             <dt className="text-xs text-[#4F6659]">مقطع و رشته</dt>
             <dd className="mt-1 font-semibold text-[#214031]">
-              {applicant.educationLevel ?? applicant.education ?? "-"} · {applicant.fieldOfStudy}
+              {applicant.educationLevel ?? applicant.education ?? "-"} ·{" "}
+              {applicant.fieldOfStudy}
             </dd>
           </div>
           <div className="rounded-xl bg-[#F3EBDD]/55 p-3">
             <dt className="text-xs text-[#4F6659]">تاریخ ثبت پرونده</dt>
             <dd className="mt-1 font-semibold text-[#214031]">
-              {applicant.createdAt ? new Date(applicant.createdAt).toLocaleString("fa-IR") : "-"}
+              {applicant.createdAt
+                ? new Date(applicant.createdAt).toLocaleString("fa-IR")
+                : "-"}
             </dd>
           </div>
         </dl>
@@ -195,24 +285,63 @@ export const ApplicantDetailPage: React.FC<{ onNotify: Notice }> = ({ onNotify }
           </div>
         )}
 
+        {applicant.status === "PENDING" && !applicant.initialSupervisorId && (
+          <p
+            role="status"
+            className="border-r-2 border-[var(--accent)] pr-3 text-sm text-[var(--muted)]"
+          >
+            پرونده برای تخصیص مدیر علمی به مدیر پیگیری رسیده است. تا پیش از
+            تخصیص، ارسال به داوری علمی ممکن نیست (D-09).
+          </p>
+        )}
+
+        {applicant.archivedAt && (
+          <p className="text-xs text-[var(--muted)]">
+            زمان آرشیو پرونده ردشده:{" "}
+            {new Date(applicant.archivedAt).toLocaleString("fa-IR")}
+          </p>
+        )}
+
         <div className="flex flex-wrap justify-end gap-2 border-t border-[#214E3A]/10 pt-3">
-          {canProvinceAct && (applicant.status === "PENDING" || applicant.status === "REOPEN_REQUESTED") && (
-            <Button variant="primary" loading={busy} icon={<ArrowUpRight className="h-4 w-4" />} onClick={() => void submitForReview()}>
-              ارسال برای داوری علمی
-            </Button>
-          )}
+          {canDecide &&
+            applicant.initialSupervisorId &&
+            (currentUser?.role === "SYSTEM_ADMIN" ||
+              applicant.initialSupervisorId === currentUser?.id) &&
+            (applicant.status === "PENDING" ||
+              applicant.status === "REOPEN_REQUESTED") && (
+              <Button
+                variant="primary"
+                loading={busy}
+                icon={<ArrowUpRight className="h-4 w-4" />}
+                onClick={() => void submitForReview()}
+              >
+                شروع بررسی علمی
+              </Button>
+            )}
           {canDecide && applicant.status === "IN_REVIEW" && (
             <>
-              <Button variant="danger" icon={<XCircle className="h-4 w-4" />} onClick={() => setDecisionOpen("REJECTED")}>
+              <Button
+                variant="danger"
+                icon={<XCircle className="h-4 w-4" />}
+                onClick={() => setDecisionOpen("REJECTED")}
+              >
                 رد پرونده (بدون ساخت کاربر)
               </Button>
-              <Button variant="primary" icon={<CheckCircle className="h-4 w-4" />} onClick={() => setDecisionOpen("APPROVED")}>
+              <Button
+                variant="primary"
+                icon={<CheckCircle className="h-4 w-4" />}
+                onClick={() => setDecisionOpen("APPROVED")}
+              >
                 تأیید علمی (ایجاد حساب کارآموز)
               </Button>
             </>
           )}
           {canProvinceAct && applicant.status === "REJECTED" && (
-            <Button variant="secondary" icon={<RotateCcw className="h-4 w-4" />} onClick={() => setReopenOpen(true)}>
+            <Button
+              variant="secondary"
+              icon={<RotateCcw className="h-4 w-4" />}
+              onClick={() => setReopenOpen(true)}
+            >
               درخواست بازگشایی پرونده
             </Button>
           )}
@@ -222,11 +351,15 @@ export const ApplicantDetailPage: React.FC<{ onNotify: Notice }> = ({ onNotify }
       <Modal
         isOpen={!!decisionOpen}
         onClose={() => setDecisionOpen(null)}
-        title={decisionOpen === "APPROVED" ? "تأیید علمی متقاضی" : "رد پرونده متقاضی"}
+        title={
+          decisionOpen === "APPROVED" ? "تأیید علمی متقاضی" : "رد پرونده متقاضی"
+        }
       >
         <form onSubmit={submitDecision} className="space-y-4 text-right">
           <label className="block text-xs font-medium text-[#214031]">
-            {decisionOpen === "REJECTED" ? "دلیل رد پرونده (الزامی)" : "توضیح ارزیابی (اختیاری)"}
+            {decisionOpen === "REJECTED"
+              ? "دلیل رد پرونده (الزامی)"
+              : "توضیح ارزیابی (اختیاری)"}
             <textarea
               rows={3}
               required={decisionOpen === "REJECTED"}
@@ -236,15 +369,29 @@ export const ApplicantDetailPage: React.FC<{ onNotify: Notice }> = ({ onNotify }
             />
           </label>
           <div className="flex justify-end gap-2">
-            <Button type="button" variant="ghost" onClick={() => setDecisionOpen(null)}>انصراف</Button>
-            <Button type="submit" variant={decisionOpen === "REJECTED" ? "danger" : "primary"} loading={busy}>
+            <Button
+              type="button"
+              variant="ghost"
+              onClick={() => setDecisionOpen(null)}
+            >
+              انصراف
+            </Button>
+            <Button
+              type="submit"
+              variant={decisionOpen === "REJECTED" ? "danger" : "primary"}
+              loading={busy}
+            >
               ثبت تصمیم
             </Button>
           </div>
         </form>
       </Modal>
 
-      <Modal isOpen={reopenOpen} onClose={() => setReopenOpen(false)} title="درخواست بازگشایی پرونده">
+      <Modal
+        isOpen={reopenOpen}
+        onClose={() => setReopenOpen(false)}
+        title="درخواست بازگشایی پرونده"
+      >
         <form onSubmit={submitReopen} className="space-y-4 text-right">
           <label className="block text-xs font-medium text-[#214031]">
             دلیل درخواست (حداقل ۱۰ کاراکتر)
@@ -258,12 +405,19 @@ export const ApplicantDetailPage: React.FC<{ onNotify: Notice }> = ({ onNotify }
             />
           </label>
           <div className="flex justify-end gap-2">
-            <Button type="button" variant="ghost" onClick={() => setReopenOpen(false)}>انصراف</Button>
-            <Button type="submit" variant="primary" loading={busy}>ارسال درخواست</Button>
+            <Button
+              type="button"
+              variant="ghost"
+              onClick={() => setReopenOpen(false)}
+            >
+              انصراف
+            </Button>
+            <Button type="submit" variant="primary" loading={busy}>
+              ارسال درخواست
+            </Button>
           </div>
         </form>
       </Modal>
     </div>
   );
 };
-

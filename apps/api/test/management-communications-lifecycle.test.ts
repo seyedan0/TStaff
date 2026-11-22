@@ -41,7 +41,9 @@ class MockUserRepository {
     this.users.set(user.id, user);
   }
   async findAllManagers() {
-    return Array.from(this.users.values()).filter((u) => u.role && u.role !== "INTERN" && u.role !== "APPRENTICE");
+    return Array.from(this.users.values()).filter(
+      (u) => u.role && u.role !== "INTERN" && u.role !== "APPRENTICE",
+    );
   }
   async findAllInterns() {
     return Array.from(this.users.values()).filter((u) => u.stage === "INTERN");
@@ -174,6 +176,8 @@ class MockReportingRepository {
     return {
       provinceId,
       totalApplicants: 100,
+      applicantsByStatus: { PENDING: 20, APPROVED: 50, REJECTED: 30 },
+      pendingSupervisorAllocation: 4,
       approvedApplicants: 50,
       totalApprentices: 40,
       totalInterns: 10,
@@ -233,18 +237,21 @@ class MockReportingRepository {
   }
   async getWorkflowMetrics() {
     return {
-      averageStageCompletionDays: {
-        SOURCES: 14,
-        EXPLANATION: 21,
-        PRESCRIPTION: 14,
-        SCENARIO: 7,
-      },
       rollbackFrequencyByStage: {
         SOURCES: 2,
         EXPLANATION: 1,
         PRESCRIPTION: 0,
         SCENARIO: 0,
       },
+    };
+  }
+  async getSupervisorHealth() {
+    return {
+      inactiveSupervisorAssignmentsCount: 0,
+      revokedSupervisorAssignmentsCount: 0,
+      legacyCollaboratorAssignmentsCount: 0,
+      caseSupervisorMismatchCount: 0,
+      issues: [],
     };
   }
 }
@@ -342,9 +349,33 @@ describe("E2E: M5 Management, Communications & Dashboards Lifecycle", () => {
         isScientificSupervisor: async (id: string) => id === supervisorId,
         isIntern: async (id: string) => id === traineeId || id === strangerId,
         assignToUser: async () => {},
-        listSupervisorsForUser: async (id: string) => id === traineeId ? [{ id: "sup-1", userId: traineeId, supervisorId, supervisorName: "مدیر علمی", phoneNumber: "09121110002", isPrimary: true, assignedAt: new Date() }] : [],
-        listUsersForSupervisor: async (id: string) => id === supervisorId ? [{ id: traineeId, fullName: "کارورز آزمایشی", stage: "INTERN", phoneNumber: "09121110001" }] : [],
-        isSupervisorAssignedToUser: async (u: string, s: string) => u === traineeId && s === supervisorId,
+        listSupervisorsForUser: async (id: string) =>
+          id === traineeId
+            ? [
+                {
+                  id: "sup-1",
+                  userId: traineeId,
+                  supervisorId,
+                  supervisorName: "مدیر علمی",
+                  phoneNumber: "09121110002",
+                  isPrimary: true,
+                  assignedAt: new Date(),
+                },
+              ]
+            : [],
+        listUsersForSupervisor: async (id: string) =>
+          id === supervisorId
+            ? [
+                {
+                  id: traineeId,
+                  fullName: "کارورز آزمایشی",
+                  stage: "INTERN",
+                  phoneNumber: "09121110001",
+                },
+              ]
+            : [],
+        isSupervisorAssignedToUser: async (u: string, s: string) =>
+          u === traineeId && s === supervisorId,
         isSupervisorAssignedToCase: async () => false,
         getCaseIdsForSupervisor: async () => [],
         listCaseSupervisors: async () => [],
@@ -382,7 +413,9 @@ describe("E2E: M5 Management, Communications & Dashboards Lifecycle", () => {
     // Step A: Suspend user
     const suspendRes = await request(app.getHttpServer())
       .post(`/users/${traineeId}/suspend`)
-      .set("x-user-id", trackingDirectorId).set("x-user-stage", "INTERN").set("x-user-role", "TRACKING_DIRECTOR")
+      .set("x-user-id", trackingDirectorId)
+      .set("x-user-stage", "INTERN")
+      .set("x-user-role", "TRACKING_DIRECTOR")
       .send({ reason: "تخلف انضباطی در فرایند پژوهش" });
 
     expect(suspendRes.status).toBe(HttpStatus.OK);
@@ -391,7 +424,8 @@ describe("E2E: M5 Management, Communications & Dashboards Lifecycle", () => {
     // Step B: Blocked when request header indicates suspended
     const blockedRes = await request(app.getHttpServer())
       .get(`/users/${traineeId}`)
-      .set("x-user-id", traineeId).set("x-user-stage", "INTERN")
+      .set("x-user-id", traineeId)
+      .set("x-user-stage", "INTERN")
       .set("x-user-suspended", "true");
 
     expect(blockedRes.status).toBe(HttpStatus.FORBIDDEN);
@@ -400,7 +434,9 @@ describe("E2E: M5 Management, Communications & Dashboards Lifecycle", () => {
     // Step C: Reactivate user
     const reactivateRes = await request(app.getHttpServer())
       .post(`/users/${traineeId}/reactivate`)
-      .set("x-user-id", trackingDirectorId).set("x-user-stage", "INTERN").set("x-user-role", "TRACKING_DIRECTOR")
+      .set("x-user-id", trackingDirectorId)
+      .set("x-user-stage", "INTERN")
+      .set("x-user-role", "TRACKING_DIRECTOR")
       .send({ reason: "رفع تخلف و تعهد کتبی" });
 
     expect(reactivateRes.status).toBe(HttpStatus.OK);
@@ -418,7 +454,9 @@ describe("E2E: M5 Management, Communications & Dashboards Lifecycle", () => {
     // Step A: Create critical notification
     const criticalNotifRes = await request(app.getHttpServer())
       .post("/notifications")
-      .set("x-user-id", supervisorId).set("x-user-stage", "INTERN").set("x-user-role", "SCIENTIFIC_SUPERVISOR")
+      .set("x-user-id", supervisorId)
+      .set("x-user-stage", "INTERN")
+      .set("x-user-role", "SCIENTIFIC_SUPERVISOR")
       .send({
         userId: traineeId,
         type: "USER_SUSPENDED",
@@ -461,12 +499,16 @@ describe("E2E: M5 Management, Communications & Dashboards Lifecycle", () => {
 
     const deniedAuditRes = await request(app.getHttpServer())
       .get("/audit-events?aggregateType=ResearchCase")
-      .set("x-user-id", traineeId).set("x-user-stage", "INTERN").set("x-user-role", "INTERN");
+      .set("x-user-id", traineeId)
+      .set("x-user-stage", "INTERN")
+      .set("x-user-role", "INTERN");
     expect(deniedAuditRes.status).toBe(HttpStatus.FORBIDDEN);
 
     const auditRes = await request(app.getHttpServer())
       .get("/audit-events?aggregateType=ResearchCase")
-      .set("x-user-id", trackingDirectorId).set("x-user-stage", "INTERN").set("x-user-role", "TRACKING_DIRECTOR");
+      .set("x-user-id", trackingDirectorId)
+      .set("x-user-stage", "INTERN")
+      .set("x-user-role", "TRACKING_DIRECTOR");
 
     expect(auditRes.status).toBe(HttpStatus.OK);
     expect(Array.isArray(auditRes.body)).toBe(true);
@@ -477,7 +519,8 @@ describe("E2E: M5 Management, Communications & Dashboards Lifecycle", () => {
     // Unrelated user cannot open direct conversation
     const unauthorizedConvRes = await request(app.getHttpServer())
       .post("/conversations")
-      .set("x-user-stage", "INTERN").set("x-user-role", "INTERN")
+      .set("x-user-stage", "INTERN")
+      .set("x-user-role", "INTERN")
       .set("x-user-id", traineeId)
       .send({ participantId: strangerId, type: "DIRECT_SUPERVISOR_TRAINEE" });
     expect(unauthorizedConvRes.status).toBe(HttpStatus.FORBIDDEN);
@@ -485,7 +528,8 @@ describe("E2E: M5 Management, Communications & Dashboards Lifecycle", () => {
     // Allowed contacts endpoint returns assigned supervisor (not unrelated peer)
     const contactsRes = await request(app.getHttpServer())
       .get("/conversations/contacts")
-      .set("x-user-stage", "INTERN").set("x-user-role", "INTERN")
+      .set("x-user-stage", "INTERN")
+      .set("x-user-role", "INTERN")
       .set("x-user-id", traineeId);
     expect(contactsRes.status).toBe(HttpStatus.OK);
     expect(contactsRes.body.map((c: any) => c.id)).toContain(supervisorId);
@@ -494,7 +538,8 @@ describe("E2E: M5 Management, Communications & Dashboards Lifecycle", () => {
     // Step A: Create direct conversation
     const convRes = await request(app.getHttpServer())
       .post("/conversations")
-      .set("x-user-stage", "INTERN").set("x-user-role", "INTERN")
+      .set("x-user-stage", "INTERN")
+      .set("x-user-role", "INTERN")
       .set("x-user-id", traineeId)
       .send({
         participantId: supervisorId,
@@ -508,7 +553,8 @@ describe("E2E: M5 Management, Communications & Dashboards Lifecycle", () => {
     // Step B: Trainee sends message
     const msgRes = await request(app.getHttpServer())
       .post(`/conversations/${convId}/messages`)
-      .set("x-user-stage", "INTERN").set("x-user-role", "INTERN")
+      .set("x-user-stage", "INTERN")
+      .set("x-user-role", "INTERN")
       .set("x-user-id", traineeId)
       .send({
         content: "سلام، منبع شماره ۲ با موفقیت مصاحبه و ثبت شد.",
@@ -520,7 +566,8 @@ describe("E2E: M5 Management, Communications & Dashboards Lifecycle", () => {
     // Step C: Supervisor reads messages
     const historyRes = await request(app.getHttpServer())
       .get(`/conversations/${convId}/messages`)
-      .set("x-user-stage", "INTERN").set("x-user-role", "SCIENTIFIC_SUPERVISOR")
+      .set("x-user-stage", "INTERN")
+      .set("x-user-role", "SCIENTIFIC_SUPERVISOR")
       .set("x-user-id", supervisorId);
 
     expect(historyRes.status).toBe(HttpStatus.OK);
@@ -529,7 +576,8 @@ describe("E2E: M5 Management, Communications & Dashboards Lifecycle", () => {
     // Step D: Stranger user blocked with 403 Forbidden
     const strangerRes = await request(app.getHttpServer())
       .get(`/conversations/${convId}/messages`)
-      .set("x-user-stage", "INTERN").set("x-user-role", "INTERN")
+      .set("x-user-stage", "INTERN")
+      .set("x-user-role", "INTERN")
       .set("x-user-id", strangerId);
 
     expect(strangerRes.status).toBe(HttpStatus.FORBIDDEN);
@@ -539,14 +587,16 @@ describe("E2E: M5 Management, Communications & Dashboards Lifecycle", () => {
     const caseId = "99999999-9999-9999-9999-999999999999";
     const deniedArchive = await request(app.getHttpServer())
       .post("/archives/jobs")
-      .set("x-user-stage", "INTERN").set("x-user-role", "SCIENTIFIC_SUPERVISOR")
+      .set("x-user-stage", "INTERN")
+      .set("x-user-role", "SCIENTIFIC_SUPERVISOR")
       .set("x-user-id", supervisorId)
       .send({ targetType: "RESEARCH_CASE", targetId: caseId });
     expect(deniedArchive.status).toBe(HttpStatus.FORBIDDEN);
 
     const archiveRes = await request(app.getHttpServer())
       .post("/archives/jobs")
-      .set("x-user-stage", "INTERN").set("x-user-role", "TRACKING_DIRECTOR")
+      .set("x-user-stage", "INTERN")
+      .set("x-user-role", "TRACKING_DIRECTOR")
       .set("x-user-id", trackingDirectorId)
       .send({
         targetType: "RESEARCH_CASE",
@@ -567,7 +617,8 @@ describe("E2E: M5 Management, Communications & Dashboards Lifecycle", () => {
   it("5. Runtime System Settings & Management Dashboards (FR-026, FR-027, FR-028, FR-031, FR-052, AT-09, AT-11, AT-15, AT-24, AT-34)", async () => {
     const deniedSettingRes = await request(app.getHttpServer())
       .put("/settings/STAGE_MAX_DAYS")
-      .set("x-user-stage", "INTERN").set("x-user-role", "SCIENTIFIC_SUPERVISOR")
+      .set("x-user-stage", "INTERN")
+      .set("x-user-role", "SCIENTIFIC_SUPERVISOR")
       .set("x-user-id", supervisorId)
       .send({ value: "40" });
     expect(deniedSettingRes.status).toBe(HttpStatus.FORBIDDEN);
@@ -575,7 +626,8 @@ describe("E2E: M5 Management, Communications & Dashboards Lifecycle", () => {
     // Step A: Update dynamic system setting (SYSTEM_ADMIN only)
     const putSettingRes = await request(app.getHttpServer())
       .put("/settings/STAGE_MAX_DAYS")
-      .set("x-user-stage", "INTERN").set("x-user-role", "SYSTEM_ADMIN")
+      .set("x-user-stage", "INTERN")
+      .set("x-user-role", "SYSTEM_ADMIN")
       .set("x-user-id", systemAdminId)
       .send({
         value: "40",
@@ -588,7 +640,9 @@ describe("E2E: M5 Management, Communications & Dashboards Lifecycle", () => {
     // Step B: Get setting
     const getSettingRes = await request(app.getHttpServer())
       .get("/settings/STAGE_MAX_DAYS")
-      .set("x-user-id", supervisorId).set("x-user-stage", "INTERN").set("x-user-role", "SCIENTIFIC_SUPERVISOR");
+      .set("x-user-id", supervisorId)
+      .set("x-user-stage", "INTERN")
+      .set("x-user-role", "SCIENTIFIC_SUPERVISOR");
 
     expect(getSettingRes.status).toBe(HttpStatus.OK);
     expect(getSettingRes.body.value).toBe("40");
@@ -596,7 +650,9 @@ describe("E2E: M5 Management, Communications & Dashboards Lifecycle", () => {
     // Step C: Provincial Director Dashboard
     const provRes = await request(app.getHttpServer())
       .get("/reporting/provincial-director?provinceId=tehran")
-      .set("x-user-id", trackingDirectorId).set("x-user-stage", "INTERN").set("x-user-role", "TRACKING_DIRECTOR");
+      .set("x-user-id", trackingDirectorId)
+      .set("x-user-stage", "INTERN")
+      .set("x-user-role", "TRACKING_DIRECTOR");
 
     expect(provRes.status).toBe(HttpStatus.OK);
     expect(provRes.body.totalApplicants).toBe(100);
@@ -605,7 +661,9 @@ describe("E2E: M5 Management, Communications & Dashboards Lifecycle", () => {
     // Step D: Supervisor Worklist
     const supRes = await request(app.getHttpServer())
       .get(`/reporting/supervisor-worklist?supervisorId=${supervisorId}`)
-      .set("x-user-id", supervisorId).set("x-user-stage", "INTERN").set("x-user-role", "SCIENTIFIC_SUPERVISOR");
+      .set("x-user-id", supervisorId)
+      .set("x-user-stage", "INTERN")
+      .set("x-user-role", "SCIENTIFIC_SUPERVISOR");
 
     expect(supRes.status).toBe(HttpStatus.OK);
     expect(supRes.body.pendingStageSubmissions).toBe(3);
@@ -614,7 +672,9 @@ describe("E2E: M5 Management, Communications & Dashboards Lifecycle", () => {
     // Step E: Tracking Director Backlog
     const trackRes = await request(app.getHttpServer())
       .get("/reporting/tracking-director-backlog")
-      .set("x-user-id", trackingDirectorId).set("x-user-stage", "INTERN").set("x-user-role", "TRACKING_DIRECTOR");
+      .set("x-user-id", trackingDirectorId)
+      .set("x-user-stage", "INTERN")
+      .set("x-user-role", "TRACKING_DIRECTOR");
 
     expect(trackRes.status).toBe(HttpStatus.OK);
     expect(trackRes.body.delayedCasesCount).toBe(4);
@@ -623,11 +683,12 @@ describe("E2E: M5 Management, Communications & Dashboards Lifecycle", () => {
     // Step F: General Director Summary
     const generalRes = await request(app.getHttpServer())
       .get("/reporting/general-director-summary")
-      .set("x-user-id", trackingDirectorId).set("x-user-stage", "INTERN").set("x-user-role", "TRACKING_DIRECTOR");
+      .set("x-user-id", trackingDirectorId)
+      .set("x-user-stage", "INTERN")
+      .set("x-user-role", "TRACKING_DIRECTOR");
 
     expect(generalRes.status).toBe(HttpStatus.OK);
     expect(generalRes.body.totalResearchCases).toBe(40);
     expect(generalRes.body.activeSupervisorsCount).toBe(15);
   });
 });
-

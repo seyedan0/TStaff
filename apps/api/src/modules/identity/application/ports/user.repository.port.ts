@@ -1,5 +1,8 @@
 import { User } from "../../domain/user.entity.js";
-import type { DirectoryUserDto, StudyDocumentSnapshot } from "@tstaff/contracts";
+import type {
+  DirectoryUserDto,
+  StudyDocumentSnapshot,
+} from "@tstaff/contracts";
 
 export interface UserApplicantDetailsRecord {
   nationalId: string | null;
@@ -39,7 +42,9 @@ export interface SupportTicketRecord {
 
 export interface UserRepositoryPort {
   findProvinceIdByUserId?(userId: string): Promise<string | null>;
-  findApplicantDetailsByUserId?(userId: string): Promise<UserApplicantDetailsRecord | null>;
+  findApplicantDetailsByUserId?(
+    userId: string,
+  ): Promise<UserApplicantDetailsRecord | null>;
   findById(id: string): Promise<User | null>;
   findByPhoneNumber(phoneNumber: string): Promise<User | null>;
   findByApplicantId(applicantId: string): Promise<User | null>;
@@ -47,7 +52,16 @@ export interface UserRepositoryPort {
   findAllInterns?(): Promise<User[]>;
   findAllDirectoryUsers?(): Promise<DirectoryUserDto[]>;
   save(user: User): Promise<void>;
-  createSession?(input: { userId: string; tokenHash: string; expiresAt: Date }): Promise<void>;
+  saveApprovedApplicantWithSupervisor?(input: {
+    user: User;
+    supervisorId: string;
+    assignedById: string;
+  }): Promise<void>;
+  createSession?(input: {
+    userId: string;
+    tokenHash: string;
+    expiresAt: Date;
+  }): Promise<void>;
   revokeSession?(tokenHash: string): Promise<void>;
 
   // Apprentice Study Evaluations
@@ -57,7 +71,9 @@ export interface UserRepositoryPort {
     completedDocuments: StudyDocumentSnapshot[],
   ): Promise<StudyEvaluationRecord>;
   getPendingStudyEvaluations(): Promise<StudyEvaluationRecord[]>;
-  getStudyEvaluationByUserId(userId: string): Promise<StudyEvaluationRecord | null>;
+  getStudyEvaluationByUserId(
+    userId: string,
+  ): Promise<StudyEvaluationRecord | null>;
   decideStudyEvaluation(
     id: string,
     supervisorId: string,
@@ -66,7 +82,15 @@ export interface UserRepositoryPort {
   ): Promise<StudyEvaluationRecord>;
 
   // Support Tickets
-  createSupportTicket(userId: string, subject: string, description: string): Promise<SupportTicketRecord>;
+  createSupportTicket(
+    userId: string,
+    subject: string,
+    description: string,
+  ): Promise<SupportTicketRecord>;
   getAllSupportTickets(): Promise<SupportTicketRecord[]>;
-  resolveSupportTicket(id: string, response: string, status: "RESOLVED" | "CLOSED"): Promise<SupportTicketRecord>;
+  resolveSupportTicket(
+    id: string,
+    response: string,
+    status: "RESOLVED" | "CLOSED",
+  ): Promise<SupportTicketRecord>;
 }

@@ -5,6 +5,7 @@ import type {
   TrackingDirectorBacklog,
   GeneralDirectorSummary,
   WorkflowMetrics,
+  SupervisorHealth,
 } from "@tstaff/contracts";
 import type { ReportingRepositoryPort } from "./ports/reporting.repository.port.js";
 
@@ -55,5 +56,8 @@ export class ReportingService {
   async getWorkflowMetrics(): Promise<WorkflowMetrics> {
     return this.reportingRepo.getWorkflowMetrics();
   }
-}
 
+  async getSupervisorHealth(): Promise<SupervisorHealth> {
+    return this.reportingRepo.getSupervisorHealth();
+  }
+}

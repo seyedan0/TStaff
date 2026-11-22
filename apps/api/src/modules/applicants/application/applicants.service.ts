@@ -1,4 +1,4 @@
-import { Injectable, Inject } from "@nestjs/common";
+import { Injectable, Inject, Optional } from "@nestjs/common";
 import {
   CreateApplicantDto,
   ReviewApplicantDecisionDto,
@@ -9,9 +9,15 @@ import {
   ApplicantAlreadyExistsError,
   ApplicantNotAssignedToReviewerError,
   InvalidInitialSupervisorError,
+  ApplicantAllocationConflictError,
 } from "../domain/applicant-errors.js";
 import type { ApplicantRepositoryPort } from "./ports/applicant.repository.port.js";
 import { AssignmentsService } from "../../assignments/application/assignments.service.js";
+import { AuditService } from "../../audit/application/audit.service.js";
+import {
+  TRANSACTION_RUNNER,
+  type TransactionRunner,
+} from "../../../platform/transactions/transaction-runner.js";
 
 export const APPLICANT_REPOSITORY = Symbol("APPLICANT_REPOSITORY");
 export const APPLICANT_APPROVED_HOOK = Symbol("APPLICANT_APPROVED_HOOK");
@@ -35,12 +41,18 @@ export class ApplicantsService {
     private readonly approvedHook: ApplicantApprovedHook,
     @Inject(AssignmentsService)
     private readonly assignmentsService: AssignmentsService,
+    @Optional()
+    @Inject(AuditService)
+    private readonly auditService?: AuditService,
+    @Optional()
+    @Inject(TRANSACTION_RUNNER)
+    private readonly transactions?: TransactionRunner,
   ) {}
 
-  async createDraft(dto: CreateApplicantDto, createdById?: string): Promise<Applicant> {
-    if (!dto.initialSupervisorId || !(await this.assignmentsService.isScientificSupervisor(dto.initialSupervisorId))) {
-      throw new InvalidInitialSupervisorError();
-    }
+  async createDraft(
+    dto: CreateApplicantDto,
+    createdById?: string,
+  ): Promise<Applicant> {
     const existingByPhone = await this.applicantRepo.findByPhoneNumber(
       dto.phoneNumber,
     );
@@ -73,7 +85,7 @@ export class ApplicantsService {
       phoneNumber: dto.phoneNumber,
       age: dto.age,
       provinceId: dto.provinceId ?? null,
-      initialSupervisorId: dto.initialSupervisorId ?? null,
+      initialSupervisorId: null,
       createdById: createdById ?? null,
       educationLevel: dto.education ?? null,
       fieldOfStudy: dto.fieldOfStudy ?? null,
@@ -85,14 +97,75 @@ export class ApplicantsService {
     return applicant;
   }
 
-  async submitForReview(id: string): Promise<Applicant> {
+  async getPendingAllocationQueue(): Promise<Applicant[]> {
+    if (this.applicantRepo.findPendingAllocationQueue)
+      return this.applicantRepo.findPendingAllocationQueue();
+    return (await this.applicantRepo.findAll({ status: "PENDING" })).filter(
+      (item) => !item.initialSupervisorId,
+    );
+  }
+
+  async assignInitialSupervisor(
+    applicantId: string,
+    supervisorId: string,
+    actorId: string,
+  ): Promise<Applicant> {
+    const applicant = await this.applicantRepo.findById(applicantId);
+    if (!applicant) throw new ApplicantNotFoundError(applicantId);
+    if (applicant.status !== "PENDING" || applicant.initialSupervisorId)
+      throw new ApplicantAllocationConflictError();
+    if (!(await this.assignmentsService.isScientificSupervisor(supervisorId)))
+      throw new InvalidInitialSupervisorError();
+    if (!this.applicantRepo.assignInitialSupervisor)
+      throw new Error("Applicant allocation is unavailable");
+    const assignedAt = new Date();
+    if (
+      !(await this.applicantRepo.assignInitialSupervisor(
+        applicantId,
+        supervisorId,
+        actorId,
+        assignedAt,
+      ))
+    )
+      throw new ApplicantAllocationConflictError();
+    await this.auditService?.recordEvent({
+      aggregateType: "Applicant",
+      aggregateId: applicantId,
+      action: "APPLICANT_SUPERVISOR_ALLOCATED",
+      actorId,
+      payload: { supervisorId },
+    });
+    return (await this.applicantRepo.findById(applicantId))!;
+  }
+
+  async submitForReview(
+    id: string,
+    actorId?: string,
+    reviewerId?: string,
+  ): Promise<Applicant> {
     const applicant = await this.applicantRepo.findById(id);
     if (!applicant) {
       throw new ApplicantNotFoundError(id);
     }
+    if (!applicant.initialSupervisorId)
+      throw new InvalidInitialSupervisorError();
+    if (reviewerId && applicant.initialSupervisorId !== reviewerId) {
+      throw new ApplicantNotAssignedToReviewerError();
+    }
 
     const updated = applicant.submitForReview();
-    await this.applicantRepo.save(updated);
+    const persist = async () => {
+      await this.applicantRepo.save(updated);
+      await this.auditService?.recordEvent({
+        aggregateType: "Applicant",
+        aggregateId: id,
+        action: "APPLICANT_SUBMITTED_FOR_REVIEW",
+        actorId,
+        payload: { supervisorId: applicant.initialSupervisorId },
+      });
+    };
+    if (this.transactions) await this.transactions.run(persist);
+    else await persist();
     return updated;
   }
 
@@ -100,11 +173,14 @@ export class ApplicantsService {
     id: string,
     dto: ReviewApplicantDecisionDto,
     reviewerId?: string,
+    actorId?: string,
   ): Promise<Applicant> {
     const applicant = await this.applicantRepo.findById(id);
     if (!applicant) {
       throw new ApplicantNotFoundError(id);
     }
+    if (!applicant.initialSupervisorId)
+      throw new InvalidInitialSupervisorError();
     if (reviewerId && applicant.initialSupervisorId !== reviewerId) {
       throw new ApplicantNotAssignedToReviewerError();
     }
@@ -116,35 +192,77 @@ export class ApplicantsService {
           fullName: applicant.fullName,
           phoneNumber: applicant.phoneNumber,
           initialSupervisorId: applicant.initialSupervisorId ?? null,
-          assignedById: applicant.createdById ?? applicant.initialSupervisorId ?? "system",
+          assignedById:
+            applicant.initialSupervisorAssignedById ??
+            applicant.initialSupervisorId ??
+            "system",
         });
         return applicant;
       }
       const updated = applicant.approve();
-      await this.applicantRepo.save(updated);
-      await this.approvedHook.onApplicantApproved({
-        id: updated.id,
-        fullName: updated.fullName,
-        phoneNumber: updated.phoneNumber,
-        initialSupervisorId: updated.initialSupervisorId ?? null,
-        assignedById: updated.createdById ?? updated.initialSupervisorId ?? "system",
-      });
+      const persistApproval = async () => {
+        await this.applicantRepo.save(updated);
+        await this.approvedHook.onApplicantApproved({
+          id: updated.id,
+          fullName: updated.fullName,
+          phoneNumber: updated.phoneNumber,
+          initialSupervisorId: updated.initialSupervisorId ?? null,
+          assignedById:
+            updated.initialSupervisorAssignedById ??
+            updated.initialSupervisorId ??
+            "system",
+        });
+        await this.auditService?.recordEvent({
+          aggregateType: "Applicant",
+          aggregateId: id,
+          action: "APPLICANT_APPROVED_AND_ACCOUNT_CREATED",
+          actorId: actorId ?? reviewerId,
+          payload: { supervisorId: updated.initialSupervisorId },
+        });
+      };
+      if (this.transactions) await this.transactions.run(persistApproval);
+      else await persistApproval();
       return updated;
     }
 
     const updated = applicant.reject(dto.reason || "رد توسط ارزیابی علمی");
-    await this.applicantRepo.save(updated);
+    const persistRejection = async () => {
+      await this.applicantRepo.save(updated);
+      await this.auditService?.recordEvent({
+        aggregateType: "Applicant",
+        aggregateId: id,
+        action: "APPLICANT_REJECTED_AND_ARCHIVED",
+        actorId: actorId ?? reviewerId,
+        payload: { archivedAt: updated.archivedAt?.toISOString() },
+      });
+    };
+    if (this.transactions) await this.transactions.run(persistRejection);
+    else await persistRejection();
     return updated;
   }
 
-  async requestReopen(id: string, reason: string): Promise<Applicant> {
+  async requestReopen(
+    id: string,
+    reason: string,
+    actorId?: string,
+  ): Promise<Applicant> {
     const applicant = await this.applicantRepo.findById(id);
     if (!applicant) {
       throw new ApplicantNotFoundError(id);
     }
 
     const updated = applicant.requestReopen(reason);
-    await this.applicantRepo.save(updated);
+    const persist = async () => {
+      await this.applicantRepo.save(updated);
+      await this.auditService?.recordEvent({
+        aggregateType: "Applicant",
+        aggregateId: id,
+        action: "APPLICANT_REOPEN_REQUESTED",
+        actorId,
+      });
+    };
+    if (this.transactions) await this.transactions.run(persist);
+    else await persist();
     return updated;
   }
 
@@ -156,13 +274,18 @@ export class ApplicantsService {
     return applicant;
   }
 
-  async list(filter?: {
-    provinceId?: string | undefined;
-    status?: string | undefined;
-  }, assignedSupervisorId?: string): Promise<Applicant[]> {
+  async list(
+    filter?: {
+      provinceId?: string | undefined;
+      status?: string | undefined;
+    },
+    assignedSupervisorId?: string,
+  ): Promise<Applicant[]> {
     const applicants = await this.applicantRepo.findAll(filter);
     return assignedSupervisorId
-      ? applicants.filter((applicant) => applicant.initialSupervisorId === assignedSupervisorId)
+      ? applicants.filter(
+          (applicant) => applicant.initialSupervisorId === assignedSupervisorId,
+        )
       : applicants;
   }
 }

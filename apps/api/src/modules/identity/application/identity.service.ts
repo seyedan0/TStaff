@@ -1,12 +1,22 @@
-import { Injectable, Inject, Optional, ForbiddenException } from "@nestjs/common";
+import {
+  Injectable,
+  Inject,
+  Optional,
+  ForbiddenException,
+} from "@nestjs/common";
 import { createHash, randomBytes } from "node:crypto";
-import { LoginDto, CreateManagerDto, type DirectoryUserDto } from "@tstaff/contracts";
+import {
+  LoginDto,
+  CreateManagerDto,
+  type DirectoryUserDto,
+} from "@tstaff/contracts";
 import { User } from "../domain/user.entity.js";
 import {
   UserNotFoundError,
   InvalidCredentialsError,
   UserSuspendedError,
   UserAlreadyPromotedError,
+  InvalidApprovedApplicantSupervisorError,
 } from "../domain/user-errors.js";
 import type { UserRepositoryPort } from "./ports/user.repository.port.js";
 import type { PasswordHasherPort } from "./ports/password-hasher.port.js";
@@ -14,6 +24,10 @@ import { AssignmentsService } from "../../assignments/application/assignments.se
 import { DocumentsService } from "../../documents/application/documents.service.js";
 import { AuditService } from "../../audit/application/audit.service.js";
 import { NotificationsService } from "../../notifications/application/notifications.service.js";
+import {
+  TRANSACTION_RUNNER,
+  type TransactionRunner,
+} from "../../../platform/transactions/transaction-runner.js";
 
 export const USER_REPOSITORY = Symbol("USER_REPOSITORY");
 export const PASSWORD_HASHER = Symbol("PASSWORD_HASHER");
@@ -32,7 +46,10 @@ export class IdentityService {
     if (this.userRepo.findAllDirectoryUsers) {
       return this.userRepo.findAllDirectoryUsers();
     }
-    const [managers, interns] = await Promise.all([this.getManagers(), this.getInterns()]);
+    const [managers, interns] = await Promise.all([
+      this.getManagers(),
+      this.getInterns(),
+    ]);
     const unique = new Map<string, DirectoryUserDto>();
     for (const user of [...managers, ...interns]) {
       const json = user.toJSON();
@@ -42,7 +59,9 @@ export class IdentityService {
         phoneNumber: json.phoneNumber,
         stage: json.stage,
         role: (json.role ?? json.stage) as DirectoryUserDto["role"],
-        roles: (json.roles?.length ? json.roles : [json.stage]) as DirectoryUserDto["roles"],
+        roles: (json.roles?.length
+          ? json.roles
+          : [json.stage]) as DirectoryUserDto["roles"],
         isActive: json.isActive,
         provinceId: null,
         createdAt: json.createdAt.toISOString(),
@@ -56,14 +75,21 @@ export class IdentityService {
     private readonly userRepo: UserRepositoryPort,
     @Inject(PASSWORD_HASHER)
     private readonly passwordHasher: PasswordHasherPort,
-    @Optional() @Inject(AssignmentsService)
+    @Optional()
+    @Inject(AssignmentsService)
     private readonly assignmentsService?: AssignmentsService,
-    @Optional() @Inject(DocumentsService)
+    @Optional()
+    @Inject(DocumentsService)
     private readonly documentsService?: DocumentsService,
-    @Optional() @Inject(AuditService)
+    @Optional()
+    @Inject(AuditService)
     private readonly auditService?: AuditService,
-    @Optional() @Inject(NotificationsService)
+    @Optional()
+    @Inject(NotificationsService)
     private readonly notificationsService?: NotificationsService,
+    @Optional()
+    @Inject(TRANSACTION_RUNNER)
+    private readonly transactions?: TransactionRunner,
   ) {}
 
   /**
@@ -75,27 +101,55 @@ export class IdentityService {
     fullName: string;
     phoneNumber: string;
     initialPassword?: string;
+    initialSupervisorId?: string | null;
+    assignedById?: string;
   }): Promise<User> {
-    const existing = await this.userRepo.findByApplicantId(applicant.id);
-    if (existing) {
-      return existing;
+    if (!applicant.initialSupervisorId)
+      throw new InvalidApprovedApplicantSupervisorError();
+    if (
+      this.assignmentsService &&
+      !(await this.assignmentsService.isScientificSupervisor(
+        applicant.initialSupervisorId,
+      ))
+    ) {
+      throw new InvalidApprovedApplicantSupervisorError();
     }
-
+    const existing = await this.userRepo.findByApplicantId(applicant.id);
     const defaultPassword =
       applicant.initialPassword ||
       process.env.DEFAULT_APPLICANT_PASSWORD ||
       randomBytes(18).toString("base64url");
-    const passwordHash = await this.passwordHasher.hash(defaultPassword);
-
-    const user = User.create({
-      id: crypto.randomUUID(),
-      applicantId: applicant.id,
-      phoneNumber: applicant.phoneNumber,
-      fullName: applicant.fullName,
-      initialPasswordHash: passwordHash,
-    });
-
-    await this.userRepo.save(user);
+    const passwordHash =
+      existing?.passwordHash ??
+      (await this.passwordHasher.hash(defaultPassword));
+    const user =
+      existing ??
+      User.create({
+        id: crypto.randomUUID(),
+        applicantId: applicant.id,
+        phoneNumber: applicant.phoneNumber,
+        fullName: applicant.fullName,
+        initialPasswordHash: passwordHash,
+      });
+    const persist = async () => {
+      if (this.userRepo.saveApprovedApplicantWithSupervisor) {
+        await this.userRepo.saveApprovedApplicantWithSupervisor({
+          user,
+          supervisorId: applicant.initialSupervisorId!,
+          assignedById:
+            applicant.assignedById ?? applicant.initialSupervisorId!,
+        });
+        return;
+      }
+      await this.userRepo.save(user);
+      await this.assignmentsService?.assignSupervisorToUser(
+        user.id,
+        applicant.initialSupervisorId!,
+        applicant.assignedById ?? applicant.initialSupervisorId!,
+      );
+    };
+    if (this.transactions) await this.transactions.run(persist);
+    else await persist();
     return user;
   }
 
@@ -141,13 +195,19 @@ export class IdentityService {
 
   async revokeSession(token: string): Promise<void> {
     if (!this.userRepo.revokeSession) return;
-    await this.userRepo.revokeSession(createHash("sha256").update(token).digest("hex"));
+    await this.userRepo.revokeSession(
+      createHash("sha256").update(token).digest("hex"),
+    );
   }
 
   /**
    * Rule FR-035 / AT-12 / BR-18: Suspend user account
    */
-  async suspendUser(userId: string, reason: string, actorId?: string): Promise<User> {
+  async suspendUser(
+    userId: string,
+    reason: string,
+    actorId?: string,
+  ): Promise<User> {
     const user = await this.userRepo.findById(userId);
     if (!user) {
       throw new UserNotFoundError(userId);
@@ -175,7 +235,11 @@ export class IdentityService {
   /**
    * Rule FR-035 / AT-12 / BR-18: Reactivate suspended user account
    */
-  async reactivateUser(userId: string, reason?: string, actorId?: string): Promise<User> {
+  async reactivateUser(
+    userId: string,
+    reason?: string,
+    actorId?: string,
+  ): Promise<User> {
     const user = await this.userRepo.findById(userId);
     if (!user) {
       throw new UserNotFoundError(userId);
@@ -239,8 +303,16 @@ export class IdentityService {
     return (await this.userRepo.findAllInterns?.()) ?? [];
   }
 
-  async isScientificSupervisorAssignedToUser(userId: string, supervisorId: string): Promise<boolean> {
-    return this.assignmentsService?.isSupervisorAssignedToUser(userId, supervisorId) ?? false;
+  async isScientificSupervisorAssignedToUser(
+    userId: string,
+    supervisorId: string,
+  ): Promise<boolean> {
+    return (
+      this.assignmentsService?.isSupervisorAssignedToUser(
+        userId,
+        supervisorId,
+      ) ?? false
+    );
   }
 
   /**
@@ -252,15 +324,26 @@ export class IdentityService {
       throw new UserNotFoundError(userId);
     }
     if (user.stage !== "APPRENTICE") throw new UserAlreadyPromotedError(userId);
-    if (!this.documentsService) throw new Error("DocumentsService is required for study evaluation");
+    if (!this.documentsService)
+      throw new Error("DocumentsService is required for study evaluation");
     const studySnapshot = await this.documentsService.getStudySnapshot(userId);
-    return this.userRepo.createStudyEvaluation(userId, notes, studySnapshot.completedDocuments);
+    return this.userRepo.createStudyEvaluation(
+      userId,
+      notes,
+      studySnapshot.completedDocuments,
+    );
   }
 
   async getPendingStudyEvaluations(supervisorId: string) {
     if (!this.assignmentsService) return [];
-    const assigned = new Set((await this.assignmentsService.getUsersForSupervisor(supervisorId)).map((user) => user.id));
-    return (await this.userRepo.getPendingStudyEvaluations()).filter((item) => assigned.has(item.userId));
+    const assigned = new Set(
+      (await this.assignmentsService.getUsersForSupervisor(supervisorId)).map(
+        (user) => user.id,
+      ),
+    );
+    return (await this.userRepo.getPendingStudyEvaluations()).filter((item) =>
+      assigned.has(item.userId),
+    );
   }
 
   async getStudyEvaluationForUser(userId: string) {
@@ -273,10 +356,16 @@ export class IdentityService {
     decision: "APPROVED" | "REVISION_REQUIRED",
     feedback: string,
   ) {
-    if (!this.assignmentsService || !(await this.assignmentsService.isSupervisorAssignedToUser(
-      (await this.userRepo.getPendingStudyEvaluations()).find((item) => item.id === evaluationId)?.userId ?? "",
-      supervisorId,
-    ))) throw new ForbiddenException("این کارآموز به شما منتسب نشده است");
+    if (
+      !this.assignmentsService ||
+      !(await this.assignmentsService.isSupervisorAssignedToUser(
+        (await this.userRepo.getPendingStudyEvaluations()).find(
+          (item) => item.id === evaluationId,
+        )?.userId ?? "",
+        supervisorId,
+      ))
+    )
+      throw new ForbiddenException("این کارآموز به شما منتسب نشده است");
     const updatedRecord = await this.userRepo.decideStudyEvaluation(
       evaluationId,
       supervisorId,
@@ -299,7 +388,11 @@ export class IdentityService {
   /**
    * Support Tickets methods
    */
-  async createSupportTicket(userId: string, subject: string, description: string) {
+  async createSupportTicket(
+    userId: string,
+    subject: string,
+    description: string,
+  ) {
     return this.userRepo.createSupportTicket(userId, subject, description);
   }
 

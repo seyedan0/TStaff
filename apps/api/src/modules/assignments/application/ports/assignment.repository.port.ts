@@ -6,6 +6,7 @@ export interface SupervisorAssignmentRecord {
   phoneNumber: string;
   isPrimary: boolean;
   assignedAt: Date;
+  revokedAt?: Date | null;
 }
 
 export interface AssignedTraineeRecord {
@@ -27,17 +28,36 @@ export interface CaseSupervisorRecord {
 }
 
 export interface AssignmentRepositoryPort {
-  isSupervisorAssignedToCase?(caseId: string, supervisorId: string): Promise<boolean>;
+  isSupervisorAssignedToCase?(
+    caseId: string,
+    supervisorId: string,
+  ): Promise<boolean>;
   getCaseIdsForSupervisor?(supervisorId: string): Promise<string[]>;
   listCaseSupervisors?(caseId: string): Promise<CaseSupervisorRecord[]>;
-  assignToCase?(input: { researchCaseId: string; userId: string; role: "MAIN_SUPERVISOR" | "COLLABORATOR_SUPERVISOR" }): Promise<void>;
-  replaceMainSupervisorOnCase?(caseId: string, supervisorId: string): Promise<void>;
+  assignToCase?(input: {
+    researchCaseId: string;
+    userId: string;
+    role: "MAIN_SUPERVISOR" | "COLLABORATOR_SUPERVISOR";
+  }): Promise<void>;
+  replaceMainSupervisorOnCase?(
+    caseId: string,
+    supervisorId: string,
+  ): Promise<void>;
   revokeFromUser?(userId: string, supervisorId: string): Promise<void>;
   revokeFromCase?(caseId: string, supervisorId: string): Promise<void>;
-  assignToUser(input: { userId: string; supervisorId: string; assignedById: string }): Promise<void>;
+  assignToUser(input: {
+    userId: string;
+    supervisorId: string;
+    assignedById: string;
+  }): Promise<void>;
   listSupervisorsForUser(userId: string): Promise<SupervisorAssignmentRecord[]>;
-  listUsersForSupervisor(supervisorId: string): Promise<AssignedTraineeRecord[]>;
-  isSupervisorAssignedToUser(userId: string, supervisorId: string): Promise<boolean>;
+  listUsersForSupervisor(
+    supervisorId: string,
+  ): Promise<AssignedTraineeRecord[]>;
+  isSupervisorAssignedToUser(
+    userId: string,
+    supervisorId: string,
+  ): Promise<boolean>;
   isScientificSupervisor(userId: string): Promise<boolean>;
   isIntern(userId: string): Promise<boolean>;
 }
