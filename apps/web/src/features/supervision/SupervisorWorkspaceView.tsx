@@ -1,15 +1,34 @@
 import React, { useCallback, useEffect, useMemo, useState } from "react";
-import { AlertCircle, ArrowLeft, FolderGit2, RefreshCw, Search, UserCheck } from "lucide-react";
+import {
+  AlertCircle,
+  ArrowLeft,
+  FolderGit2,
+  RefreshCw,
+  Search,
+  UserCheck,
+} from "lucide-react";
 import { Link, useSearchParams } from "react-router-dom";
-import type { StageStatus, StageType, SupervisorWorkspaceUser } from "@tstaff/contracts";
+import type {
+  StageStatus,
+  StageType,
+  SupervisorWorkspaceUser,
+} from "@tstaff/contracts";
 import { apiClient } from "../../shared/api-client.js";
 import { Badge } from "../../shared/ui/Badge.js";
 import { Button } from "../../shared/ui/Button.js";
 import { Card } from "../../shared/ui/Card.js";
 import { PageHeader } from "../../shared/ui/PageHeader.js";
-import { EmptyState, ErrorState, LoadingState } from "../../shared/ui/StateFeedback.js";
+import {
+  EmptyState,
+  ErrorState,
+  LoadingState,
+} from "../../shared/ui/StateFeedback.js";
 
-type Notice = (type: "success" | "error" | "info" | "warning", title: string, message?: string) => void;
+type Notice = (
+  type: "success" | "error" | "info" | "warning",
+  title: string,
+  message?: string,
+) => void;
 
 const STAGE_LABELS: Record<StageType, string> = {
   SOURCES: "منابع",
@@ -29,19 +48,28 @@ const STAGE_STATUS_LABELS: Record<StageStatus, string> = {
 
 function currentStageSummary(user: SupervisorWorkspaceUser): string {
   if (user.stage === "APPRENTICE") {
-    return user.pendingStudyEvaluationId ? "کارآموز · در انتظار ارزیابی مطالعه" : "کارآموز · مطالعه شیوه‌نامه‌ها";
+    return user.pendingStudyEvaluationId
+      ? "کارآموز · در انتظار ارزیابی مطالعه"
+      : "کارآموز · مطالعه شیوه‌نامه‌ها";
   }
   const latestCase = user.cases[0];
   if (!latestCase) return "کارورز · بدون پرونده فعال";
   const activeStage =
-    latestCase.stages.find((s) => s.status !== "APPROVED" && s.status !== "PENDING") ??
+    latestCase.stages.find(
+      (s) => s.status !== "APPROVED" && s.status !== "PENDING",
+    ) ??
     latestCase.stages.find((s) => s.status !== "APPROVED") ??
     latestCase.stages[latestCase.stages.length - 1];
   if (!activeStage) return `${latestCase.title}`;
   return `${STAGE_LABELS[activeStage.stageType]} (${STAGE_STATUS_LABELS[activeStage.status]})`;
 }
 
-export const SupervisorWorkspaceView: React.FC<{ onNotify: Notice }> = ({ onNotify }) => {
+import { MetricStrip } from "../../shared/ui/MetricStrip.js";
+import { ActionList } from "../../shared/ui/ActionList.js";
+
+export const SupervisorWorkspaceView: React.FC<{ onNotify: Notice }> = ({
+  onNotify,
+}) => {
   const [users, setUsers] = useState<SupervisorWorkspaceUser[]>([]);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
@@ -54,12 +82,16 @@ export const SupervisorWorkspaceView: React.FC<{ onNotify: Notice }> = ({ onNoti
     setLoading(true);
     setLoadError(null);
     try {
-      const response = await apiClient.get<{ users: SupervisorWorkspaceUser[]; total: number }>(
-        "/scientific-supervisors/me/workspace",
-      );
+      const response = await apiClient.get<{
+        users: SupervisorWorkspaceUser[];
+        total: number;
+      }>("/scientific-supervisors/me/workspace");
       setUsers(response.users);
     } catch (error) {
-      const message = error instanceof Error ? error.message : "دریافت کارتابل مدیر علمی ناموفق بود.";
+      const message =
+        error instanceof Error
+          ? error.message
+          : "دریافت کارتابل مدیر علمی ناموفق بود.";
       setUsers([]);
       setLoadError(message);
       onNotify("error", "کارتابل بارگذاری نشد", message);
@@ -86,36 +118,79 @@ export const SupervisorWorkspaceView: React.FC<{ onNotify: Notice }> = ({ onNoti
     return users.filter((user) => {
       if (pendingOnly && user.pendingCount === 0) return false;
       if (!needle) return true;
-      const haystack = `${user.fullName} ${user.phoneNumber} ${user.cases.map((c) => `${c.title} ${c.code}`).join(" ")}`.toLowerCase();
+      const haystack =
+        `${user.fullName} ${user.phoneNumber} ${user.cases.map((c) => `${c.title} ${c.code}`).join(" ")}`.toLowerCase();
       return haystack.includes(needle);
     });
   }, [users, q, pendingOnly]);
 
-  const totalPendingUsers = useMemo(() => users.filter((u) => u.pendingCount > 0).length, [users]);
+  const totalPendingUsers = useMemo(
+    () => users.filter((u) => u.pendingCount > 0).length,
+    [users],
+  );
 
   return (
     <div className="space-y-5">
       <PageHeader
+        roleLabel="مدیر علمی"
         title="کارتابل پژوهشگران و کارآموزان"
         subtitle="فهرست یکتای افراد تحت هدایت شما؛ موارد نیازمند اقدام بر اساس قدیمی‌ترین درخواست در صدر فهرست قرار دارند."
         actions={
-          <Button variant="secondary" size="sm" loading={loading} icon={<RefreshCw className="h-4 w-4" />} onClick={() => void load()}>
-            به‌روزرسانی
-          </Button>
+          <div className="flex flex-wrap gap-2">
+            <Link className="atlas-cta" to="/supervision/reviews">
+              داوری پژوهش
+            </Link>
+            <Button
+              variant="secondary"
+              size="sm"
+              loading={loading}
+              icon={<RefreshCw className="h-4 w-4" />}
+              onClick={() => void load()}
+            >
+              به‌روزرسانی
+            </Button>
+          </div>
         }
       />
 
+      {!loading && !loadError && (
+        <div className="atlas-grid">
+          <ActionList
+            title="افراد نیازمند اقدام"
+            empty="همه درخواست‌های کارتابل شما رسیدگی شده‌اند."
+            items={users
+              .filter((u) => u.pendingCount > 0)
+              .slice(0, 5)
+              .map((u) => ({
+                to: "/supervision/users/" + encodeURIComponent(u.id),
+                title: u.fullName,
+                detail: u.pendingCount.toLocaleString("fa-IR") + " درخواست",
+              }))}
+          />
+          <MetricStrip
+            label="خلاصه کارتابل"
+            items={[
+              { label: "افراد تحت هدایت", value: users.length },
+              {
+                label: "نیازمند اقدام",
+                value: totalPendingUsers,
+                tone: "warning",
+              },
+            ]}
+          />
+        </div>
+      )}
       <Card variant="default" padding="sm">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div className="relative flex-1">
-            <Search className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#6B8073]" />
+            <Search className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#536E84]" />
             <input
               type="search"
               aria-label="جست‌وجوی پژوهشگر یا پرونده"
               placeholder="جست‌وجو بر اساس نام، شماره همراه یا عنوان/کد پژوهش..."
               value={q}
               onChange={(e) => setFilterQuery(e.target.value, pendingOnly)}
-              className="w-full rounded-xl border border-[#214E3A]/20 bg-[#FFFCF5] py-2.5 pr-9 pl-3 text-sm text-[#214031] placeholder:text-[#6B8073] focus:border-[#214E3A] focus:outline-none"
+              className="w-full rounded-xl border border-[#087674]/20 bg-[#FFFFFF] py-2.5 pr-9 pl-3 text-sm text-[#162F48] placeholder:text-[#536E84] focus:border-[#087674] focus:outline-none"
             />
           </div>
 
@@ -124,7 +199,9 @@ export const SupervisorWorkspaceView: React.FC<{ onNotify: Notice }> = ({ onNoti
               type="button"
               onClick={() => setFilterQuery(q, false)}
               className={`rounded-xl px-3 py-2 text-xs font-semibold transition ${
-                !pendingOnly ? "bg-[#214E3A] text-[#FFFCF5]" : "border border-[#214E3A]/20 bg-[#F3EBDD]/60 text-[#214031]"
+                !pendingOnly
+                  ? "bg-[#087674] text-[#FFFFFF]"
+                  : "border border-[#087674]/20 bg-[#EAF3FA]/60 text-[#162F48]"
               }`}
             >
               همه افراد ({users.length})
@@ -133,7 +210,9 @@ export const SupervisorWorkspaceView: React.FC<{ onNotify: Notice }> = ({ onNoti
               type="button"
               onClick={() => setFilterQuery(q, true)}
               className={`rounded-xl px-3 py-2 text-xs font-semibold transition ${
-                pendingOnly ? "bg-[#D94F3D] text-[#FFFCF5]" : "border border-[#D94F3D]/35 bg-[#D94F3D]/10 text-[#B83B2B]"
+                pendingOnly
+                  ? "bg-[#B43A31] text-[#FFFFFF]"
+                  : "border border-[#B43A31]/35 bg-[#B43A31]/10 text-[#B83B2B]"
               }`}
             >
               نیازمند اقدام ({totalPendingUsers})
@@ -149,10 +228,18 @@ export const SupervisorWorkspaceView: React.FC<{ onNotify: Notice }> = ({ onNoti
       ) : filtered.length === 0 ? (
         <EmptyState
           title="کاربری با این مشخصات یافت نشد"
-          description={users.length === 0 ? "هنوز کارآموز یا پژوهشگری به شما منتسب نشده است." : "فیلتر جست‌وجو یا وضعیت را تغییر دهید."}
+          description={
+            users.length === 0
+              ? "هنوز کارآموز یا پژوهشگری به شما منتسب نشده است."
+              : "فیلتر جست‌وجو یا وضعیت را تغییر دهید."
+          }
           action={
-            (q || pendingOnly) ? (
-              <Button variant="secondary" size="sm" onClick={() => setFilterQuery("", false)}>
+            q || pendingOnly ? (
+              <Button
+                variant="secondary"
+                size="sm"
+                onClick={() => setFilterQuery("", false)}
+              >
                 پاک‌کردن فیلترها
               </Button>
             ) : undefined
@@ -166,17 +253,26 @@ export const SupervisorWorkspaceView: React.FC<{ onNotify: Notice }> = ({ onNoti
               <Card
                 key={user.id}
                 variant="default"
-                className={hasPending ? "border-[#D94F3D]/45 shadow-sm" : undefined}
+                className={
+                  hasPending ? "border-[#B43A31]/45 shadow-sm" : undefined
+                }
               >
                 <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
                   <div className="space-y-2">
                     <div className="flex flex-wrap items-center gap-2">
-                      <span className="flex h-8 w-8 items-center justify-center rounded-xl bg-[#214E3A]/10 text-[#214E3A]">
+                      <span className="flex h-8 w-8 items-center justify-center rounded-xl bg-[#087674]/10 text-[#087674]">
                         <UserCheck className="h-4 w-4" />
                       </span>
-                      <h2 className="text-base font-bold text-[#214031]">{user.fullName}</h2>
-                      <Badge variant={user.stage === "INTERN" ? "info" : "neutral"} size="sm">
-                        {user.stage === "INTERN" ? "کارورز (پژوهشگر)" : "کارآموز"}
+                      <h2 className="text-base font-bold text-[#162F48]">
+                        {user.fullName}
+                      </h2>
+                      <Badge
+                        variant={user.stage === "INTERN" ? "info" : "neutral"}
+                        size="sm"
+                      >
+                        {user.stage === "INTERN"
+                          ? "کارورز (پژوهشگر)"
+                          : "کارآموز"}
                       </Badge>
                       {!user.canCreateResearch && (
                         <Badge variant="neutral" size="sm">
@@ -195,23 +291,30 @@ export const SupervisorWorkspaceView: React.FC<{ onNotify: Notice }> = ({ onNoti
                       )}
                     </div>
 
-                    <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-[#4F6659]">
+                    <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-[#496479]">
                       <span dir="ltr" className="font-mono">
                         {user.phoneNumber}
                       </span>
                       <span>·</span>
                       <span>
-                        پژوهش‌های مجاز: <strong className="text-[#214031]">{user.cases.length}</strong>
+                        پژوهش‌های مجاز:{" "}
+                        <strong className="text-[#162F48]">
+                          {user.cases.length}
+                        </strong>
                       </span>
                       <span>·</span>
                       <span>
-                        وضعیت جاری: <strong className="text-[#214031]">{currentStageSummary(user)}</strong>
+                        وضعیت جاری:{" "}
+                        <strong className="text-[#162F48]">
+                          {currentStageSummary(user)}
+                        </strong>
                       </span>
                     </div>
 
                     {hasPending && user.oldestPendingAt && (
                       <p className="text-xs font-medium text-[#B83B2B]">
-                        قدیمی‌ترین مورد منتظر بررسی: {new Date(user.oldestPendingAt).toLocaleString("fa-IR")}
+                        قدیمی‌ترین مورد منتظر بررسی:{" "}
+                        {new Date(user.oldestPendingAt).toLocaleString("fa-IR")}
                       </p>
                     )}
 
@@ -221,10 +324,12 @@ export const SupervisorWorkspaceView: React.FC<{ onNotify: Notice }> = ({ onNoti
                           <Link
                             key={c.id}
                             to={`/projects/${encodeURIComponent(c.id)}?researcherId=${encodeURIComponent(user.id)}`}
-                            className="inline-flex items-center gap-1 rounded-lg border border-[#214E3A]/20 bg-[#F3EBDD]/65 px-2.5 py-1 text-[11px] font-medium text-[#214E3A] transition hover:bg-[#214E3A]/15"
+                            className="inline-flex items-center gap-1 rounded-lg border border-[#087674]/20 bg-[#EAF3FA]/65 px-2.5 py-1 text-[11px] font-medium text-[#087674] transition hover:bg-[#087674]/15"
                           >
                             <FolderGit2 className="h-3 w-3" />
-                            <span>{c.code} · {c.title}</span>
+                            <span>
+                              {c.code} · {c.title}
+                            </span>
                           </Link>
                         ))}
                       </div>
@@ -236,8 +341,8 @@ export const SupervisorWorkspaceView: React.FC<{ onNotify: Notice }> = ({ onNoti
                       to={`/supervision/users/${encodeURIComponent(user.id)}`}
                       className={`inline-flex items-center gap-1.5 rounded-xl px-4 py-2 text-xs font-semibold transition ${
                         hasPending
-                          ? "bg-[#D94F3D] text-[#FFFCF5] hover:bg-[#C04130]"
-                          : "bg-[#214E3A] text-[#FFFCF5] hover:bg-[#193C2C]"
+                          ? "bg-[#B43A31] text-[#FFFFFF] hover:bg-[#C04130]"
+                          : "bg-[#087674] text-[#FFFFFF] hover:bg-[#07595E]"
                       }`}
                     >
                       <span>مشاهده پروفایل و اقدام</span>
@@ -253,4 +358,3 @@ export const SupervisorWorkspaceView: React.FC<{ onNotify: Notice }> = ({ onNoti
     </div>
   );
 };
-

@@ -110,14 +110,14 @@ export const StageSubmissionWorkspace: React.FC<{
     <div className="space-y-5">
       <UnsavedChangesDialog blocker={blocker} />
       <div>
-        <h3 className="text-lg font-bold text-[#214031]">{label}</h3>
-        <p className="mt-1 text-xs text-[#4F6659]">{caseTitle} · ارسال نسخه‌دار با فایل PDF/DOCX (سقف ۲۵ مگابایت)</p>
+        <h3 className="text-lg font-bold text-[#162F48]">{label}</h3>
+        <p className="mt-1 text-xs text-[#496479]">{caseTitle} · ارسال نسخه‌دار با فایل PDF/DOCX (سقف ۲۵ مگابایت)</p>
       </div>
 
       {canEdit && (
         <Card variant="default">
           <form onSubmit={submit} className="space-y-3 text-right">
-            <label className="block text-xs font-medium text-[#214031]">
+            <label className="block text-xs font-medium text-[#162F48]">
               توضیحات این نسخه
               <textarea
                 required
@@ -125,11 +125,11 @@ export const StageSubmissionWorkspace: React.FC<{
                 rows={5}
                 value={content}
                 onChange={(event) => setContent(event.target.value)}
-                className="mt-1.5 w-full rounded-xl border border-[#214E3A]/20 bg-[#FFFCF5] p-3 text-sm text-[#214031]"
+                className="mt-1.5 w-full rounded-xl border border-[#087674]/20 bg-[#FFFFFF] p-3 text-sm text-[#162F48]"
                 placeholder="خلاصه و توضیح نسخه ارسالی را بنویسید..."
               />
             </label>
-            <label className="block text-xs font-medium text-[#214031]">
+            <label className="block text-xs font-medium text-[#162F48]">
               فایل سند (PDF یا DOCX)
               <input
                 type="file"
@@ -139,11 +139,11 @@ export const StageSubmissionWorkspace: React.FC<{
                   setFile(event.target.files?.[0] ?? null);
                   setUploaded(null);
                 }}
-                className="mt-2 block w-full text-xs text-[#214031] file:ml-3 file:rounded-xl file:border-0 file:bg-[#214E3A] file:px-3 file:py-2 file:text-[#FFFCF5]"
+                className="mt-2 block w-full text-xs text-[#162F48] file:ml-3 file:rounded-xl file:border-0 file:bg-[#087674] file:px-3 file:py-2 file:text-[#FFFFFF]"
               />
             </label>
             {uploaded?.scanStatus === "QUARANTINED" && (
-              <div className="flex items-center justify-between rounded-xl border border-[#D94F3D]/30 bg-[#D94F3D]/10 p-2.5 text-xs text-[#B83B2B]">
+              <div className="flex items-center justify-between rounded-xl border border-[#B43A31]/30 bg-[#B43A31]/10 p-2.5 text-xs text-[#B83B2B]">
                 <span>فایل تا تکمیل اسکن امنیتی قرنطینه است.</span>
                 <Button type="button" variant="ghost" size="sm" loading={busy} onClick={() => void retryScan()}>
                   بررسی دوباره
@@ -168,12 +168,12 @@ export const StageSubmissionWorkspace: React.FC<{
           {items.map((item) => (
             <Card key={item.id} variant="default" className="space-y-2">
               <div className="flex items-center justify-between text-xs">
-                <strong className="text-[#214031]">نسخه {item.version}</strong>
-                <span className="text-[#4F6659]">
+                <strong className="text-[#162F48]">نسخه {item.version}</strong>
+                <span className="text-[#496479]">
                   {item.status} · {new Date(item.submittedAt).toLocaleString("fa-IR")}
                 </span>
               </div>
-              <p className="whitespace-pre-wrap text-sm leading-7 text-[#214031]">{item.content}</p>
+              <p className="whitespace-pre-wrap text-sm leading-7 text-[#162F48]">{item.content}</p>
               {item.storedObjectId && (
                 <div>
                   <Button

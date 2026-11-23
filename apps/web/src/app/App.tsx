@@ -10,6 +10,7 @@ import {
 } from "react-router-dom";
 import { AuthProvider, useAuth } from "../features/auth/AuthContext.js";
 import { LoginForm } from "../features/auth/LoginForm.js";
+import { WorkspaceBar } from "./WorkspaceBar.js";
 import { AppHeader } from "./AppHeader.js";
 import { AppPortalDispatcher } from "../portals/AppPortalDispatcher.js";
 import { ResearchCasesView } from "../features/research/ResearchCasesView.js";
@@ -211,11 +212,20 @@ function AppContent() {
     );
   }
 
+  const home =
+    currentUser &&
+    location.pathname.replace(/\/$/, "") === getHomePath(currentUser.role);
   return (
     <NoticeContext.Provider value={addToast}>
-      <div className="app-shell flex flex-col">
+      <div
+        data-workspace-role={currentUser?.role}
+        className={`app-shell flex flex-col atlas ${home ? "atlas-home" : ""}`}
+      >
         <AppHeader onNotify={addToast} />
         <main id="main-content" className="app-main flex-1 space-y-6">
+          {currentUser && (
+            <WorkspaceBar role={currentUser.role} onNotify={addToast} />
+          )}
           <Outlet />
         </main>
         <footer className="app-footer border-t px-4 py-5 text-center text-xs text-[var(--muted)]">

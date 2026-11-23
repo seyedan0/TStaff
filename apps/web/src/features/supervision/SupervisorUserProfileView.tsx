@@ -178,7 +178,7 @@ export const SupervisorUserProfileView: React.FC<{ onNotify: Notice }> = ({ onNo
           profile.canCreateResearch && profile.stage === "INTERN" ? (
             <Link
               to={`/projects/new?researcherId=${encodeURIComponent(profile.id)}`}
-              className="inline-flex items-center gap-1.5 rounded-xl bg-[#214E3A] px-4 py-2 text-xs font-semibold text-[#FFFCF5] transition hover:bg-[#193C2C]"
+              className="inline-flex items-center gap-1.5 rounded-xl bg-[#087674] px-4 py-2 text-xs font-semibold text-[#FFFFFF] transition hover:bg-[#07595E]"
             >
               <Plus className="h-4 w-4" />
               ایجاد پرونده پژوهش جدید
@@ -190,8 +190,8 @@ export const SupervisorUserProfileView: React.FC<{ onNotify: Notice }> = ({ onNo
       {/* 1. Personal Profile Section */}
       <Card variant="default">
         <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
-          <h2 className="flex items-center gap-2 text-base font-bold text-[#214031]">
-            <UserRound className="h-5 w-5 text-[#214E3A]" />
+          <h2 className="flex items-center gap-2 text-base font-bold text-[#162F48]">
+            <UserRound className="h-5 w-5 text-[#087674]" />
             مشخصات فردی
           </h2>
           <div className="flex items-center gap-2">
@@ -207,35 +207,35 @@ export const SupervisorUserProfileView: React.FC<{ onNotify: Notice }> = ({ onNo
         </div>
 
         {!profile.canCreateResearch ? (
-          <div className="flex items-start gap-3 rounded-xl border border-[#214E3A]/20 bg-[#F3EBDD]/70 p-4 text-xs leading-6 text-[#214031]">
-            <Lock className="mt-0.5 h-4 w-4 shrink-0 text-[#214E3A]" />
+          <div className="flex items-start gap-3 rounded-xl border border-[#087674]/20 bg-[#EAF3FA]/70 p-4 text-xs leading-6 text-[#162F48]">
+            <Lock className="mt-0.5 h-4 w-4 shrink-0 text-[#087674]" />
             <div>
               شما صرفاً به پژوهش(های) منتسب‌شده دسترسی دارید و اطلاعات کامل پروفایل هویتی برای این نوع انتساب نمایش داده نمی‌شود.
             </div>
           </div>
         ) : (
           <dl className="grid gap-3 text-sm sm:grid-cols-2 lg:grid-cols-3">
-            <div className="rounded-xl bg-[#F3EBDD]/55 p-3">
-              <dt className="text-xs text-[#4F6659]">کد ملی</dt>
-              <dd className="mt-1 font-mono font-semibold text-[#214031]">{profile.nationalId || "ثبت نشده"}</dd>
+            <div className="rounded-xl bg-[#EAF3FA]/55 p-3">
+              <dt className="text-xs text-[#496479]">کد ملی</dt>
+              <dd className="mt-1 font-mono font-semibold text-[#162F48]">{profile.nationalId || "ثبت نشده"}</dd>
             </div>
-            <div className="rounded-xl bg-[#F3EBDD]/55 p-3">
-              <dt className="text-xs text-[#4F6659]">سن (عدد صحیح)</dt>
-              <dd className="mt-1 font-semibold text-[#214031]">{profile.age ? `${profile.age} سال` : "ثبت نشده"}</dd>
+            <div className="rounded-xl bg-[#EAF3FA]/55 p-3">
+              <dt className="text-xs text-[#496479]">سن (عدد صحیح)</dt>
+              <dd className="mt-1 font-semibold text-[#162F48]">{profile.age ? `${profile.age} سال` : "ثبت نشده"}</dd>
             </div>
-            <div className="rounded-xl bg-[#F3EBDD]/55 p-3">
-              <dt className="text-xs text-[#4F6659]">استان</dt>
-              <dd className="mt-1 font-semibold text-[#214031]">{profile.provinceName || "ثبت نشده"}</dd>
+            <div className="rounded-xl bg-[#EAF3FA]/55 p-3">
+              <dt className="text-xs text-[#496479]">استان</dt>
+              <dd className="mt-1 font-semibold text-[#162F48]">{profile.provinceName || "ثبت نشده"}</dd>
             </div>
-            <div className="rounded-xl bg-[#F3EBDD]/55 p-3">
-              <dt className="text-xs text-[#4F6659]">شماره همراه</dt>
-              <dd dir="ltr" className="mt-1 text-right font-mono font-semibold text-[#214031]">
+            <div className="rounded-xl bg-[#EAF3FA]/55 p-3">
+              <dt className="text-xs text-[#496479]">شماره همراه</dt>
+              <dd dir="ltr" className="mt-1 text-right font-mono font-semibold text-[#162F48]">
                 {profile.phoneNumber}
               </dd>
             </div>
-            <div className="rounded-xl bg-[#F3EBDD]/55 p-3 sm:col-span-2">
-              <dt className="text-xs text-[#4F6659]">تحصیلات و رشته</dt>
-              <dd className="mt-1 font-semibold text-[#214031]">
+            <div className="rounded-xl bg-[#EAF3FA]/55 p-3 sm:col-span-2">
+              <dt className="text-xs text-[#496479]">تحصیلات و رشته</dt>
+              <dd className="mt-1 font-semibold text-[#162F48]">
                 {[profile.education, profile.fieldOfStudy].filter(Boolean).join(" · ") || "ثبت نشده"}
               </dd>
             </div>
@@ -247,16 +247,16 @@ export const SupervisorUserProfileView: React.FC<{ onNotify: Notice }> = ({ onNo
       {(profile.pendingStudyEvaluationId || pendingReviews.length > 0 || profile.changeRequests.length > 0) && (
         <section className="space-y-3" aria-label="درخواست‌ها و موارد نیازمند رسیدگی">
           <h2 className="flex items-center gap-2 text-base font-bold text-[#B83B2B]">
-            <AlertCircle className="h-5 w-5 text-[#D94F3D]" />
+            <AlertCircle className="h-5 w-5 text-[#B43A31]" />
             درخواست‌های منتظر بررسی و تصمیم‌گیری
           </h2>
 
           {profile.pendingStudyEvaluationId && (
-            <Card variant="elevated" className="border-[#D94F3D]/40 space-y-3">
+            <Card variant="elevated" className="border-[#B43A31]/40 space-y-3">
               <div className="flex flex-wrap items-center justify-between gap-2">
                 <div>
-                  <h3 className="text-sm font-bold text-[#214031]">درخواست ارزیابی مطالعه و ارتقا به کارورز</h3>
-                  <p className="mt-0.5 text-xs text-[#4F6659]">کارآموز مطالعه شیوه‌نامه‌ها را به پایان رسانده و منتظر ارزیابی علمی است.</p>
+                  <h3 className="text-sm font-bold text-[#162F48]">درخواست ارزیابی مطالعه و ارتقا به کارورز</h3>
+                  <p className="mt-0.5 text-xs text-[#496479]">کارآموز مطالعه شیوه‌نامه‌ها را به پایان رسانده و منتظر ارزیابی علمی است.</p>
                 </div>
                 <Badge variant="danger" size="sm">نیازمند تصمیم</Badge>
               </div>
@@ -265,7 +265,7 @@ export const SupervisorUserProfileView: React.FC<{ onNotify: Notice }> = ({ onNo
                 value={evalFeedback}
                 onChange={(e) => setEvalFeedback(e.target.value)}
                 placeholder="بازخورد علمی به کارآموز (اختیاری)..."
-                className="w-full rounded-xl border border-[#214E3A]/20 bg-[#FFFCF5] p-2.5 text-sm text-[#214031]"
+                className="w-full rounded-xl border border-[#087674]/20 bg-[#FFFFFF] p-2.5 text-sm text-[#162F48]"
               />
               <div className="flex flex-wrap justify-end gap-2">
                 <Button
@@ -291,25 +291,25 @@ export const SupervisorUserProfileView: React.FC<{ onNotify: Notice }> = ({ onNo
           )}
 
           {pendingReviews.map(({ caseItem, stage }) => (
-            <Card key={stage.id} variant="elevated" className="border-[#D94F3D]/35 flex flex-wrap items-center justify-between gap-3">
+            <Card key={stage.id} variant="elevated" className="border-[#B43A31]/35 flex flex-wrap items-center justify-between gap-3">
               <div>
                 <div className="flex items-center gap-2">
                   <Badge variant="info" size="sm">{caseItem.code}</Badge>
                   <Badge variant="danger" size="sm">داوری {STAGE_LABELS[stage.stageType]}</Badge>
                 </div>
-                <p className="mt-1.5 text-sm font-bold text-[#214031]">{caseItem.title}</p>
-                <p className="text-xs text-[#4F6659]">محتوای این مرحله ارسال شده و آماده داوری مدیر علمی است.</p>
+                <p className="mt-1.5 text-sm font-bold text-[#162F48]">{caseItem.title}</p>
+                <p className="text-xs text-[#496479]">محتوای این مرحله ارسال شده و آماده داوری مدیر علمی است.</p>
               </div>
               <div className="flex gap-2">
                 <Link
                   to={`/projects/${encodeURIComponent(caseItem.id)}/stages/${stage.stageType}?researcherId=${encodeURIComponent(profile.id)}`}
-                  className="rounded-xl border border-[#214E3A]/25 px-3 py-2 text-xs font-semibold text-[#214E3A] hover:bg-[#214E3A]/10"
+                  className="rounded-xl border border-[#087674]/25 px-3 py-2 text-xs font-semibold text-[#087674] hover:bg-[#087674]/10"
                 >
                   مشاهده محتوا
                 </Link>
                 <Link
                   to="/supervision/reviews"
-                  className="rounded-xl bg-[#D94F3D] px-3 py-2 text-xs font-semibold text-[#FFFCF5] hover:bg-[#C04130]"
+                  className="rounded-xl bg-[#B43A31] px-3 py-2 text-xs font-semibold text-[#FFFFFF] hover:bg-[#C04130]"
                 >
                   رفتن به کارتابل داوری
                 </Link>
@@ -324,7 +324,7 @@ export const SupervisorUserProfileView: React.FC<{ onNotify: Notice }> = ({ onNo
               <Card
                 key={req.id}
                 variant="default"
-                className={req.status === "PENDING" ? "border-[#D94F3D]/40 space-y-3" : "space-y-2"}
+                className={req.status === "PENDING" ? "border-[#B43A31]/40 space-y-3" : "space-y-2"}
               >
                 <div className="flex flex-wrap items-start justify-between gap-2">
                   <div>
@@ -338,27 +338,27 @@ export const SupervisorUserProfileView: React.FC<{ onNotify: Notice }> = ({ onNo
                         {req.status === "PENDING" ? "در انتظار بررسی" : req.status === "APPROVED" ? "تأییدشده" : "ردشده"}
                       </Badge>
                     </div>
-                    <p className="mt-2 text-sm font-semibold text-[#214031]">
+                    <p className="mt-2 text-sm font-semibold text-[#162F48]">
                       پرونده: {targetCase ? `${targetCase.code} · ${targetCase.title}` : req.researchCaseId}
                     </p>
-                    <p className="mt-1 text-xs leading-6 text-[#4F6659]">دلیل پژوهشگر: {req.reason}</p>
+                    <p className="mt-1 text-xs leading-6 text-[#496479]">دلیل پژوهشگر: {req.reason}</p>
                     {req.decisionReason && (
-                      <p className="mt-1 text-xs font-medium text-[#214E3A]">پاسخ مدیر علمی: {req.decisionReason}</p>
+                      <p className="mt-1 text-xs font-medium text-[#087674]">پاسخ مدیر علمی: {req.decisionReason}</p>
                     )}
                   </div>
-                  <span className="text-[11px] text-[#4F6659]">
+                  <span className="text-[11px] text-[#496479]">
                     نسخه درخواست: {req.version} · {new Date(req.createdAt).toLocaleString("fa-IR")}
                   </span>
                 </div>
 
                 {canDecideChange && (
-                  <div className="space-y-2 border-t border-[#214E3A]/10 pt-3">
+                  <div className="space-y-2 border-t border-[#087674]/10 pt-3">
                     <input
                       type="text"
                       value={changeReasons[req.id] ?? ""}
                       onChange={(e) => setChangeReasons((prev) => ({ ...prev, [req.id]: e.target.value }))}
                       placeholder="توضیح تصمیم (حداقل ۵ کاراکتر؛ مثلاً دلیل بازگشت یا رد درخواست)..."
-                      className="w-full rounded-xl border border-[#214E3A]/20 bg-[#FFFCF5] px-3 py-2 text-xs text-[#214031]"
+                      className="w-full rounded-xl border border-[#087674]/20 bg-[#FFFFFF] px-3 py-2 text-xs text-[#162F48]"
                     />
                     <div className="flex flex-wrap justify-end gap-2">
                       <Button
@@ -388,8 +388,8 @@ export const SupervisorUserProfileView: React.FC<{ onNotify: Notice }> = ({ onNo
 
       {/* 3. Authorized Research Cases */}
       <section className="space-y-3" aria-label="پژوهش‌های مجاز">
-        <h2 className="flex items-center gap-2 text-base font-bold text-[#214031]">
-          <FolderGit2 className="h-5 w-5 text-[#214E3A]" />
+        <h2 className="flex items-center gap-2 text-base font-bold text-[#162F48]">
+          <FolderGit2 className="h-5 w-5 text-[#087674]" />
           پژوهش‌های مجاز ({profile.cases.length})
         </h2>
 
@@ -409,14 +409,14 @@ export const SupervisorUserProfileView: React.FC<{ onNotify: Notice }> = ({ onNo
                 <div>
                   <div className="flex items-center justify-between gap-2">
                     <Badge variant="info" size="sm">{c.code}</Badge>
-                    <div className="flex items-center gap-2 text-xs text-[#4F6659]">
+                    <div className="flex items-center gap-2 text-xs text-[#496479]">
                       <span>{c.canReview ? "اختیار داوری" : "فقط مشاهده"}</span>
                       <span>·</span>
                       <span>v{c.version}</span>
                     </div>
                   </div>
-                  <h3 className="mt-2 text-base font-bold text-[#214031]">{c.title}</h3>
-                  <p className="mt-1 text-xs text-[#4F6659]">موضوع: {c.subject}</p>
+                  <h3 className="mt-2 text-base font-bold text-[#162F48]">{c.title}</h3>
+                  <p className="mt-1 text-xs text-[#496479]">موضوع: {c.subject}</p>
                   <div className="mt-3 flex flex-wrap gap-1.5">
                     {c.stages.map((s) => (
                       <Badge
@@ -437,10 +437,10 @@ export const SupervisorUserProfileView: React.FC<{ onNotify: Notice }> = ({ onNo
                     ))}
                   </div>
                 </div>
-                <div className="flex justify-end border-t border-[#214E3A]/10 pt-2">
+                <div className="flex justify-end border-t border-[#087674]/10 pt-2">
                   <Link
                     to={`/projects/${encodeURIComponent(c.id)}?researcherId=${encodeURIComponent(profile.id)}`}
-                    className="rounded-xl bg-[#214E3A] px-3 py-1.5 text-xs font-semibold text-[#FFFCF5] hover:bg-[#193C2C]"
+                    className="rounded-xl bg-[#087674] px-3 py-1.5 text-xs font-semibold text-[#FFFFFF] hover:bg-[#07595E]"
                   >
                     مشاهده مراحل و محتوا
                   </Link>
@@ -453,29 +453,29 @@ export const SupervisorUserProfileView: React.FC<{ onNotify: Notice }> = ({ onNo
 
       {/* 4. Combined Chronological History */}
       <section className="space-y-3" aria-label="تاریخچه مرتبط">
-        <h2 className="flex items-center gap-2 text-base font-bold text-[#214031]">
-          <History className="h-5 w-5 text-[#214E3A]" />
+        <h2 className="flex items-center gap-2 text-base font-bold text-[#162F48]">
+          <History className="h-5 w-5 text-[#087674]" />
           تاریخچه رخدادهای مرتبط ({profile.history?.length ?? 0})
         </h2>
 
         {!profile.history || profile.history.length === 0 ? (
-          <Card variant="outlined" className="p-6 text-center text-xs text-[#4F6659]">
+          <Card variant="outlined" className="p-6 text-center text-xs text-[#496479]">
             هنوز رخداد ممیزی برای نمایش ثبت نشده است.
           </Card>
         ) : (
           <Card variant="default" padding="none">
-            <ul className="divide-y divide-[#214E3A]/10">
+            <ul className="divide-y divide-[#087674]/10">
               {profile.history.map((event) => (
                 <li key={event.id} className="flex flex-col gap-1 px-4 py-3 text-xs sm:flex-row sm:items-center sm:justify-between">
                   <div className="space-y-0.5">
-                    <div className="font-semibold text-[#214031]">
+                    <div className="font-semibold text-[#162F48]">
                       {ACTION_LABELS[event.action] ?? event.action}
                     </div>
-                    <div className="text-[#4F6659]">
+                    <div className="text-[#496479]">
                       اقدام‌کننده: {event.actorName || "سامانه"} · موجودیت: {event.aggregateType}
                     </div>
                   </div>
-                  <div className="flex items-center gap-1 text-[11px] text-[#4F6659]">
+                  <div className="flex items-center gap-1 text-[11px] text-[#496479]">
                     <Clock className="h-3 w-3" />
                     <span>{new Date(event.createdAt).toLocaleString("fa-IR")}</span>
                   </div>

@@ -10,7 +10,6 @@ import {
   ErrorState,
   LoadingState,
 } from "../../shared/ui/StateFeedback.js";
-import { Link } from "react-router-dom";
 
 type Notice = (
   type: "success" | "error" | "info" | "warning",
@@ -111,7 +110,7 @@ export const ApplicantAllocationQueue: React.FC<{ onNotify: Notice }> = ({
       variant="default"
       title={
         <span className="flex items-center gap-2">
-          <UserCheck className="h-4 w-4 text-[#214E3A]" />
+          <UserCheck className="h-4 w-4 text-[#087674]" />
           متقاضیان نیازمند تخصیص مدیر علمی
         </span>
       }
@@ -129,7 +128,7 @@ export const ApplicantAllocationQueue: React.FC<{ onNotify: Notice }> = ({
         <div className="overflow-x-auto">
           <table className="w-full min-w-[760px] border-collapse text-right text-xs">
             <thead>
-              <tr className="border-b border-[#214E3A]/15 text-[#4F6659]">
+              <tr className="border-b border-[#087674]/15 text-[#496479]">
                 <th scope="col" className="px-3 py-2 font-semibold">
                   متقاضی
                 </th>
@@ -147,40 +146,44 @@ export const ApplicantAllocationQueue: React.FC<{ onNotify: Notice }> = ({
                 </th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-[#214E3A]/10">
+            <tbody className="divide-y divide-[#087674]/10">
               {items.map((item) => (
                 <tr
                   key={item.id}
-                  className="align-middle hover:bg-[#F3EBDD]/35"
+                  className="align-middle hover:bg-[#EAF3FA]/35"
                 >
                   <td className="px-3 py-3">
-                    <Link
-                      className="font-semibold text-[#214031] hover:underline"
-                      to={`/admissions/${encodeURIComponent(item.id)}`}
+                    <a
+                      className="font-semibold text-[#162F48] hover:underline"
+                      href={`#allocate-${item.id}`}
                     >
                       {item.fullName}
-                    </Link>
+                    </a>
                   </td>
-                  <td className="px-3 py-3 text-[#4F6659]">
+                  <td data-label="استان" className="px-3 py-3 text-[#496479]">
                     {provinceNameFromId(item.provinceId ?? null) ?? "—"}
                   </td>
-                  <td className="px-3 py-3 text-[#4F6659]">
+                  <td
+                    data-label="تاریخ ثبت"
+                    className="px-3 py-3 text-[#496479]"
+                  >
                     {new Date(item.createdAt).toLocaleDateString("fa-IR")}
                   </td>
-                  <td className="px-3 py-3">
+                  <td data-label="انتظار" className="px-3 py-3">
                     <Badge
                       variant={item.waitingDays >= 7 ? "warning" : "neutral"}
                       size="sm"
                     >
                       <span className="inline-flex items-center gap-1">
                         <Clock className="h-3 w-3" />
-                        {item.waitingDays} روز
+                        {item.waitingDays.toLocaleString("fa-IR")} روز
                       </span>
                     </Badge>
                   </td>
                   <td className="px-3 py-3">
                     <div className="flex min-w-[300px] items-center gap-2">
                       <select
+                        id={`allocate-${item.id}`}
                         aria-label={`مدیر علمی برای ${item.fullName}`}
                         value={selected[item.id] ?? ""}
                         onChange={(event) =>
@@ -189,7 +192,7 @@ export const ApplicantAllocationQueue: React.FC<{ onNotify: Notice }> = ({
                             [item.id]: event.target.value,
                           }))
                         }
-                        className="min-w-0 flex-1 rounded-lg border border-[#214E3A]/20 bg-[#FFFCF5] px-2 py-2 text-xs text-[#214031] focus-visible:outline"
+                        className="min-w-0 flex-1 rounded-lg border border-[#087674]/20 bg-[#FFFFFF] px-2 py-2 text-xs text-[#162F48] focus-visible:outline"
                       >
                         <option value="">انتخاب مدیر علمی فعال...</option>
                         {supervisors.map((manager) => (

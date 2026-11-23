@@ -231,22 +231,22 @@ export const ApplicantCreatePage: React.FC<{ onNotify: Notice }> = ({
       {sourceResource && (
         <Card
           variant="outlined"
-          className="max-w-2xl border-[#214E3A]/35 bg-[#FFFCF5] space-y-2"
+          className="max-w-2xl border-[#087674]/35 bg-[#FFFFFF] space-y-2"
         >
-          <div className="flex items-center gap-2 text-xs font-bold text-[#214E3A]">
+          <div className="flex items-center gap-2 text-xs font-bold text-[#087674]">
             <Database className="h-4 w-4" />
             <span>
               پیش‌پرکردن اطلاعات از بانک منابع: {sourceResource.fullName}
             </span>
           </div>
-          <p className="text-xs text-[#4F6659]">
+          <p className="text-xs text-[#496479]">
             {sourceResource.position || "بدون سمت"}{" "}
             {sourceResource.province
               ? `· استان ${sourceResource.province}`
               : ""}
           </p>
           {convertedReferral?.applicantId && (
-            <div className="rounded-xl bg-[#D94F3D]/10 p-2.5 text-xs font-semibold text-[#B83B2B]">
+            <div className="rounded-xl bg-[#B43A31]/10 p-2.5 text-xs font-semibold text-[#B83B2B]">
               این منبع قبلاً به پرونده پذیرش تبدیل شده است.{" "}
               <Link
                 className="underline"
@@ -269,13 +269,13 @@ export const ApplicantCreatePage: React.FC<{ onNotify: Notice }> = ({
           />
 
           <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
-            <label className="block text-xs font-medium text-[#214031]">
+            <label className="block text-xs font-medium text-[#162F48]">
               استان
               <select
                 required
                 value={provinceId}
                 onChange={(e) => setProvinceId(e.target.value)}
-                className="mt-1.5 w-full rounded-xl border border-[#214E3A]/20 bg-[#FFFCF5] px-3 py-2.5 text-sm text-[#214031]"
+                className="mt-1.5 w-full rounded-xl border border-[#087674]/20 bg-[#FFFFFF] px-3 py-2.5 text-sm text-[#162F48]"
               >
                 <option value="">انتخاب استان...</option>
                 {provinceOptions.map((p) => (
@@ -337,17 +337,17 @@ export const ApplicantCreatePage: React.FC<{ onNotify: Notice }> = ({
             required
           />
 
-          <label className="block text-xs font-medium text-[#214031]">
+          <label className="block text-xs font-medium text-[#162F48]">
             توضیحات پذیرش (اختیاری)
             <textarea
               rows={3}
               value={notes}
               onChange={(e) => setNotes(e.target.value)}
-              className="mt-1.5 w-full rounded-xl border border-[#214E3A]/20 bg-[#FFFCF5] p-3 text-sm text-[#214031]"
+              className="mt-1.5 w-full rounded-xl border border-[#087674]/20 bg-[#FFFFFF] p-3 text-sm text-[#162F48]"
             />
           </label>
 
-          <div className="flex flex-wrap items-center justify-end gap-3 border-t border-[#214E3A]/10 pt-4">
+          <div className="flex flex-wrap items-center justify-end gap-3 border-t border-[#087674]/10 pt-4">
             <Button
               type="button"
               variant="ghost"

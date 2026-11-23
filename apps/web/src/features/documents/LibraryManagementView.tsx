@@ -142,7 +142,7 @@ export const LibraryManagementView: React.FC<LibraryManagementViewProps> = ({ on
       <PageHeader
         title={
           <span id="library-management-title" className="flex items-center gap-2">
-            <FileText className="h-5 w-5 text-[#214E3A]" />
+            <FileText className="h-5 w-5 text-[#087674]" />
             مدیریت کتابخانه منابع
           </span>
         }
@@ -155,7 +155,7 @@ export const LibraryManagementView: React.FC<LibraryManagementViewProps> = ({ on
       />
 
       {demoMode && (
-        <Card variant="outlined" className="border-[#214E3A]/30 bg-[#F3EBDD]/70 p-4 text-xs leading-relaxed text-[#214031]">
+        <Card variant="outlined" className="border-[#087674]/30 bg-[#EAF3FA]/70 p-4 text-xs leading-relaxed text-[#162F48]">
           اسناد زیر محتوای نمونه در نسخه نمایشی هستند. بارگذاری فایل تازه و بایگانی در نسخه متصل به سرور فعال است.
         </Card>
       )}
@@ -176,7 +176,7 @@ export const LibraryManagementView: React.FC<LibraryManagementViewProps> = ({ on
 
       <Card variant="default" padding="sm">
         <div className="relative">
-          <Search className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#6B8073]" />
+          <Search className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#536E84]" />
           <input
             type="search"
             aria-label="جست‌وجوی اسناد کتابخانه"
@@ -187,7 +187,7 @@ export const LibraryManagementView: React.FC<LibraryManagementViewProps> = ({ on
               event.target.value ? next.set("q", event.target.value) : next.delete("q");
               navigate({ search: next.toString() }, { replace: true });
             }}
-            className="w-full rounded-xl border border-[#214E3A]/20 bg-[#FFFCF5] py-2 pr-9 pl-3 text-sm text-[#214031] placeholder:text-[#6B8073] focus:border-[#214E3A] focus:outline-none"
+            className="w-full rounded-xl border border-[#087674]/20 bg-[#FFFFFF] py-2 pr-9 pl-3 text-sm text-[#162F48] placeholder:text-[#536E84] focus:border-[#087674] focus:outline-none"
           />
         </div>
       </Card>
@@ -205,12 +205,12 @@ export const LibraryManagementView: React.FC<LibraryManagementViewProps> = ({ on
               <div className="flex flex-wrap items-start justify-between gap-3">
                 <div>
                   <div className="flex items-center gap-2">
-                    <h3 className="text-base font-bold text-[#214031]">
+                    <h3 className="text-base font-bold text-[#162F48]">
                       {document.currentVersion?.title ?? document.versions[0]?.title ?? "سند بدون عنوان"}
                     </h3>
                     {document.archivedAt ? <Badge variant="neutral" size="sm">بایگانی‌شده</Badge> : null}
                   </div>
-                  <p className="mt-1 text-xs text-[#4F6659]">{document.versions.length} نسخه ثبت‌شده</p>
+                  <p className="mt-1 text-xs text-[#496479]">{document.versions.length} نسخه ثبت‌شده</p>
                 </div>
                 {!demoMode && !document.archivedAt && (
                   <div className="flex flex-wrap gap-2">
@@ -246,7 +246,7 @@ export const LibraryManagementView: React.FC<LibraryManagementViewProps> = ({ on
               </div>
 
               {versionDraft?.documentId === document.id && (
-                <form onSubmit={(event) => void handleCreateVersion(event)} className="grid gap-3 rounded-xl border border-[#214E3A]/20 bg-[#F3EBDD]/60 p-4 md:grid-cols-2">
+                <form onSubmit={(event) => void handleCreateVersion(event)} className="grid gap-3 rounded-xl border border-[#087674]/20 bg-[#EAF3FA]/60 p-4 md:grid-cols-2">
                   <MetadataFields metadata={versionDraft} onChange={(value) => setVersionDraft((current) => current ? { ...current, ...value } : current)} />
                   <FileField file={versionDraft.file} onChange={(value) => setVersionDraft((current) => current ? { ...current, file: value } : current)} />
                   <div className="flex justify-end gap-2 md:col-span-2">
@@ -256,11 +256,11 @@ export const LibraryManagementView: React.FC<LibraryManagementViewProps> = ({ on
                 </form>
               )}
 
-              <div className="space-y-2 border-t border-[#214E3A]/10 pt-3">
+              <div className="space-y-2 border-t border-[#087674]/10 pt-3">
                 {document.versions.map((version) => (
-                  <div key={version.id} className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-[#214E3A]/10 bg-[#F3EBDD]/40 p-3">
+                  <div key={version.id} className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-[#087674]/10 bg-[#EAF3FA]/40 p-3">
                     <div className="space-y-1">
-                      <div className="flex flex-wrap items-center gap-2 text-sm text-[#214031]">
+                      <div className="flex flex-wrap items-center gap-2 text-sm text-[#162F48]">
                         <span className="font-semibold">نسخه {version.version}</span>
                         <Badge variant={version.status === "PUBLISHED" ? "success" : version.status === "DRAFT" ? "warning" : "neutral"} size="sm">
                           {version.status === "PUBLISHED" ? "منتشرشده" : version.status === "DRAFT" ? "پیش‌نویس" : "نسخه پیشین"}
@@ -271,14 +271,14 @@ export const LibraryManagementView: React.FC<LibraryManagementViewProps> = ({ on
                           </Badge>
                         )}
                       </div>
-                      <p className="text-[11px] text-[#4F6659]">{version.fileName}</p>
+                      <p className="text-[11px] text-[#496479]">{version.fileName}</p>
                     </div>
                     {version.status === "DRAFT" && (
                       <div className="flex flex-wrap items-center gap-3">
-                        <span className="text-[11px] text-[#4F6659]">
+                        <span className="text-[11px] text-[#496479]">
                           اسکن: {version.scanStatus === "AVAILABLE" ? "پاک" : version.scanStatus === "QUARANTINED" ? "در انتظار" : "ردشده"}
                         </span>
-                        <label className="flex items-center gap-2 text-xs text-[#214031]">
+                        <label className="flex items-center gap-2 text-xs text-[#162F48]">
                           <input
                             type="checkbox"
                             checked={requiredAtPublish[version.id] ?? true}
@@ -313,49 +313,49 @@ const MetadataFields: React.FC<{
   onChange: (value: DocumentMetadata) => void;
 }> = ({ metadata, onChange }) => (
   <>
-    <label className="block space-y-1 text-xs font-medium text-[#214031]">
+    <label className="block space-y-1 text-xs font-medium text-[#162F48]">
       عنوان
       <input
         required
         maxLength={200}
         value={metadata.title}
         onChange={(event) => onChange({ ...metadata, title: event.target.value })}
-        className="w-full rounded-xl border border-[#214E3A]/20 bg-[#FFFCF5] px-3 py-2 text-sm text-[#214031]"
+        className="w-full rounded-xl border border-[#087674]/20 bg-[#FFFFFF] px-3 py-2 text-sm text-[#162F48]"
       />
     </label>
-    <label className="block space-y-1 text-xs font-medium text-[#214031]">
+    <label className="block space-y-1 text-xs font-medium text-[#162F48]">
       دسته
       <input
         required
         maxLength={100}
         value={metadata.category}
         onChange={(event) => onChange({ ...metadata, category: event.target.value })}
-        className="w-full rounded-xl border border-[#214E3A]/20 bg-[#FFFCF5] px-3 py-2 text-sm text-[#214031]"
+        className="w-full rounded-xl border border-[#087674]/20 bg-[#FFFFFF] px-3 py-2 text-sm text-[#162F48]"
       />
     </label>
-    <label className="block space-y-1 text-xs font-medium text-[#214031] md:col-span-2">
+    <label className="block space-y-1 text-xs font-medium text-[#162F48] md:col-span-2">
       توضیح
       <textarea
         maxLength={2000}
         rows={2}
         value={metadata.description}
         onChange={(event) => onChange({ ...metadata, description: event.target.value })}
-        className="w-full rounded-xl border border-[#214E3A]/20 bg-[#FFFCF5] px-3 py-2 text-sm text-[#214031]"
+        className="w-full rounded-xl border border-[#087674]/20 bg-[#FFFFFF] px-3 py-2 text-sm text-[#162F48]"
       />
     </label>
   </>
 );
 
 const FileField: React.FC<{ file: File | null; onChange: (file: File | null) => void }> = ({ file, onChange }) => (
-  <label className="block space-y-1 text-xs font-medium text-[#214031]">
+  <label className="block space-y-1 text-xs font-medium text-[#162F48]">
     فایل PDF یا DOCX (حداکثر ۲۵ مگابایت)
     <input
       required
       type="file"
       accept=".pdf,.docx,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document"
       onChange={(event) => onChange(event.currentTarget.files?.[0] ?? null)}
-      className="w-full text-xs text-[#4F6659] file:ml-3 file:rounded-lg file:border file:border-[#214E3A]/20 file:bg-[#F3EBDD] file:px-3 file:py-2 file:font-medium file:text-[#214031]"
+      className="w-full text-xs text-[#496479] file:ml-3 file:rounded-lg file:border file:border-[#087674]/20 file:bg-[#EAF3FA] file:px-3 file:py-2 file:font-medium file:text-[#162F48]"
     />
-    {file && <span className="block text-[11px] text-[#4F6659]">{file.name}</span>}
+    {file && <span className="block text-[11px] text-[#496479]">{file.name}</span>}
   </label>
 );

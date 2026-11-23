@@ -21,7 +21,9 @@ export const MetricStrip: React.FC<{ label: string; items: MetricItem[] }> = ({
           <strong
             className={`metric-strip__value metric-strip__value--${item.tone ?? "default"}`}
           >
-            {item.value}
+            {typeof item.value === "number"
+              ? item.value.toLocaleString("fa-IR")
+              : item.value}
           </strong>
           {item.detail && (
             <span className="metric-strip__detail">{item.detail}</span>

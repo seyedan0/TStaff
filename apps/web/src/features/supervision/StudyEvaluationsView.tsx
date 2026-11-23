@@ -98,7 +98,7 @@ export const StudyEvaluationsView: React.FC<{ onNotify: Notice }> = ({ onNotify 
         <EmptyState
           title="درخواست ارزیابی جدیدی در صف نیست"
           description="به محض ثبت درخواست مطالعه توسط کارآموزان منتسب، در این صفحه نمایش داده می‌شود."
-          icon={<CheckCircle2 className="h-8 w-8 text-[#214E3A]" />}
+          icon={<CheckCircle2 className="h-8 w-8 text-[#087674]" />}
         />
       ) : (
         <div className="space-y-3">
@@ -107,22 +107,22 @@ export const StudyEvaluationsView: React.FC<{ onNotify: Notice }> = ({ onNotify 
               <div className="flex flex-col justify-between gap-4 md:flex-row md:items-center">
                 <div className="space-y-2">
                   <div className="flex flex-wrap items-center gap-2">
-                    <UserCheck className="h-4 w-4 text-[#214E3A]" />
-                    <span className="text-sm font-bold text-[#214031]">
+                    <UserCheck className="h-4 w-4 text-[#087674]" />
+                    <span className="text-sm font-bold text-[#162F48]">
                       {ev.userFullName || ev.user?.fullName || "کارآموز پژوهشی"}
                     </span>
-                    <span className="font-mono text-xs text-[#4F6659]">
+                    <span className="font-mono text-xs text-[#496479]">
                       {ev.userPhone || ev.user?.phoneNumber || "-"}
                     </span>
                     <Badge variant="danger" size="sm">در انتظار ارزیابی علمی</Badge>
                   </div>
 
-                  <p className="rounded-xl border border-[#214E3A]/10 bg-[#F3EBDD]/55 p-2.5 text-xs leading-relaxed text-[#214031]">
-                    <strong className="text-[#4F6659]">یادداشت کارآموز: </strong>
+                  <p className="rounded-xl border border-[#087674]/10 bg-[#EAF3FA]/55 p-2.5 text-xs leading-relaxed text-[#162F48]">
+                    <strong className="text-[#496479]">یادداشت کارآموز: </strong>
                     {ev.notes || "بدون توضیحات تکمیلی"}
                   </p>
 
-                  <div className="flex items-center gap-3 text-[11px] text-[#4F6659]">
+                  <div className="flex items-center gap-3 text-[11px] text-[#496479]">
                     <span className="flex items-center gap-1">
                       <Clock className="h-3.5 w-3.5" />
                       تاریخ ثبت: {new Date(ev.createdAt).toLocaleDateString("fa-IR")}
@@ -132,9 +132,9 @@ export const StudyEvaluationsView: React.FC<{ onNotify: Notice }> = ({ onNotify 
                   </div>
 
                   {ev.completedDocuments.length > 0 && (
-                    <ul className="flex flex-wrap gap-2 text-[11px] text-[#4F6659]">
+                    <ul className="flex flex-wrap gap-2 text-[11px] text-[#496479]">
                       {ev.completedDocuments.map((item) => (
-                        <li key={item.versionId} className="rounded-lg border border-[#214E3A]/15 bg-[#FFFCF5] px-2 py-1">
+                        <li key={item.versionId} className="rounded-lg border border-[#087674]/15 bg-[#FFFFFF] px-2 py-1">
                           {item.title} · نسخه {item.version} · {item.isRequired ? "الزامی" : "مرجع"}
                         </li>
                       ))}
@@ -167,7 +167,7 @@ export const StudyEvaluationsView: React.FC<{ onNotify: Notice }> = ({ onNotify 
           maxWidth="md"
         >
           <div className="space-y-4 text-right">
-            <div className="space-y-1.5 rounded-xl border border-[#214E3A]/15 bg-[#F3EBDD]/55 p-3 text-xs text-[#214031]">
+            <div className="space-y-1.5 rounded-xl border border-[#087674]/15 bg-[#EAF3FA]/55 p-3 text-xs text-[#162F48]">
               <div>
                 <strong>نام کارآموز: </strong>
                 {selectedEvaluation.userFullName || selectedEvaluation.user?.fullName || "-"}
@@ -178,14 +178,14 @@ export const StudyEvaluationsView: React.FC<{ onNotify: Notice }> = ({ onNotify 
               </div>
               <div>
                 <strong>خلاصه یادگیری متقاضی:</strong>
-                <p className="mt-1 rounded-lg bg-[#FFFCF5] p-2 leading-relaxed">
+                <p className="mt-1 rounded-lg bg-[#FFFFFF] p-2 leading-relaxed">
                   {selectedEvaluation.notes || "توضیحاتی ثبت نشده است."}
                 </p>
               </div>
             </div>
 
             <div className="space-y-1.5">
-              <label className="block text-xs font-medium text-[#214031]">
+              <label className="block text-xs font-medium text-[#162F48]">
                 بازخورد علمی به پژوهشگر (اختیاری)
               </label>
               <textarea
@@ -194,11 +194,11 @@ export const StudyEvaluationsView: React.FC<{ onNotify: Notice }> = ({ onNotify 
                 placeholder="توصیه‌های علمی و روش‌شناختی..."
                 value={feedbackNotes}
                 onChange={(e) => setFeedbackNotes(e.target.value)}
-                className="w-full rounded-xl border border-[#214E3A]/20 bg-[#FFFCF5] px-3 py-2 text-xs text-[#214031] focus:border-[#214E3A] focus:outline-none"
+                className="w-full rounded-xl border border-[#087674]/20 bg-[#FFFFFF] px-3 py-2 text-xs text-[#162F48] focus:border-[#087674] focus:outline-none"
               />
             </div>
 
-            <div className="flex flex-wrap items-center justify-between gap-2 border-t border-[#214E3A]/15 pt-4">
+            <div className="flex flex-wrap items-center justify-between gap-2 border-t border-[#087674]/15 pt-4">
               <Button
                 variant="secondary"
                 size="md"

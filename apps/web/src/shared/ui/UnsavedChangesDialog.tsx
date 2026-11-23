@@ -10,7 +10,7 @@ export function UnsavedChangesDialog({ blocker }: { blocker: Blocker }) {
       title="تغییرات ذخیره نشده است"
       maxWidth="sm"
     >
-      <p className="mb-5 text-sm leading-relaxed text-[#43584A]">
+      <p className="mb-5 text-sm leading-relaxed text-[#3D576C]">
         با ترک این صفحه، تغییراتی که هنوز ذخیره نکرده‌اید از دست می‌رود. آیا مایل به خروج هستید؟
       </p>
       <div className="flex justify-end gap-2">

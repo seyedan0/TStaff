@@ -301,6 +301,7 @@ export const SystemAdminPortal: React.FC<SystemAdminPortalProps> = ({
     <div className="space-y-5">
       <UnsavedChangesDialog blocker={blocker} />
       <PageHeader
+        roleLabel="مدیر سامانه"
         title={`مدیریت سامانه · ${currentUser?.fullName || "مدیر کل"}`}
         subtitle={
           activeTab === "overview"
@@ -309,6 +310,11 @@ export const SystemAdminPortal: React.FC<SystemAdminPortalProps> = ({
         }
         actions={
           <div className="flex flex-wrap items-center gap-2">
+            {activeTab === "overview" && (
+              <Link className="atlas-cta" to="/management/health">
+                سلامت سامانه
+              </Link>
+            )}
             <Button
               variant="secondary"
               size="sm"
@@ -342,44 +348,81 @@ export const SystemAdminPortal: React.FC<SystemAdminPortalProps> = ({
         health &&
         supervisorHealth ? (
         <div className="space-y-5">
-          <MetricStrip
-            label="شاخص‌های زنده سامانه"
-            items={[
-              {
-                label: "کل کاربران",
-                value: summary.totalUsers,
-                detail: "حساب‌های ثبت‌شده",
-              },
-              {
-                label: "پرونده‌های پذیرش",
-                value: summary.totalApplicants,
-                detail: "بدون ساخت حساب پیش از تأیید",
-              },
-              {
-                label: "پرونده‌های پژوهش",
-                value: summary.totalResearchCases,
-                detail: "همه مراحل",
-              },
-              {
-                label: "مدیران علمی فعال",
-                value: summary.activeSupervisorsCount,
-                detail: "دارای انتساب فعال",
-                tone: "success",
-              },
-              {
-                label: "نیازمند بازبینی",
-                value: backlog.reviewRequiredCasesCount,
-                detail: "خروجی وابسته به پیش‌نیاز",
-                tone: backlog.reviewRequiredCasesCount ? "warning" : "success",
-              },
-              {
-                label: "پرونده‌های معطل",
-                value: backlog.delayedCasesCount,
-                detail: "بیش از ۳۰ روز در مرحله",
-                tone: backlog.delayedCasesCount ? "warning" : "success",
-              },
-            ]}
-          />
+          <div className="atlas-grid">
+            <section
+              aria-labelledby="system-actions-title"
+              className="space-y-2"
+            >
+              <h2
+                id="system-actions-title"
+                className="text-sm font-bold text-[var(--ink)]"
+              >
+                موارد نیازمند پیگیری
+              </h2>
+              {backlog.backlogItems.length === 0 ? (
+                <p className="border-b border-[var(--line)] py-3 text-sm text-[var(--muted)]">
+                  پرونده‌ای در انتظار بازبینی نیست.
+                </p>
+              ) : (
+                <div className="divide-y divide-[var(--line)]">
+                  {backlog.backlogItems.map((item) => (
+                    <Link
+                      key={`${item.caseId}-${item.currentStage}`}
+                      to={`/projects/${encodeURIComponent(item.caseId)}`}
+                      className="flex flex-wrap items-center justify-between gap-2 py-3 text-sm hover:text-[var(--forest)]"
+                    >
+                      <span className="font-semibold">
+                        {item.caseCode} · {item.subject}
+                      </span>
+                      <span className="text-[var(--muted)]">
+                        {item.daysInCurrentStage} روز · {item.status}
+                      </span>
+                    </Link>
+                  ))}
+                </div>
+              )}
+            </section>
+            <MetricStrip
+              label="شاخص‌های زنده سامانه"
+              items={[
+                {
+                  label: "کل کاربران",
+                  value: summary.totalUsers,
+                  detail: "حساب‌های ثبت‌شده",
+                },
+                {
+                  label: "پرونده‌های پذیرش",
+                  value: summary.totalApplicants,
+                  detail: "بدون ساخت حساب پیش از تأیید",
+                },
+                {
+                  label: "پرونده‌های پژوهش",
+                  value: summary.totalResearchCases,
+                  detail: "همه مراحل",
+                },
+                {
+                  label: "مدیران علمی فعال",
+                  value: summary.activeSupervisorsCount,
+                  detail: "دارای انتساب فعال",
+                  tone: "success",
+                },
+                {
+                  label: "نیازمند بازبینی",
+                  value: backlog.reviewRequiredCasesCount,
+                  detail: "خروجی وابسته به پیش‌نیاز",
+                  tone: backlog.reviewRequiredCasesCount
+                    ? "warning"
+                    : "success",
+                },
+                {
+                  label: "پرونده‌های معطل",
+                  value: backlog.delayedCasesCount,
+                  detail: "بیش از ۳۰ روز در مرحله",
+                  tone: backlog.delayedCasesCount ? "warning" : "success",
+                },
+              ]}
+            />
+          </div>
 
           <section
             aria-label="وضعیت سرویس‌های اصلی"
@@ -494,37 +537,6 @@ export const SystemAdminPortal: React.FC<SystemAdminPortalProps> = ({
             )}
           </section>
 
-          <section aria-labelledby="system-actions-title" className="space-y-2">
-            <h2
-              id="system-actions-title"
-              className="text-sm font-bold text-[var(--ink)]"
-            >
-              موارد نیازمند پیگیری
-            </h2>
-            {backlog.backlogItems.length === 0 ? (
-              <p className="border-b border-[var(--line)] py-3 text-sm text-[var(--muted)]">
-                پرونده‌ای در صف معوقات ثبت نشده است.
-              </p>
-            ) : (
-              <div className="divide-y divide-[var(--line)]">
-                {backlog.backlogItems.map((item) => (
-                  <Link
-                    key={`${item.caseId}-${item.currentStage}`}
-                    to={`/projects/${encodeURIComponent(item.caseId)}`}
-                    className="flex flex-wrap items-center justify-between gap-2 py-3 text-sm hover:text-[var(--forest)]"
-                  >
-                    <span className="font-semibold">
-                      {item.caseCode} · {item.subject}
-                    </span>
-                    <span className="text-[var(--muted)]">
-                      {item.daysInCurrentStage} روز · {item.status}
-                    </span>
-                  </Link>
-                ))}
-              </div>
-            )}
-          </section>
-
           <nav
             aria-label="دسترسی‌های مدیریتی"
             className="flex flex-wrap gap-x-5 gap-y-2 border-t border-[var(--line)] pt-3 text-sm font-semibold text-[var(--forest)]"
@@ -577,7 +589,7 @@ export const SystemAdminPortal: React.FC<SystemAdminPortalProps> = ({
 
           {extraSettings.length > 0 && (
             <Card variant="default" title="سایر تنظیمات ثبت‌شده">
-              <div className="divide-y divide-[#214E3A]/10 text-xs">
+              <div className="divide-y divide-[#087674]/10 text-xs">
                 {extraSettings.map((setting) => (
                   <div
                     key={setting.key}
@@ -586,12 +598,12 @@ export const SystemAdminPortal: React.FC<SystemAdminPortalProps> = ({
                     <div>
                       <div
                         dir="ltr"
-                        className="font-mono font-semibold text-[#214031]"
+                        className="font-mono font-semibold text-[#162F48]"
                       >
                         {setting.key}
                       </div>
                       {setting.description && (
-                        <div className="text-[#4F6659]">
+                        <div className="text-[#496479]">
                           {setting.description}
                         </div>
                       )}
@@ -615,14 +627,14 @@ export const SystemAdminPortal: React.FC<SystemAdminPortalProps> = ({
               onSubmit={(e) => void handleRunArchive(e)}
               className="grid gap-3 md:grid-cols-3 md:items-end"
             >
-              <label className="block space-y-1 text-xs font-medium text-[#214031]">
+              <label className="block space-y-1 text-xs font-medium text-[#162F48]">
                 نوع موجودیت
                 <select
                   value={archiveTargetType}
                   onChange={(e) =>
                     setArchiveTargetType(e.target.value as ArchiveTargetType)
                   }
-                  className="w-full rounded-xl border border-[#214E3A]/20 bg-[#FFFCF5] p-2.5 text-xs text-[#214031]"
+                  className="w-full rounded-xl border border-[#087674]/20 bg-[#FFFFFF] p-2.5 text-xs text-[#162F48]"
                 >
                   <option value="RESEARCH_CASE">پرونده پژوهش</option>
                   <option value="APPLICANT">پرونده متقاضی</option>
@@ -632,12 +644,12 @@ export const SystemAdminPortal: React.FC<SystemAdminPortalProps> = ({
 
               {archiveTargetType === "RESEARCH_CASE" &&
               caseOptions.length > 0 ? (
-                <label className="block space-y-1 text-xs font-medium text-[#214031]">
+                <label className="block space-y-1 text-xs font-medium text-[#162F48]">
                   انتخاب پرونده پژوهشی
                   <select
                     value={archiveTargetId}
                     onChange={(e) => setArchiveTargetId(e.target.value)}
-                    className="w-full rounded-xl border border-[#214E3A]/20 bg-[#FFFCF5] p-2.5 text-xs text-[#214031]"
+                    className="w-full rounded-xl border border-[#087674]/20 bg-[#FFFFFF] p-2.5 text-xs text-[#162F48]"
                   >
                     {caseOptions.map((c) => (
                       <option key={c.id} value={c.id}>
@@ -682,7 +694,7 @@ export const SystemAdminPortal: React.FC<SystemAdminPortalProps> = ({
                 {archiveJobs.map((job) => (
                   <div
                     key={job.id}
-                    className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-[#214E3A]/15 bg-[#F3EBDD]/45 p-3 text-xs"
+                    className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-[#087674]/15 bg-[#EAF3FA]/45 p-3 text-xs"
                   >
                     <div className="space-y-1">
                       <div className="flex items-center gap-2">
@@ -698,12 +710,12 @@ export const SystemAdminPortal: React.FC<SystemAdminPortalProps> = ({
                         >
                           {job.status}
                         </Badge>
-                        <span className="font-semibold text-[#214031]">
+                        <span className="font-semibold text-[#162F48]">
                           {job.targetType}
                         </span>
                         <span
                           dir="ltr"
-                          className="font-mono text-[11px] text-[#4F6659]"
+                          className="font-mono text-[11px] text-[#496479]"
                         >
                           {job.targetId}
                         </span>
@@ -711,13 +723,13 @@ export const SystemAdminPortal: React.FC<SystemAdminPortalProps> = ({
                       {job.storageLocation && (
                         <div
                           dir="ltr"
-                          className="font-mono text-[11px] text-[#4F6659]"
+                          className="font-mono text-[11px] text-[#496479]"
                         >
                           {job.storageLocation}
                         </div>
                       )}
                     </div>
-                    <div className="flex items-center gap-1 text-[11px] text-[#4F6659]">
+                    <div className="flex items-center gap-1 text-[11px] text-[#496479]">
                       <Clock className="h-3.5 w-3.5" />
                       <span>
                         {new Date(job.createdAt).toLocaleString("fa-IR")}
@@ -733,7 +745,7 @@ export const SystemAdminPortal: React.FC<SystemAdminPortalProps> = ({
         <div className="space-y-4">
           <Card variant="default" padding="sm">
             <div className="relative">
-              <Search className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#6B8073]" />
+              <Search className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#536E84]" />
               <input
                 type="search"
                 aria-label="جست‌وجوی مدیران"
@@ -746,7 +758,7 @@ export const SystemAdminPortal: React.FC<SystemAdminPortalProps> = ({
                   navigate({ search: next.toString() }, { replace: true });
                 }}
                 placeholder="جست‌وجوی نام، شماره همراه یا نقش..."
-                className="w-full rounded-xl border border-[#214E3A]/20 bg-[#FFFCF5] py-2 pr-9 pl-3 text-sm text-[#214031]"
+                className="w-full rounded-xl border border-[#087674]/20 bg-[#FFFFFF] py-2 pr-9 pl-3 text-sm text-[#162F48]"
               />
             </div>
           </Card>
@@ -762,12 +774,12 @@ export const SystemAdminPortal: React.FC<SystemAdminPortalProps> = ({
                 <Card key={m.id} variant="default" className="space-y-2">
                   <div className="flex items-start justify-between gap-2">
                     <div>
-                      <h3 className="text-sm font-bold text-[#214031]">
+                      <h3 className="text-sm font-bold text-[#162F48]">
                         {m.fullName}
                       </h3>
                       <div
                         dir="ltr"
-                        className="mt-0.5 text-right font-mono text-xs text-[#4F6659]"
+                        className="mt-0.5 text-right font-mono text-xs text-[#496479]"
                       >
                         {m.phoneNumber}
                       </div>
@@ -776,12 +788,12 @@ export const SystemAdminPortal: React.FC<SystemAdminPortalProps> = ({
                       {getRoleLabel(m.role as never)}
                     </Badge>
                   </div>
-                  <div className="flex items-center justify-between border-t border-[#214E3A]/10 pt-2 text-[11px] text-[#4F6659]">
+                  <div className="flex items-center justify-between border-t border-[#087674]/10 pt-2 text-[11px] text-[#496479]">
                     <span>
                       وضعیت:{" "}
                       <strong
                         className={
-                          m.isActive ? "text-[#214E3A]" : "text-[#D94F3D]"
+                          m.isActive ? "text-[#087674]" : "text-[#B43A31]"
                         }
                       >
                         {m.isActive ? "فعال" : "معلق"}
@@ -798,8 +810,8 @@ export const SystemAdminPortal: React.FC<SystemAdminPortalProps> = ({
         <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
           <Card variant="default" className="space-y-3">
             <div className="flex items-center gap-2">
-              <Database className="h-5 w-5 text-[#214E3A]" />
-              <h3 className="text-sm font-bold text-[#214031]">
+              <Database className="h-5 w-5 text-[#087674]" />
+              <h3 className="text-sm font-bold text-[#162F48]">
                 وضعیت پایگاه‌داده و هسته API
               </h3>
             </div>
@@ -827,25 +839,25 @@ export const SystemAdminPortal: React.FC<SystemAdminPortalProps> = ({
 
           <Card variant="default" className="space-y-3">
             <div className="flex items-center gap-2">
-              <Activity className="h-5 w-5 text-[#214E3A]" />
-              <h3 className="text-sm font-bold text-[#214031]">مشخصات اجرا</h3>
+              <Activity className="h-5 w-5 text-[#087674]" />
+              <h3 className="text-sm font-bold text-[#162F48]">مشخصات اجرا</h3>
             </div>
-            <dl className="space-y-1.5 text-xs text-[#4F6659]">
+            <dl className="space-y-1.5 text-xs text-[#496479]">
               <div className="flex justify-between">
                 <dt>نسخه سرویس:</dt>
-                <dd className="font-mono font-semibold text-[#214031]">
+                <dd className="font-mono font-semibold text-[#162F48]">
                   {health?.version ?? "-"}
                 </dd>
               </div>
               <div className="flex justify-between">
                 <dt>مدت کارکرد پیوسته (ثانیه):</dt>
-                <dd className="font-mono font-semibold text-[#214031]">
+                <dd className="font-mono font-semibold text-[#162F48]">
                   {health?.uptime ?? 0}
                 </dd>
               </div>
               <div className="flex justify-between">
                 <dt>آخرین بررسی:</dt>
-                <dd className="font-semibold text-[#214031]">
+                <dd className="font-semibold text-[#162F48]">
                   {health?.timestamp
                     ? new Date(health.timestamp).toLocaleString("fa-IR")
                     : "-"}
@@ -882,12 +894,12 @@ export const SystemAdminPortal: React.FC<SystemAdminPortalProps> = ({
               onChange={(e) => setNewMgrPhone(e.target.value)}
               placeholder="09121234567"
             />
-            <label className="block space-y-1 text-xs font-medium text-[#214031]">
+            <label className="block space-y-1 text-xs font-medium text-[#162F48]">
               نقش سازمانی
               <select
                 value={newMgrRole}
                 onChange={(e) => setNewMgrRole(e.target.value)}
-                className="w-full rounded-xl border border-[#214E3A]/20 bg-[#FFFCF5] p-2.5 text-xs text-[#214031]"
+                className="w-full rounded-xl border border-[#087674]/20 bg-[#FFFFFF] p-2.5 text-xs text-[#162F48]"
               >
                 <option value="SCIENTIFIC_SUPERVISOR">مدیر علمی</option>
                 <option value="PROVINCIAL_DIRECTOR">مدیر استانی</option>
@@ -905,7 +917,7 @@ export const SystemAdminPortal: React.FC<SystemAdminPortalProps> = ({
               value={newMgrPassword}
               onChange={(e) => setNewMgrPassword(e.target.value)}
             />
-            <div className="flex justify-end gap-2 border-t border-[#214E3A]/10 pt-3">
+            <div className="flex justify-end gap-2 border-t border-[#087674]/10 pt-3">
               <Button
                 type="button"
                 variant="ghost"

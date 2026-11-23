@@ -311,10 +311,16 @@ export const TrackingDirectorPortal: React.FC<TrackingDirectorPortalProps> = ({
   return (
     <div className="space-y-5">
       <PageHeader
+        roleLabel="مدیر پیگیری"
         title={`پایش و راهبری شبکه · ${currentUser?.fullName || "مدیر پیگیری"}`}
         subtitle="رصد زنده چرخه پژوهش، مدیریت قلمرو استان‌ها، انتساب مدیران علمی و تاریخچه نظارت (D-04)"
         actions={
           <div className="flex flex-wrap items-center gap-2">
+            {activeTab === "pipeline" && (
+              <a className="atlas-cta" href="#allocation-queue">
+                صف تخصیص
+              </a>
+            )}
             <Button
               variant="secondary"
               size="sm"
@@ -338,58 +344,66 @@ export const TrackingDirectorPortal: React.FC<TrackingDirectorPortalProps> = ({
         }
       />
 
-      {activeTab === "pipeline" && (
-        <ApplicantAllocationQueue onNotify={onNotify} />
-      )}
-
       {loading ? (
         <LoadingState message="در حال دریافت داده‌های شبکه..." />
       ) : error ? (
-        <ErrorState message={error} onRetry={() => void loadTabData()} />
+        <>
+          {activeTab === "pipeline" && (
+            <div id="allocation-queue">
+              <ApplicantAllocationQueue onNotify={onNotify} />
+            </div>
+          )}
+          <ErrorState message={error} onRetry={() => void loadTabData()} />
+        </>
       ) : activeTab === "pipeline" &&
         summary &&
         backlog &&
         metrics &&
         supervisorHealth ? (
         <div className="space-y-5">
-          <MetricStrip
-            label="شاخص‌های زنده شبکه"
-            items={[
-              {
-                label: "پرونده‌های پژوهش",
-                value: summary.totalResearchCases,
-                detail: "همه وضعیت‌ها",
-              },
-              {
-                label: "کاربران",
-                value: summary.totalUsers,
-                detail: `${summary.totalApplicants} پرونده پذیرش`,
-              },
-              {
-                label: "مدیران علمی فعال",
-                value: summary.activeSupervisorsCount,
-                detail: "با انتساب فعال",
-              },
-              {
-                label: "سناریوهای مصوب",
-                value: summary.completedScenariosCount,
-                detail: "در بانک داخلی",
-                tone: "success",
-              },
-              {
-                label: "نیازمند بازبینی",
-                value: backlog.reviewRequiredCasesCount,
-                detail: "پیش‌نیاز تغییر کرده",
-                tone: backlog.reviewRequiredCasesCount ? "warning" : "success",
-              },
-              {
-                label: "پرونده‌های معطل",
-                value: backlog.delayedCasesCount,
-                detail: "بیش از ۳۰ روز",
-                tone: backlog.delayedCasesCount ? "warning" : "success",
-              },
-            ]}
-          />
+          <div className="atlas-grid" id="allocation-queue">
+            <ApplicantAllocationQueue onNotify={onNotify} />
+            <MetricStrip
+              label="شاخص‌های زنده شبکه"
+              items={[
+                {
+                  label: "پرونده‌های پژوهش",
+                  value: summary.totalResearchCases,
+                  detail: "همه وضعیت‌ها",
+                },
+                {
+                  label: "کاربران",
+                  value: summary.totalUsers,
+                  detail: `${summary.totalApplicants} پرونده پذیرش`,
+                },
+                {
+                  label: "مدیران علمی فعال",
+                  value: summary.activeSupervisorsCount,
+                  detail: "با انتساب فعال",
+                },
+                {
+                  label: "سناریوهای مصوب",
+                  value: summary.completedScenariosCount,
+                  detail: "در بانک داخلی",
+                  tone: "success",
+                },
+                {
+                  label: "نیازمند بازبینی",
+                  value: backlog.reviewRequiredCasesCount,
+                  detail: "پیش‌نیاز تغییر کرده",
+                  tone: backlog.reviewRequiredCasesCount
+                    ? "warning"
+                    : "success",
+                },
+                {
+                  label: "پرونده‌های معطل",
+                  value: backlog.delayedCasesCount,
+                  detail: "بیش از ۳۰ روز",
+                  tone: backlog.delayedCasesCount ? "warning" : "success",
+                },
+              ]}
+            />
+          </div>
 
           <section
             aria-label="سلامت انتساب مدیران علمی"
@@ -471,7 +485,7 @@ export const TrackingDirectorPortal: React.FC<TrackingDirectorPortalProps> = ({
               variant="default"
               title={
                 <span className="flex items-center gap-2">
-                  <Building2 className="h-4 w-4 text-[#214E3A]" />
+                  <Building2 className="h-4 w-4 text-[#087674]" />
                   توزیع مراحل فعال
                 </span>
               }
@@ -481,13 +495,13 @@ export const TrackingDirectorPortal: React.FC<TrackingDirectorPortalProps> = ({
                   ([stageKey, count]) => (
                     <div
                       key={stageKey}
-                      className="flex items-center justify-between rounded-xl border border-[#214E3A]/15 bg-[#F3EBDD]/45 px-3 py-2.5"
+                      className="flex items-center justify-between rounded-xl border border-[#087674]/15 bg-[#EAF3FA]/45 px-3 py-2.5"
                     >
-                      <span className="font-semibold text-[#214031]">
+                      <span className="font-semibold text-[#162F48]">
                         {STAGE_FA[stageKey] ?? stageKey}
                       </span>
                       <div className="flex items-center gap-3">
-                        <span className="text-[#4F6659]">
+                        <span className="text-[#496479]">
                           بازگشت مرحله:{" "}
                           {metrics.rollbackFrequencyByStage[stageKey] ?? 0}
                         </span>
@@ -503,7 +517,7 @@ export const TrackingDirectorPortal: React.FC<TrackingDirectorPortalProps> = ({
 
             <Card variant="default" title="صف پرونده‌های نیازمند پیگیری">
               {backlog.backlogItems.length === 0 ? (
-                <p className="text-xs text-[#4F6659]">
+                <p className="text-xs text-[#496479]">
                   در حال حاضر گلوگاه بازبینی در شبکه وجود ندارد.
                 </p>
               ) : (
@@ -512,13 +526,13 @@ export const TrackingDirectorPortal: React.FC<TrackingDirectorPortalProps> = ({
                     <Link
                       key={`${item.caseId}-${item.currentStage}`}
                       to={`/projects/${encodeURIComponent(item.caseId)}`}
-                      className="flex items-center justify-between gap-2 rounded-xl border border-[#D94F3D]/25 bg-[#D94F3D]/5 p-3 text-xs hover:border-[#D94F3D]/60"
+                      className="flex items-center justify-between gap-2 rounded-xl border border-[#B43A31]/25 bg-[#B43A31]/5 p-3 text-xs hover:border-[#B43A31]/60"
                     >
                       <div>
-                        <div className="font-bold text-[#214031]">
+                        <div className="font-bold text-[#162F48]">
                           {item.caseCode} · {item.subject}
                         </div>
-                        <div className="text-[#4F6659]">
+                        <div className="text-[#496479]">
                           مرحله:{" "}
                           {STAGE_FA[item.currentStage] ?? item.currentStage}
                         </div>
@@ -537,14 +551,14 @@ export const TrackingDirectorPortal: React.FC<TrackingDirectorPortalProps> = ({
         <div className="space-y-4">
           <Card variant="default" padding="sm">
             <div className="relative">
-              <Search className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#6B8073]" />
+              <Search className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#536E84]" />
               <input
                 type="search"
                 aria-label="جست‌وجوی مدیران"
                 value={searchTerm}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 placeholder="جست‌وجوی نام، شماره همراه یا نقش..."
-                className="w-full rounded-xl border border-[#214E3A]/20 bg-[#FFFCF5] py-2 pr-9 pl-3 text-sm text-[#214031]"
+                className="w-full rounded-xl border border-[#087674]/20 bg-[#FFFFFF] py-2 pr-9 pl-3 text-sm text-[#162F48]"
               />
             </div>
           </Card>
@@ -563,12 +577,12 @@ export const TrackingDirectorPortal: React.FC<TrackingDirectorPortalProps> = ({
                   <Card key={m.id} variant="default" className="space-y-3">
                     <div className="flex items-start justify-between gap-2">
                       <div>
-                        <h3 className="text-sm font-bold text-[#214031]">
+                        <h3 className="text-sm font-bold text-[#162F48]">
                           {m.fullName}
                         </h3>
                         <div
                           dir="ltr"
-                          className="mt-0.5 text-right font-mono text-xs text-[#4F6659]"
+                          className="mt-0.5 text-right font-mono text-xs text-[#496479]"
                         >
                           {m.phoneNumber}
                         </div>
@@ -587,12 +601,12 @@ export const TrackingDirectorPortal: React.FC<TrackingDirectorPortalProps> = ({
                     </div>
 
                     {m.role === "PROVINCIAL_DIRECTOR" && (
-                      <div className="space-y-2 border-t border-[#214E3A]/10 pt-2.5 text-xs">
-                        <div className="font-semibold text-[#214031]">
+                      <div className="space-y-2 border-t border-[#087674]/10 pt-2.5 text-xs">
+                        <div className="font-semibold text-[#162F48]">
                           قلمرو استان‌ها:
                         </div>
                         {mgrScopes.length === 0 ? (
-                          <p className="text-[#4F6659]">
+                          <p className="text-[#496479]">
                             استانی منتسب نشده است.
                           </p>
                         ) : (
@@ -600,7 +614,7 @@ export const TrackingDirectorPortal: React.FC<TrackingDirectorPortalProps> = ({
                             {mgrScopes.map((s) => (
                               <span
                                 key={s.provinceId}
-                                className="inline-flex items-center gap-1 rounded-full border border-[#214E3A]/20 bg-[#F3EBDD] px-2.5 py-1 text-[11px] font-medium text-[#214031]"
+                                className="inline-flex items-center gap-1 rounded-full border border-[#087674]/20 bg-[#EAF3FA] px-2.5 py-1 text-[11px] font-medium text-[#162F48]"
                               >
                                 {provinceNameFromId(s.provinceId) ??
                                   s.provinceId}
@@ -613,7 +627,7 @@ export const TrackingDirectorPortal: React.FC<TrackingDirectorPortalProps> = ({
                                       s.provinceId,
                                     )
                                   }
-                                  className="text-[#D94F3D] hover:opacity-75"
+                                  className="text-[#B43A31] hover:opacity-75"
                                 >
                                   <Trash2 className="h-3 w-3" />
                                 </button>
@@ -631,7 +645,7 @@ export const TrackingDirectorPortal: React.FC<TrackingDirectorPortalProps> = ({
                                 [m.id]: e.target.value,
                               }))
                             }
-                            className="flex-1 rounded-xl border border-[#214E3A]/20 bg-[#FFFCF5] px-2.5 py-1.5 text-xs text-[#214031]"
+                            className="flex-1 rounded-xl border border-[#087674]/20 bg-[#FFFFFF] px-2.5 py-1.5 text-xs text-[#162F48]"
                           >
                             <option value="">انتخاب استان...</option>
                             {IRAN_PROVINCES.map((p) => (
@@ -653,7 +667,7 @@ export const TrackingDirectorPortal: React.FC<TrackingDirectorPortalProps> = ({
                       </div>
                     )}
 
-                    <div className="flex justify-end border-t border-[#214E3A]/10 pt-2">
+                    <div className="flex justify-end border-t border-[#087674]/10 pt-2">
                       <Button
                         variant={m.isActive ? "danger" : "primary"}
                         size="sm"
@@ -678,14 +692,14 @@ export const TrackingDirectorPortal: React.FC<TrackingDirectorPortalProps> = ({
           <Card variant="default" padding="sm">
             <div className="flex flex-wrap items-center gap-2">
               <div className="relative flex-1 min-w-56">
-                <Search className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#6B8073]" />
+                <Search className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#536E84]" />
                 <input
                   type="search"
                   aria-label="جست‌وجو در تاریخچه نظارت"
                   value={searchTerm}
                   onChange={(e) => setSearchQuery(e.target.value)}
                   placeholder="جست‌وجو بر اساس نوع رخداد یا شناسه..."
-                  className="w-full rounded-xl border border-[#214E3A]/20 bg-[#FFFCF5] py-2 pr-9 pl-3 text-sm text-[#214031]"
+                  className="w-full rounded-xl border border-[#087674]/20 bg-[#FFFFFF] py-2 pr-9 pl-3 text-sm text-[#162F48]"
                 />
               </div>
               <Badge variant="info" size="sm">
@@ -702,7 +716,7 @@ export const TrackingDirectorPortal: React.FC<TrackingDirectorPortalProps> = ({
             />
           ) : (
             <Card variant="default" padding="none">
-              <ul className="divide-y divide-[#214E3A]/10 text-xs">
+              <ul className="divide-y divide-[#087674]/10 text-xs">
                 {auditEvents.map((ev) => (
                   <li
                     key={ev.id}
@@ -713,12 +727,12 @@ export const TrackingDirectorPortal: React.FC<TrackingDirectorPortalProps> = ({
                         <Badge variant="neutral" size="sm">
                           {ev.action}
                         </Badge>
-                        <span className="font-semibold text-[#214031]">
+                        <span className="font-semibold text-[#162F48]">
                           {ev.aggregateType}
                         </span>
                         <span
                           dir="ltr"
-                          className="font-mono text-[11px] text-[#4F6659]"
+                          className="font-mono text-[11px] text-[#496479]"
                         >
                           {ev.aggregateId}
                         </span>
@@ -726,13 +740,13 @@ export const TrackingDirectorPortal: React.FC<TrackingDirectorPortalProps> = ({
                       {ev.payload != null && (
                         <div
                           dir="ltr"
-                          className="max-w-2xl truncate font-mono text-[11px] text-[#4F6659]"
+                          className="max-w-2xl truncate font-mono text-[11px] text-[#496479]"
                         >
                           {JSON.stringify(ev.payload)}
                         </div>
                       )}
                     </div>
-                    <div className="flex shrink-0 items-center gap-1 text-[11px] text-[#4F6659]">
+                    <div className="flex shrink-0 items-center gap-1 text-[11px] text-[#496479]">
                       <Clock className="h-3.5 w-3.5" />
                       <span>
                         {new Date(ev.createdAt).toLocaleString("fa-IR")}
@@ -772,12 +786,12 @@ export const TrackingDirectorPortal: React.FC<TrackingDirectorPortalProps> = ({
               onChange={(e) => setNewMgrPhone(e.target.value)}
               placeholder="09123456789"
             />
-            <label className="block space-y-1 text-xs font-medium text-[#214031]">
+            <label className="block space-y-1 text-xs font-medium text-[#162F48]">
               نقش سازمانی
               <select
                 value={newMgrRole}
                 onChange={(e) => setNewMgrRole(e.target.value)}
-                className="w-full rounded-xl border border-[#214E3A]/20 bg-[#FFFCF5] p-2.5 text-xs text-[#214031]"
+                className="w-full rounded-xl border border-[#087674]/20 bg-[#FFFFFF] p-2.5 text-xs text-[#162F48]"
               >
                 <option value="SCIENTIFIC_SUPERVISOR">مدیر علمی</option>
                 <option value="PROVINCIAL_DIRECTOR">مدیر استانی</option>
@@ -786,12 +800,12 @@ export const TrackingDirectorPortal: React.FC<TrackingDirectorPortalProps> = ({
               </select>
             </label>
             {newMgrRole === "PROVINCIAL_DIRECTOR" && (
-              <label className="block space-y-1 text-xs font-medium text-[#214031]">
+              <label className="block space-y-1 text-xs font-medium text-[#162F48]">
                 استان قلمرو اولیه (اختیاری)
                 <select
                   value={newMgrProvinceId}
                   onChange={(e) => setNewMgrProvinceId(e.target.value)}
-                  className="w-full rounded-xl border border-[#214E3A]/20 bg-[#FFFCF5] p-2.5 text-xs text-[#214031]"
+                  className="w-full rounded-xl border border-[#087674]/20 bg-[#FFFFFF] p-2.5 text-xs text-[#162F48]"
                 >
                   <option value="">انتخاب پس از ایجاد...</option>
                   {IRAN_PROVINCES.map((p) => (
@@ -811,7 +825,7 @@ export const TrackingDirectorPortal: React.FC<TrackingDirectorPortalProps> = ({
               value={newMgrPassword}
               onChange={(e) => setNewMgrPassword(e.target.value)}
             />
-            <div className="flex justify-end gap-2 border-t border-[#214E3A]/10 pt-3">
+            <div className="flex justify-end gap-2 border-t border-[#087674]/10 pt-3">
               <Button
                 type="button"
                 variant="ghost"
@@ -847,7 +861,7 @@ export const TrackingDirectorPortal: React.FC<TrackingDirectorPortalProps> = ({
             onSubmit={(e) => void handleToggleManagerActive(e)}
             className="space-y-4 text-right"
           >
-            <label className="block space-y-1.5 text-xs font-medium text-[#214031]">
+            <label className="block space-y-1.5 text-xs font-medium text-[#162F48]">
               دلیل اقدام (حداقل ۵ کاراکتر · D-04)
               <textarea
                 required
@@ -855,10 +869,10 @@ export const TrackingDirectorPortal: React.FC<TrackingDirectorPortalProps> = ({
                 rows={3}
                 value={suspendReason}
                 onChange={(e) => setSuspendReason(e.target.value)}
-                className="w-full rounded-xl border border-[#214E3A]/20 bg-[#FFFCF5] p-3 text-sm text-[#214031]"
+                className="w-full rounded-xl border border-[#087674]/20 bg-[#FFFFFF] p-3 text-sm text-[#162F48]"
               />
             </label>
-            <div className="flex justify-end gap-2 border-t border-[#214E3A]/10 pt-3">
+            <div className="flex justify-end gap-2 border-t border-[#087674]/10 pt-3">
               <Button
                 type="button"
                 variant="ghost"

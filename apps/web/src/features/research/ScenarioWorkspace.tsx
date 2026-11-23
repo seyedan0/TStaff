@@ -153,8 +153,8 @@ export const ScenarioWorkspace: React.FC<{
     <div className="space-y-4">
       <UnsavedChangesDialog blocker={blocker} />
       <div>
-        <h3 className="text-lg font-bold text-[#214031]">سناریونویسی</h3>
-        <p className="mt-1 text-xs text-[#4F6659]">
+        <h3 className="text-lg font-bold text-[#162F48]">سناریونویسی</h3>
+        <p className="mt-1 text-xs text-[#496479]">
           {caseTitle} · عنوان، شرح، مخاطب، استان، دسته‌بندی، کلیدواژه‌ها، مراحل اجرا، تاریخچه نسخه‌ها و تصمیم‌ها (FR-021 / AT-08)
         </p>
       </div>
@@ -164,20 +164,20 @@ export const ScenarioWorkspace: React.FC<{
       ) : scenario && !canEdit ? (
         <Card variant="default" className="space-y-3">
           <div className="flex flex-wrap items-center justify-between gap-2">
-            <h4 className="text-base font-bold text-[#214031]">{scenario.title}</h4>
+            <h4 className="text-base font-bold text-[#162F48]">{scenario.title}</h4>
             <Badge variant={scenario.status === "APPROVED_INTERNAL" ? "success" : "warning"} size="sm">
               {scenario.status} · نسخه {scenario.version}
             </Badge>
           </div>
-          <p className="text-sm leading-6 text-[#214031]">{scenario.summary}</p>
-          <dl className="grid gap-3 rounded-xl bg-[#F3EBDD]/60 p-4 text-xs sm:grid-cols-2">
-            <div><dt className="text-[#4F6659]">مخاطب</dt><dd className="mt-1 font-semibold text-[#214031]">{audienceLabel[parsedCurrent.audience]}</dd></div>
-            <div><dt className="text-[#4F6659]">استان</dt><dd className="mt-1 font-semibold text-[#214031]">{parsedCurrent.province || "-"}</dd></div>
-            <div><dt className="text-[#4F6659]">دسته‌بندی</dt><dd className="mt-1 font-semibold text-[#214031]">{parsedCurrent.category || "-"}</dd></div>
-            <div><dt className="text-[#4F6659]">کلیدواژه‌ها</dt><dd className="mt-1 font-semibold text-[#214031]">{parsedCurrent.keywords || "-"}</dd></div>
+          <p className="text-sm leading-6 text-[#162F48]">{scenario.summary}</p>
+          <dl className="grid gap-3 rounded-xl bg-[#EAF3FA]/60 p-4 text-xs sm:grid-cols-2">
+            <div><dt className="text-[#496479]">مخاطب</dt><dd className="mt-1 font-semibold text-[#162F48]">{audienceLabel[parsedCurrent.audience]}</dd></div>
+            <div><dt className="text-[#496479]">استان</dt><dd className="mt-1 font-semibold text-[#162F48]">{parsedCurrent.province || "-"}</dd></div>
+            <div><dt className="text-[#496479]">دسته‌بندی</dt><dd className="mt-1 font-semibold text-[#162F48]">{parsedCurrent.category || "-"}</dd></div>
+            <div><dt className="text-[#496479]">کلیدواژه‌ها</dt><dd className="mt-1 font-semibold text-[#162F48]">{parsedCurrent.keywords || "-"}</dd></div>
             <div className="sm:col-span-2">
-              <dt className="text-[#4F6659]">مراحل اجرا</dt>
-              <dd className="mt-1 whitespace-pre-wrap leading-6 text-[#214031]">{parsedCurrent.implementationSteps || "-"}</dd>
+              <dt className="text-[#496479]">مراحل اجرا</dt>
+              <dd className="mt-1 whitespace-pre-wrap leading-6 text-[#162F48]">{parsedCurrent.implementationSteps || "-"}</dd>
             </div>
           </dl>
         </Card>
@@ -187,7 +187,7 @@ export const ScenarioWorkspace: React.FC<{
         <Card variant="default">
           <div className="space-y-3 text-right">
             <Input label="عنوان سناریو" required value={title} onChange={(event) => setTitle(event.target.value)} />
-            <label className="block text-xs font-medium text-[#214031]">
+            <label className="block text-xs font-medium text-[#162F48]">
               شرح کامل سناریو
               <textarea
                 required
@@ -196,16 +196,16 @@ export const ScenarioWorkspace: React.FC<{
                 rows={4}
                 value={summary}
                 onChange={(event) => setSummary(event.target.value)}
-                className="mt-1.5 w-full rounded-xl border border-[#214E3A]/20 bg-[#FFFCF5] p-3 text-sm text-[#214031]"
+                className="mt-1.5 w-full rounded-xl border border-[#087674]/20 bg-[#FFFFFF] p-3 text-sm text-[#162F48]"
               />
             </label>
             <div className="grid gap-3 md:grid-cols-2">
-              <label className="block text-xs font-medium text-[#214031]">
+              <label className="block text-xs font-medium text-[#162F48]">
                 مخاطب
                 <select
                   value={fields.audience}
                   onChange={(event) => setFields((current) => ({ ...current, audience: event.target.value as ScenarioAudience }))}
-                  className="mt-1.5 w-full rounded-xl border border-[#214E3A]/20 bg-[#FFFCF5] p-2.5 text-sm text-[#214031]"
+                  className="mt-1.5 w-full rounded-xl border border-[#087674]/20 bg-[#FFFFFF] p-2.5 text-sm text-[#162F48]"
                 >
                   {Object.entries(audienceLabel).map(([value, label]) => (
                     <option key={value} value={value}>{label}</option>
@@ -213,13 +213,13 @@ export const ScenarioWorkspace: React.FC<{
                 </select>
               </label>
 
-              <label className="block text-xs font-medium text-[#214031]">
+              <label className="block text-xs font-medium text-[#162F48]">
                 استان
                 <select
                   required
                   value={fields.province}
                   onChange={(event) => setFields((current) => ({ ...current, province: event.target.value }))}
-                  className="mt-1.5 w-full rounded-xl border border-[#214E3A]/20 bg-[#FFFCF5] p-2.5 text-sm text-[#214031]"
+                  className="mt-1.5 w-full rounded-xl border border-[#087674]/20 bg-[#FFFFFF] p-2.5 text-sm text-[#162F48]"
                 >
                   <option value="">انتخاب استان...</option>
                   {IRAN_PROVINCES.map((p) => (
@@ -241,13 +241,13 @@ export const ScenarioWorkspace: React.FC<{
                 onChange={(event) => setFields((current) => ({ ...current, keywords: event.target.value }))}
               />
             </div>
-            <label className="block text-xs font-medium text-[#214031]">
+            <label className="block text-xs font-medium text-[#162F48]">
               مراحل پیشنهادی اجرا (هر مرحله در یک خط)
               <textarea
                 rows={5}
                 value={fields.implementationSteps}
                 onChange={(event) => setFields((current) => ({ ...current, implementationSteps: event.target.value }))}
-                className="mt-1.5 w-full rounded-xl border border-[#214E3A]/20 bg-[#FFFCF5] p-3 text-sm text-[#214031]"
+                className="mt-1.5 w-full rounded-xl border border-[#087674]/20 bg-[#FFFFFF] p-3 text-sm text-[#162F48]"
               />
             </label>
             {scenario?.status === "UNDER_REVIEW" ? (
@@ -266,12 +266,12 @@ export const ScenarioWorkspace: React.FC<{
 
       {scenario?.versions && scenario.versions.length > 0 && (
         <Card variant="default" className="space-y-2">
-          <h4 className="text-xs font-bold text-[#214031]">تاریخچه نسخه‌های سناریو ({scenario.versions.length})</h4>
-          <ul className="divide-y divide-[#214E3A]/10 text-xs">
+          <h4 className="text-xs font-bold text-[#162F48]">تاریخچه نسخه‌های سناریو ({scenario.versions.length})</h4>
+          <ul className="divide-y divide-[#087674]/10 text-xs">
             {scenario.versions.map((v) => (
               <li key={v.version} className="flex flex-wrap items-center justify-between gap-2 py-2">
-                <span className="font-semibold text-[#214031]">نسخه {v.version}: {v.title}</span>
-                <span className="text-[#4F6659]">{v.status} · {new Date(v.createdAt).toLocaleString("fa-IR")}</span>
+                <span className="font-semibold text-[#162F48]">نسخه {v.version}: {v.title}</span>
+                <span className="text-[#496479]">{v.status} · {new Date(v.createdAt).toLocaleString("fa-IR")}</span>
               </li>
             ))}
           </ul>
@@ -280,19 +280,19 @@ export const ScenarioWorkspace: React.FC<{
 
       {scenario?.decisions && scenario.decisions.length > 0 && (
         <Card variant="default" className="space-y-2">
-          <h4 className="text-xs font-bold text-[#214031]">سوابق داوری علمی سناریو ({scenario.decisions.length})</h4>
-          <ul className="divide-y divide-[#214E3A]/10 text-xs">
+          <h4 className="text-xs font-bold text-[#162F48]">سوابق داوری علمی سناریو ({scenario.decisions.length})</h4>
+          <ul className="divide-y divide-[#087674]/10 text-xs">
             {scenario.decisions.map((d) => (
               <li key={d.id} className="space-y-1 py-2">
                 <div className="flex flex-wrap items-center justify-between gap-2">
                   <Badge variant={d.decision === "APPROVED" ? "success" : "warning"} size="sm">
                     {d.decision === "APPROVED" ? "تأییدشده" : "نیازمند اصلاح"} · نسخه {d.actualVersion}
                   </Badge>
-                  <span className="text-[#4F6659]">
+                  <span className="text-[#496479]">
                     {d.reviewerName || "مدیر علمی"} · {new Date(d.decidedAt).toLocaleString("fa-IR")}
                   </span>
                 </div>
-                <p className="text-[#214031]">{d.reason}</p>
+                <p className="text-[#162F48]">{d.reason}</p>
               </li>
             ))}
           </ul>

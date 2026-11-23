@@ -9,6 +9,7 @@ export interface BreadcrumbItem {
 
 export interface PageHeaderProps {
   title: React.ReactNode;
+  roleLabel?: string;
   subtitle?: React.ReactNode;
   breadcrumbs?: BreadcrumbItem[];
   backTo?: string | { to: string; label?: string };
@@ -19,6 +20,7 @@ export interface PageHeaderProps {
 export const PageHeader: React.FC<PageHeaderProps> = ({
   title,
   subtitle,
+  roleLabel,
   breadcrumbs,
   backTo,
   backLabel = "بازگشت",
@@ -38,7 +40,7 @@ export const PageHeader: React.FC<PageHeaderProps> = ({
           {breadcrumbs.map((crumb, index) => (
             <React.Fragment key={`${crumb.label}-${index}`}>
               {index > 0 && (
-                <ChevronLeft className="h-3.5 w-3.5 text-[#858E7F]" />
+                <ChevronLeft className="h-3.5 w-3.5 text-[#627A91]" />
               )}
               {crumb.to ? (
                 <Link
@@ -62,6 +64,7 @@ export const PageHeader: React.FC<PageHeaderProps> = ({
 
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div className="space-y-1">
+          {roleLabel && <span className="atlas-eyebrow">{roleLabel}</span>}
           <h1 className="text-xl font-bold tracking-tight text-[var(--ink)] md:text-2xl">
             {title}
           </h1>
@@ -77,7 +80,7 @@ export const PageHeader: React.FC<PageHeaderProps> = ({
           {backHref && (
             <Link
               to={backHref}
-              className="apple-btn inline-flex items-center gap-1.5 rounded-apple-md border border-[var(--line)] bg-[var(--surface-muted)] px-3.5 py-2 text-xs font-semibold text-[var(--ink)] transition hover:bg-[#eceee7]"
+              className="apple-btn inline-flex items-center gap-1.5 rounded-apple-md border border-[var(--line)] bg-[var(--surface-muted)] px-3.5 py-2 text-xs font-semibold text-[var(--ink)] transition hover:bg-[#EAF4FA]"
             >
               <ArrowRight className="h-3.5 w-3.5" />
               <span>{backText}</span>

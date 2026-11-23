@@ -9,6 +9,7 @@ import { Badge } from "../../shared/ui/Badge.js";
 import { Button } from "../../shared/ui/Button.js";
 import { Card } from "../../shared/ui/Card.js";
 import { Modal } from "../../shared/ui/Modal.js";
+import { MetricStrip } from "../../shared/ui/MetricStrip.js";
 import { PageHeader } from "../../shared/ui/PageHeader.js";
 import { EmptyState, ErrorState, LoadingState } from "../../shared/ui/StateFeedback.js";
 import { ResourcesManager } from "../resources/ResourcesManager.js";
@@ -244,12 +245,12 @@ export const ResearchCasesView: React.FC<ResearchCasesViewProps> = ({ onNotify, 
           subtitle="تاریخچه نسخه‌ها حذف نمی‌شود (D-05 / FR-061 / AT-33)."
         >
           <form onSubmit={submitRollback} className="space-y-4 text-right">
-            <label className="block text-xs font-medium text-[#214031]">
+            <label className="block text-xs font-medium text-[#162F48]">
               مرحله مقصد
               <select
                 value={rollbackTarget}
                 onChange={(event) => setRollbackTarget(event.target.value as StageType)}
-                className="mt-1.5 w-full rounded-xl border border-[#214E3A]/20 bg-[#FFFCF5] p-2.5 text-sm text-[#214031]"
+                className="mt-1.5 w-full rounded-xl border border-[#087674]/20 bg-[#FFFFFF] p-2.5 text-sm text-[#162F48]"
               >
                 {stages.slice(0, 3).map((stage) => (
                   <option key={stage.type} value={stage.type}>
@@ -258,7 +259,7 @@ export const ResearchCasesView: React.FC<ResearchCasesViewProps> = ({ onNotify, 
                 ))}
               </select>
             </label>
-            <label className="block text-xs font-medium text-[#214031]">
+            <label className="block text-xs font-medium text-[#162F48]">
               دلیل بازگشت
               <textarea
                 required
@@ -266,7 +267,7 @@ export const ResearchCasesView: React.FC<ResearchCasesViewProps> = ({ onNotify, 
                 rows={3}
                 value={rollbackReason}
                 onChange={(event) => setRollbackReason(event.target.value)}
-                className="mt-1.5 w-full rounded-xl border border-[#214E3A]/20 bg-[#FFFCF5] p-3 text-sm text-[#214031]"
+                className="mt-1.5 w-full rounded-xl border border-[#087674]/20 bg-[#FFFFFF] p-3 text-sm text-[#162F48]"
               />
             </label>
             <div className="flex justify-end gap-2">
@@ -306,28 +307,28 @@ export const ResearchCasesView: React.FC<ResearchCasesViewProps> = ({ onNotify, 
               if (!stage) return null;
               const tileStyle =
                 stage.status === "APPROVED"
-                  ? "border-[#214E3A]/40 bg-[#214E3A]/10"
+                  ? "border-[#087674]/40 bg-[#087674]/10"
                   : stage.status === "IN_PROGRESS"
-                    ? "border-[#214E3A] bg-[#FFFCF5] shadow-sm"
+                    ? "border-[#087674] bg-[#FFFFFF] shadow-sm"
                     : stage.status === "SUBMITTED" || stage.status === "REVIEW_REQUIRED" || stage.status === "REVISION_REQUESTED"
-                      ? "border-[#D94F3D]/45 bg-[#D94F3D]/10"
-                      : "border-[#214E3A]/15 bg-[#F3EBDD]/50";
+                      ? "border-[#B43A31]/45 bg-[#B43A31]/10"
+                      : "border-[#087674]/15 bg-[#EAF3FA]/50";
               return (
                 <button
                   type="button"
                   key={stage.id}
                   onClick={() => navigate(`/projects/${selectedCase.id}/stages/${stage.stageType}${context}`)}
-                  className={`rounded-xl border p-4 text-right transition hover:-translate-y-0.5 hover:border-[#214E3A] ${tileStyle}`}
+                  className={`rounded-xl border p-4 text-right transition hover:-translate-y-0.5 hover:border-[#087674] ${tileStyle}`}
                 >
-                  <div className="text-xs font-bold text-[#214031]">{label}</div>
-                  <div className="mt-2 text-xs font-medium text-[#4F6659]">{statusLabel[stage.status]}</div>
-                  <div className="mt-1 text-[11px] text-[#6B8073]">نسخه {stage.version}</div>
+                  <div className="text-xs font-bold text-[#162F48]">{label}</div>
+                  <div className="mt-2 text-xs font-medium text-[#496479]">{statusLabel[stage.status]}</div>
+                  <div className="mt-1 text-[11px] text-[#536E84]">نسخه {stage.version}</div>
                 </button>
               );
             })}
           </div>
 
-          <p className="border-t border-[#214E3A]/10 pt-3 text-xs text-[#4F6659]">
+          <p className="border-t border-[#087674]/10 pt-3 text-xs text-[#496479]">
             {demoMode
               ? "این پرونده نمونه در نسخه نمایشی فقط برای مشاهده در دسترس است."
               : "برای بازکردن هر مرحله روی کارت آن کلیک کنید. مراحل تأییدشده با تمام نسخه‌ها برای مشاهده و پیگیری بازبینی باقی می‌مانند."}
@@ -352,10 +353,10 @@ export const ResearchCasesView: React.FC<ResearchCasesViewProps> = ({ onNotify, 
 
         {changeRequests.length > 0 && (
           <Card variant="default" className="space-y-3">
-            <h2 className="text-sm font-bold text-[#214031]">درخواست‌های بازگشایی مراحل ({changeRequests.length})</h2>
+            <h2 className="text-sm font-bold text-[#162F48]">درخواست‌های بازگشایی مراحل ({changeRequests.length})</h2>
             <div className="space-y-3">
               {changeRequests.map((req) => (
-                <div key={req.id} className="rounded-xl border border-[#214E3A]/15 bg-[#F3EBDD]/50 p-3 text-xs space-y-2">
+                <div key={req.id} className="rounded-xl border border-[#087674]/15 bg-[#EAF3FA]/50 p-3 text-xs space-y-2">
                   <div className="flex flex-wrap items-center justify-between gap-2">
                     <div className="flex items-center gap-2">
                       <Badge variant="info" size="sm">
@@ -368,21 +369,21 @@ export const ResearchCasesView: React.FC<ResearchCasesViewProps> = ({ onNotify, 
                         {req.status === "PENDING" ? "در انتظار بررسی" : req.status === "APPROVED" ? "تأییدشده" : "ردشده"}
                       </Badge>
                     </div>
-                    <span className="text-[#4F6659]">
+                    <span className="text-[#496479]">
                       نسخه {req.version} · {new Date(req.createdAt).toLocaleString("fa-IR")}
                     </span>
                   </div>
-                  <p className="text-[#214031]">دلیل درخواست: {req.reason}</p>
-                  {req.decisionReason && <p className="font-medium text-[#214E3A]">پاسخ مدیر علمی: {req.decisionReason}</p>}
+                  <p className="text-[#162F48]">دلیل درخواست: {req.reason}</p>
+                  {req.decisionReason && <p className="font-medium text-[#087674]">پاسخ مدیر علمی: {req.decisionReason}</p>}
 
                   {canReview && req.status === "PENDING" && !demoMode && (
-                    <div className="space-y-2 border-t border-[#214E3A]/10 pt-2">
+                    <div className="space-y-2 border-t border-[#087674]/10 pt-2">
                       <input
                         type="text"
                         placeholder="توضیح تصمیم مدیر علمی (حداقل ۵ کاراکتر)..."
                         value={changeDecisionNotes[req.id] ?? ""}
                         onChange={(e) => setChangeDecisionNotes((prev) => ({ ...prev, [req.id]: e.target.value }))}
-                        className="w-full rounded-xl border border-[#214E3A]/20 bg-[#FFFCF5] px-3 py-2 text-xs text-[#214031]"
+                        className="w-full rounded-xl border border-[#087674]/20 bg-[#FFFFFF] px-3 py-2 text-xs text-[#162F48]"
                       />
                       <div className="flex justify-end gap-2">
                         <Button variant="secondary" size="sm" loading={busy} onClick={() => void decideChangeRequest(req, "REJECTED")}>
@@ -423,10 +424,10 @@ export const ResearchCasesView: React.FC<ResearchCasesViewProps> = ({ onNotify, 
               }
             }}
           >
-            <label className="block text-xs font-medium text-[#214031]">
+            <label className="block text-xs font-medium text-[#162F48]">
               مرحله مقصد
               <select
-                className="mt-1.5 w-full rounded-xl border border-[#214E3A]/20 bg-[#FFFCF5] p-3 text-sm text-[#214031]"
+                className="mt-1.5 w-full rounded-xl border border-[#087674]/20 bg-[#FFFFFF] p-3 text-sm text-[#162F48]"
                 value={changeTarget}
                 onChange={(event) => setChangeTarget(event.target.value as StageType)}
               >
@@ -439,14 +440,14 @@ export const ResearchCasesView: React.FC<ResearchCasesViewProps> = ({ onNotify, 
                   ))}
               </select>
             </label>
-            <label className="block text-xs font-medium text-[#214031]">
+            <label className="block text-xs font-medium text-[#162F48]">
               دلیل درخواست (حداقل ۵ کاراکتر)
               <textarea
                 required
                 minLength={5}
                 maxLength={2000}
                 rows={4}
-                className="mt-1.5 w-full rounded-xl border border-[#214E3A]/20 bg-[#FFFCF5] p-3 text-sm text-[#214031]"
+                className="mt-1.5 w-full rounded-xl border border-[#087674]/20 bg-[#FFFFFF] p-3 text-sm text-[#162F48]"
                 value={changeReason}
                 onChange={(event) => setChangeReason(event.target.value)}
               />
@@ -465,12 +466,12 @@ export const ResearchCasesView: React.FC<ResearchCasesViewProps> = ({ onNotify, 
           subtitle="تاریخچه نسخه‌ها حذف نمی‌شود (D-05 / FR-061 / AT-33)."
         >
           <form onSubmit={submitRollback} className="space-y-4 text-right">
-            <label className="block text-xs font-medium text-[#214031]">
+            <label className="block text-xs font-medium text-[#162F48]">
               مرحله مقصد
               <select
                 value={rollbackTarget}
                 onChange={(event) => setRollbackTarget(event.target.value as StageType)}
-                className="mt-1.5 w-full rounded-xl border border-[#214E3A]/20 bg-[#FFFCF5] p-2.5 text-sm text-[#214031]"
+                className="mt-1.5 w-full rounded-xl border border-[#087674]/20 bg-[#FFFFFF] p-2.5 text-sm text-[#162F48]"
               >
                 {stages.slice(0, 3).map((stage) => (
                   <option key={stage.type} value={stage.type}>
@@ -479,7 +480,7 @@ export const ResearchCasesView: React.FC<ResearchCasesViewProps> = ({ onNotify, 
                 ))}
               </select>
             </label>
-            <label className="block text-xs font-medium text-[#214031]">
+            <label className="block text-xs font-medium text-[#162F48]">
               دلیل بازگشت
               <textarea
                 required
@@ -487,7 +488,7 @@ export const ResearchCasesView: React.FC<ResearchCasesViewProps> = ({ onNotify, 
                 rows={3}
                 value={rollbackReason}
                 onChange={(event) => setRollbackReason(event.target.value)}
-                className="mt-1.5 w-full rounded-xl border border-[#214E3A]/20 bg-[#FFFCF5] p-3 text-sm text-[#214031]"
+                className="mt-1.5 w-full rounded-xl border border-[#087674]/20 bg-[#FFFFFF] p-3 text-sm text-[#162F48]"
               />
             </label>
             <div className="flex justify-end gap-2">
@@ -512,7 +513,7 @@ export const ResearchCasesView: React.FC<ResearchCasesViewProps> = ({ onNotify, 
           title="پرونده در دسترس نیست"
           message={loadError ?? "پرونده پیدا نشد یا اجازه مشاهده آن را ندارید."}
           action={
-            <Link className="text-xs font-semibold text-[#214E3A] underline" to={parentPath}>
+            <Link className="text-xs font-semibold text-[#087674] underline" to={parentPath}>
               بازگشت به فهرست
             </Link>
           }
@@ -530,7 +531,7 @@ export const ResearchCasesView: React.FC<ResearchCasesViewProps> = ({ onNotify, 
           canManage && ownerId && !demoMode ? (
             <Link
               to={`/projects/new?researcherId=${encodeURIComponent(ownerId)}`}
-              className="inline-flex items-center gap-1.5 rounded-xl bg-[#214E3A] px-4 py-2 text-xs font-semibold text-[#FFFCF5] hover:bg-[#193C2C]"
+              className="inline-flex items-center gap-1.5 rounded-xl bg-[#087674] px-4 py-2 text-xs font-semibold text-[#FFFFFF] hover:bg-[#07595E]"
             >
               <Plus className="h-4 w-4" />
               ایجاد پرونده جدید
@@ -539,9 +540,18 @@ export const ResearchCasesView: React.FC<ResearchCasesViewProps> = ({ onNotify, 
         }
       />
 
+      {!loading && !loadError && cases.length > 0 && (
+        <div className="workspace-research-summary">
+          <MetricStrip label="خلاصه پژوهش‌ها" items={[
+            { label: "کل پرونده‌ها", value: cases.length },
+            { label: "در جریان", value: cases.filter(item => !["COMPLETED","ARCHIVED"].includes(item.status)).length },
+            { label: "تکمیل‌شده", value: cases.filter(item => item.status === "COMPLETED").length, tone: "success" },
+          ]} />
+        </div>
+      )}
       <Card variant="default" padding="sm">
         <div className="relative">
-          <Search className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#6B8073]" />
+          <Search className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#536E84]" />
           <input
             type="search"
             aria-label="جست‌وجوی پژوهش"
@@ -552,7 +562,7 @@ export const ResearchCasesView: React.FC<ResearchCasesViewProps> = ({ onNotify, 
               event.target.value ? next.set("q", event.target.value) : next.delete("q");
               setQuery(next, { replace: true });
             }}
-            className="w-full rounded-xl border border-[#214E3A]/20 bg-[#FFFCF5] py-2.5 pr-9 pl-3 text-sm text-[#214031] placeholder:text-[#6B8073] focus:border-[#214E3A] focus:outline-none"
+            className="w-full rounded-xl border border-[#087674]/20 bg-[#FFFFFF] py-2.5 pr-9 pl-3 text-sm text-[#162F48] placeholder:text-[#536E84] focus:border-[#087674] focus:outline-none"
           />
         </div>
       </Card>
@@ -567,7 +577,7 @@ export const ResearchCasesView: React.FC<ResearchCasesViewProps> = ({ onNotify, 
         <EmptyState
           title="پرونده‌ای ثبت نشده است"
           description="هنوز پرونده پژوهشی فعالی برای این کاربر وجود ندارد."
-          icon={<FolderGit2 className="h-8 w-8 text-[#214E3A]" />}
+          icon={<FolderGit2 className="h-8 w-8 text-[#087674]" />}
         />
       ) : (
         <div className="grid gap-3 md:grid-cols-2">
@@ -578,10 +588,10 @@ export const ResearchCasesView: React.FC<ResearchCasesViewProps> = ({ onNotify, 
                 <div>
                   <div className="flex items-center justify-between gap-2">
                     <Badge variant="info" size="sm">{item.code}</Badge>
-                    <span className="text-xs text-[#4F6659]">v{item.version}</span>
+                    <span className="text-xs text-[#496479]">v{item.version}</span>
                   </div>
-                  <h2 className="mt-3 text-base font-bold text-[#214031]">{item.title}</h2>
-                  <p className="mt-1 text-xs text-[#4F6659]">{item.subject}</p>
+                  <h2 className="mt-3 text-base font-bold text-[#162F48]">{item.title}</h2>
+                  <p className="mt-1 text-xs text-[#496479]">{item.subject}</p>
                   <div className="mt-4 flex flex-wrap gap-1.5">
                     {item.stages.map((stage) => (
                       <span
@@ -589,12 +599,12 @@ export const ResearchCasesView: React.FC<ResearchCasesViewProps> = ({ onNotify, 
                         title={statusLabel[stage.status]}
                         className={`h-2 w-8 rounded-full ${
                           stage.status === "APPROVED"
-                            ? "bg-[#214E3A]"
+                            ? "bg-[#087674]"
                             : stage.status === "IN_PROGRESS"
-                              ? "bg-[#214E3A]/60"
+                              ? "bg-[#087674]/60"
                               : stage.status === "SUBMITTED" || stage.status === "REVIEW_REQUIRED" || stage.status === "REVISION_REQUESTED"
-                                ? "bg-[#D94F3D]"
-                                : "bg-[#214E3A]/15"
+                                ? "bg-[#B43A31]"
+                                : "bg-[#087674]/15"
                         }`}
                       />
                     ))}

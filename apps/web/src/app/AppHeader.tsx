@@ -1,4 +1,6 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
+import { NavIcon } from "./NavIcon.js";
+import "./atlas.css";
 import { BookOpen, LogOut, Menu, RotateCcw, X } from "lucide-react";
 import { Link, NavLink, useLocation, useNavigate } from "react-router-dom";
 import type { SystemRole } from "@tstaff/contracts";
@@ -14,11 +16,24 @@ export const AppHeader: React.FC<AppHeaderProps> = ({ onNotify }) => {
   const { currentUser, logout, chooseRole } = useAuth();
   const [menuOpen, setMenuOpen] = useState(false);
   const { pathname } = useLocation();
+  const menuButton = useRef<HTMLButtonElement>(null);
   const navigate = useNavigate();
 
   useEffect(() => {
     setMenuOpen(false);
   }, [pathname]);
+
+  useEffect(() => {
+    if (!menuOpen) return;
+    const close = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        setMenuOpen(false);
+        menuButton.current?.focus();
+      }
+    };
+    window.addEventListener("keydown", close);
+    return () => window.removeEventListener("keydown", close);
+  }, [menuOpen]);
 
   if (!currentUser) return null;
   const items = getNavigation(currentUser.role);
@@ -74,6 +89,7 @@ export const AppHeader: React.FC<AppHeaderProps> = ({ onNotify }) => {
                 }`
               }
             >
+              <NavIcon path={item.to} />
               {item.label}
             </NavLink>
           ))}
@@ -133,6 +149,7 @@ export const AppHeader: React.FC<AppHeaderProps> = ({ onNotify }) => {
             type="button"
             aria-label="فهرست بخش‌ها"
             aria-expanded={menuOpen}
+            ref={menuButton}
             aria-controls="mobile-navigation"
             onClick={() => setMenuOpen((prev) => !prev)}
             className="rounded-xl p-2 hover:bg-white/10 lg:hidden"
@@ -196,6 +213,7 @@ export const AppHeader: React.FC<AppHeaderProps> = ({ onNotify }) => {
                         : "bg-white/10 text-[#FFFCF5]"
                     }`}
                   >
+                    <NavIcon path={item.to} />
                     {item.label}
                   </Link>
                 );

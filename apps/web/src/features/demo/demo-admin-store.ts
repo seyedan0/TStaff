@@ -353,6 +353,110 @@ export function getDemoArchiveJobs() {
   return readDemoState().archiveJobs.map((j) => ({ ...j }));
 }
 
+function allocationState() {
+  const state = readDemoState();
+  const actor = requireDemoSession(state);
+  if (!["TRACKING_DIRECTOR", "SYSTEM_ADMIN"].includes(actor.role))
+    throw new Error("دسترسی به انتساب مجاز نیست.");
+  return state;
+}
+
+export function demoAllocationQueue() {
+  return allocationState()
+    .applicants.filter((a) => a.status === "PENDING" && !a.initialSupervisorId)
+    .map((a) => ({
+      ...a,
+      waitingDays: a.createdAt
+        ? Math.max(
+            0,
+            Math.floor((Date.now() - Date.parse(a.createdAt)) / 86400000),
+          )
+        : 0,
+    }));
+}
+
+export function assignDemoSupervisor(id: string, supervisorId: string) {
+  const state = allocationState();
+  if (
+    !demoAllocationQueue().some((a) => a.id === id) ||
+    !state.users.some(
+      (u) =>
+        u.id === supervisorId &&
+        !u.isSuspended &&
+        (u.roles ?? [u.role]).includes("SCIENTIFIC_SUPERVISOR"),
+    )
+  )
+    throw new Error("این تخصیص امکان‌پذیر نیست.");
+  return updateDemoState((current) => ({
+    state: {
+      ...current,
+      applicants: current.applicants.map((a) =>
+        a.id === id ? { ...a, initialSupervisorId: supervisorId } : a,
+      ),
+    },
+    result: {},
+  }));
+}
+
+export function demoSupervisorHealth() {
+  const state = allocationState();
+  const issues: import("@tstaff/contracts").SupervisorHealthIssue[] = [];
+  for (const c of state.researchCases) {
+    const assigned = c.supervisors ?? [];
+    const main = assigned.filter(
+      (s) => s.role === "MAIN_SUPERVISOR" && s.isActive,
+    );
+    if (!c.researcherId)
+      issues.push({
+        type: "CASE_OWNER_MISSING",
+        entityId: c.id,
+        caseCode: c.code,
+      });
+    if (!main.length || main.length > 1)
+      issues.push({
+        type: main.length
+          ? "CASE_MULTIPLE_MAIN_SUPERVISORS"
+          : "CASE_SUPERVISOR_MISSING",
+        entityId: c.id,
+        caseCode: c.code,
+      });
+    if (assigned.some((s) => String(s.role) === "COLLABORATOR_SUPERVISOR"))
+      issues.push({
+        type: "LEGACY_COLLABORATOR_ASSIGNMENT",
+        entityId: c.id,
+        caseCode: c.code,
+      });
+    if (
+      main.some(
+        (s) =>
+          !state.users.some(
+            (u) =>
+              u.id === s.userId &&
+              !u.isSuspended &&
+              (u.roles ?? [u.role]).includes("SCIENTIFIC_SUPERVISOR"),
+          ),
+      ) &&
+      c.researcherId
+    )
+      issues.push({
+        type: "SUPERVISOR_INACTIVE_OR_ROLE_REMOVED",
+        entityId: c.researcherId,
+      });
+  }
+  return {
+    issues,
+    inactiveSupervisorAssignmentsCount: issues.filter(
+      (i) => i.type === "SUPERVISOR_INACTIVE_OR_ROLE_REMOVED",
+    ).length,
+    revokedSupervisorAssignmentsCount: 0,
+    legacyCollaboratorAssignmentsCount: issues.filter(
+      (i) => i.type === "LEGACY_COLLABORATOR_ASSIGNMENT",
+    ).length,
+    caseSupervisorMismatchCount: issues.filter((i) =>
+      i.type.startsWith("CASE_"),
+    ).length,
+  };
+}
 export function getDemoHealth() {
   return {
     status: "ok",

@@ -37,9 +37,9 @@ export const AppPortalDispatcher: React.FC<AppPortalDispatcherProps> = ({ onNoti
       return <SystemAdminPortal onNotify={onNotify} />;
     default:
       return (
-        <section role="alert" className="rounded-2xl border border-[#D94F3D]/35 bg-[#D94F3D]/10 p-6 text-right">
+        <section role="alert" className="rounded-2xl border border-[#B43A31]/35 bg-[#B43A31]/10 p-6 text-right">
           <h2 className="font-bold text-[#B53727]">دسترسی نامعتبر</h2>
-          <p className="mt-2 text-sm text-[#214031]">
+          <p className="mt-2 text-sm text-[#162F48]">
             نقش این حساب در سامانه معتبر نیست. لطفاً خارج شوید و دوباره وارد شوید.
           </p>
         </section>

@@ -339,14 +339,14 @@ export const ResourcesManager: React.FC<ResourcesManagerProps> = ({
     <div className="space-y-5">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
-          <button type="button" onClick={wizardOpen ? () => navigate(sourcePath) : onBack} className="mb-1 text-xs font-semibold text-[#214E3A] hover:underline">
+          <button type="button" onClick={wizardOpen ? () => navigate(sourcePath) : onBack} className="mb-1 text-xs font-semibold text-[#087674] hover:underline">
             ← بازگشت
           </button>
-          <h3 className="flex items-center gap-2 text-lg font-bold text-[#214031]">
-            <FileText className="h-5 w-5 text-[#214E3A]" />
+          <h3 className="flex items-center gap-2 text-lg font-bold text-[#162F48]">
+            <FileText className="h-5 w-5 text-[#087674]" />
             منابع و مصاحبه‌ها
           </h3>
-          <p className="mt-1 text-xs text-[#4F6659]">
+          <p className="mt-1 text-xs text-[#496479]">
             {caseTitle} · ثبت مرحله‌ای منابع (D-07: حداکثر یک مصاحبه برای هر منبع)
           </p>
         </div>
@@ -361,7 +361,7 @@ export const ResourcesManager: React.FC<ResourcesManagerProps> = ({
       </div>
 
       {!canEdit && (
-        <div className="rounded-xl border border-[#214E3A]/20 bg-[#FFFCF5] p-3 text-xs text-[#4F6659]">
+        <div className="rounded-xl border border-[#087674]/20 bg-[#FFFFFF] p-3 text-xs text-[#496479]">
           {stageStatus === "SUBMITTED"
             ? "منابع برای داوری ارسال شده و در کارتابل مدیر علمی قرار دارد."
             : stageStatus === "APPROVED"
@@ -381,10 +381,10 @@ export const ResourcesManager: React.FC<ResourcesManagerProps> = ({
               <Card key={resource.id} variant="default" className="space-y-3">
                 <div className="flex items-start justify-between gap-3">
                   <div className="flex items-start gap-2">
-                    <UserRound className="mt-0.5 h-4 w-4 text-[#214E3A]" />
+                    <UserRound className="mt-0.5 h-4 w-4 text-[#087674]" />
                     <div>
-                      <h4 className="font-bold text-[#214031]">{resource.title}</h4>
-                      <p className="mt-1 text-xs text-[#4F6659]">
+                      <h4 className="font-bold text-[#162F48]">{resource.title}</h4>
+                      <p className="mt-1 text-xs text-[#496479]">
                         {resource.position || "سمت ثبت نشده"}
                         {resource.personAge ? ` · ${resource.personAge} سال` : ""}
                         {resource.province ? ` · ${resource.province}` : ""}
@@ -397,8 +397,8 @@ export const ResourcesManager: React.FC<ResourcesManagerProps> = ({
                 </div>
 
                 {resource.organization && (
-                  <div className="flex items-center gap-2 text-xs text-[#4F6659]">
-                    <Building2 className="h-3.5 w-3.5 text-[#214E3A]" />
+                  <div className="flex items-center gap-2 text-xs text-[#496479]">
+                    <Building2 className="h-3.5 w-3.5 text-[#087674]" />
                     <span>
                       {resource.organization.name} · {resource.organization.educationLevel || resource.organization.organizationType || ""}
                     </span>
@@ -406,8 +406,8 @@ export const ResourcesManager: React.FC<ResourcesManagerProps> = ({
                 )}
 
                 {resource.interview && (
-                  <div className="flex items-center gap-2 text-xs text-[#4F6659]">
-                    <Mic className="h-3.5 w-3.5 text-[#214E3A]" />
+                  <div className="flex items-center gap-2 text-xs text-[#496479]">
+                    <Mic className="h-3.5 w-3.5 text-[#087674]" />
                     <span>
                       مصاحبه {resource.interview.hasReport ? "و گزارش ثبت شده" : "ثبت شده؛ گزارش در انتظار"}
                       {resource.interview.latestReport ? ` · نسخه ${resource.interview.latestReport.version}` : ""}
@@ -415,7 +415,7 @@ export const ResourcesManager: React.FC<ResourcesManagerProps> = ({
                   </div>
                 )}
 
-                <div className="flex justify-end gap-2 border-t border-[#214E3A]/10 pt-2">
+                <div className="flex justify-end gap-2 border-t border-[#087674]/10 pt-2">
                   {resource.interview?.latestReport?.storedObjectId && (
                     <Button
                       variant="ghost"
@@ -446,11 +446,11 @@ export const ResourcesManager: React.FC<ResourcesManagerProps> = ({
       {wizardOpen && (
         <Card variant="elevated" className="space-y-4" onChange={() => setDirty(true)}>
           <div>
-            <Link to={sourcePath} className="mb-2 inline-block text-xs font-semibold text-[#214E3A] underline">
+            <Link to={sourcePath} className="mb-2 inline-block text-xs font-semibold text-[#087674] underline">
               بازگشت به منابع پژوهش
             </Link>
-            <h4 className="text-lg font-bold text-[#214031]">{selectedResource?.title ?? "ثبت منبع پژوهشی"}</h4>
-            <p className="mt-1 text-xs text-[#4F6659]">
+            <h4 className="text-lg font-bold text-[#162F48]">{selectedResource?.title ?? "ثبت منبع پژوهشی"}</h4>
+            <p className="mt-1 text-xs text-[#496479]">
               {steps[wizardStep - 1]} · گام {wizardStep} از ۴
             </p>
           </div>
@@ -462,14 +462,14 @@ export const ResourcesManager: React.FC<ResourcesManagerProps> = ({
           )}
 
           {!canEdit && selectedResource && (
-            <dl className="grid gap-3 rounded-2xl bg-[#F3EBDD]/60 p-4 text-sm sm:grid-cols-2">
-              <div><dt className="text-xs text-[#4F6659]">سن</dt><dd className="font-semibold text-[#214031]">{selectedResource.personAge ?? "ثبت نشده"}</dd></div>
-              <div><dt className="text-xs text-[#4F6659]">سمت</dt><dd className="font-semibold text-[#214031]">{selectedResource.position || "ثبت نشده"}</dd></div>
-              <div><dt className="text-xs text-[#4F6659]">استان / شهرستان</dt><dd className="font-semibold text-[#214031]">{selectedResource.province || "-"} / {selectedResource.county || "-"}</dd></div>
-              <div><dt className="text-xs text-[#4F6659]">تماس</dt><dd className="font-semibold text-[#214031]">{selectedResource.contactInfo || "ثبت نشده"}</dd></div>
-              <div><dt className="text-xs text-[#4F6659]">مجموعه</dt><dd className="font-semibold text-[#214031]">{selectedResource.organization?.name || "ثبت نشده"}</dd></div>
-              <div><dt className="text-xs text-[#4F6659]">مصاحبه</dt><dd className="font-semibold text-[#214031]">{selectedResource.interview ? new Date(selectedResource.interview.conductedAt).toLocaleString("fa-IR") : "ثبت نشده"}</dd></div>
-              <div className="sm:col-span-2"><dt className="text-xs text-[#4F6659]">یادداشت مصاحبه</dt><dd className="text-xs leading-6 text-[#214031]">{selectedResource.interview?.notes || "ثبت نشده"}</dd></div>
+            <dl className="grid gap-3 rounded-2xl bg-[#EAF3FA]/60 p-4 text-sm sm:grid-cols-2">
+              <div><dt className="text-xs text-[#496479]">سن</dt><dd className="font-semibold text-[#162F48]">{selectedResource.personAge ?? "ثبت نشده"}</dd></div>
+              <div><dt className="text-xs text-[#496479]">سمت</dt><dd className="font-semibold text-[#162F48]">{selectedResource.position || "ثبت نشده"}</dd></div>
+              <div><dt className="text-xs text-[#496479]">استان / شهرستان</dt><dd className="font-semibold text-[#162F48]">{selectedResource.province || "-"} / {selectedResource.county || "-"}</dd></div>
+              <div><dt className="text-xs text-[#496479]">تماس</dt><dd className="font-semibold text-[#162F48]">{selectedResource.contactInfo || "ثبت نشده"}</dd></div>
+              <div><dt className="text-xs text-[#496479]">مجموعه</dt><dd className="font-semibold text-[#162F48]">{selectedResource.organization?.name || "ثبت نشده"}</dd></div>
+              <div><dt className="text-xs text-[#496479]">مصاحبه</dt><dd className="font-semibold text-[#162F48]">{selectedResource.interview ? new Date(selectedResource.interview.conductedAt).toLocaleString("fa-IR") : "ثبت نشده"}</dd></div>
+              <div className="sm:col-span-2"><dt className="text-xs text-[#496479]">یادداشت مصاحبه</dt><dd className="text-xs leading-6 text-[#162F48]">{selectedResource.interview?.notes || "ثبت نشده"}</dd></div>
               {selectedResource.interview?.latestReport?.storedObjectId && (
                 <div className="sm:col-span-2">
                   <Button
@@ -504,10 +504,10 @@ export const ResourcesManager: React.FC<ResourcesManagerProps> = ({
                   }}
                   className={`rounded-xl px-2 py-2 text-center text-xs font-medium disabled:opacity-40 ${
                     target === wizardStep
-                      ? "bg-[#214E3A] text-[#FFFCF5]"
+                      ? "bg-[#087674] text-[#FFFFFF]"
                       : target < wizardStep
-                        ? "bg-[#214E3A]/15 text-[#214E3A]"
-                        : "border border-[#214E3A]/15 bg-[#F3EBDD]/50 text-[#4F6659]"
+                        ? "bg-[#087674]/15 text-[#087674]"
+                        : "border border-[#087674]/15 bg-[#EAF3FA]/50 text-[#496479]"
                   }`}
                 >
                   {index + 1}. {step}
@@ -521,12 +521,12 @@ export const ResourcesManager: React.FC<ResourcesManagerProps> = ({
               <Input label="نام و نام خانوادگی" required value={personName} onChange={(event) => setPersonName(event.target.value)} />
               <Input label="سن (عدد صحیح مثبت)" required type="number" min="1" step="1" value={personAge} onChange={(event) => setPersonAge(event.target.value)} />
               <Input label="سمت / شغل" required value={position} onChange={(event) => setPosition(event.target.value)} placeholder="مثلاً معلم ریاضی" />
-              <label className="block text-xs font-medium text-[#214031]">
+              <label className="block text-xs font-medium text-[#162F48]">
                 استان
                 <select
                   value={provinceId}
                   onChange={(event) => setProvinceId(event.target.value)}
-                  className="mt-1.5 w-full rounded-xl border border-[#214E3A]/20 bg-[#FFFCF5] px-3 py-2.5 text-sm text-[#214031]"
+                  className="mt-1.5 w-full rounded-xl border border-[#087674]/20 bg-[#FFFFFF] px-3 py-2.5 text-sm text-[#162F48]"
                 >
                   <option value="">انتخاب استان...</option>
                   {IRAN_PROVINCES.map((p) => (
@@ -538,13 +538,13 @@ export const ResourcesManager: React.FC<ResourcesManagerProps> = ({
               </label>
               <Input label="شهرستان" value={county} onChange={(event) => setCounty(event.target.value)} />
               <Input label="راه ارتباطی" value={contactInfo} onChange={(event) => setContactInfo(event.target.value)} />
-              <label className="block text-xs font-medium text-[#214031] md:col-span-2">
+              <label className="block text-xs font-medium text-[#162F48] md:col-span-2">
                 توضیحات فرد
                 <textarea
                   rows={3}
                   value={personDescription}
                   onChange={(event) => setPersonDescription(event.target.value)}
-                  className="mt-1.5 w-full rounded-xl border border-[#214E3A]/20 bg-[#FFFCF5] p-3 text-sm text-[#214031]"
+                  className="mt-1.5 w-full rounded-xl border border-[#087674]/20 bg-[#FFFFFF] p-3 text-sm text-[#162F48]"
                 />
               </label>
               <div className="flex justify-end md:col-span-2">
@@ -555,19 +555,19 @@ export const ResourcesManager: React.FC<ResourcesManagerProps> = ({
 
           {wizardStep === 2 && canEdit && (
             <form onSubmit={saveOrganization} className="space-y-3 text-right">
-              <p className="text-xs text-[#4F6659]">اطلاعات مجموعه اختیاری است. اگر فرد در مجموعه‌ای کار می‌کند، مشخصات آن را ثبت کنید.</p>
+              <p className="text-xs text-[#496479]">اطلاعات مجموعه اختیاری است. اگر فرد در مجموعه‌ای کار می‌کند، مشخصات آن را ثبت کنید.</p>
               <Input label="نام مجموعه" value={organizationName} onChange={(event) => setOrganizationName(event.target.value)} placeholder="مثلاً دبیرستان علامه" />
               <div className="grid gap-3 md:grid-cols-2">
                 <Input label="مقطع / دوره" value={organizationEducation} onChange={(event) => setOrganizationEducation(event.target.value)} placeholder="دوره اول متوسطه" />
                 <Input label="نوع مجموعه" value={organizationType} onChange={(event) => setOrganizationType(event.target.value)} placeholder="مدرسه هیئت امنایی" />
               </div>
-              <label className="block text-xs font-medium text-[#214031]">
+              <label className="block text-xs font-medium text-[#162F48]">
                 توضیحات مجموعه
                 <textarea
                   rows={3}
                   value={organizationDescription}
                   onChange={(event) => setOrganizationDescription(event.target.value)}
-                  className="mt-1.5 w-full rounded-xl border border-[#214E3A]/20 bg-[#FFFCF5] p-3 text-sm text-[#214031]"
+                  className="mt-1.5 w-full rounded-xl border border-[#087674]/20 bg-[#FFFFFF] p-3 text-sm text-[#162F48]"
                 />
               </label>
               <div className="flex flex-wrap justify-between gap-2">
@@ -582,7 +582,7 @@ export const ResourcesManager: React.FC<ResourcesManagerProps> = ({
 
           {wizardStep === 3 && canEdit && (
             <form onSubmit={saveInterview} className="space-y-3 text-right">
-              <p className="text-xs text-[#4F6659]">برای هر منبع یک مصاحبه ثبت می‌شود؛ ویرایش اطلاعات همان مصاحبه را به‌روزرسانی می‌کند.</p>
+              <p className="text-xs text-[#496479]">برای هر منبع یک مصاحبه ثبت می‌شود؛ ویرایش اطلاعات همان مصاحبه را به‌روزرسانی می‌کند.</p>
               <div className="grid gap-3 md:grid-cols-2">
                 <Input label="نام مصاحبه‌شونده" required value={personName} onChange={(event) => setPersonName(event.target.value)} />
                 <Input label="سن" required type="number" min="1" step="1" value={personAge} onChange={(event) => setPersonAge(event.target.value)} />
@@ -591,13 +591,13 @@ export const ResourcesManager: React.FC<ResourcesManagerProps> = ({
                 <Input label="تاریخ و ساعت" required type="datetime-local" value={interviewDate} onChange={(event) => setInterviewDate(event.target.value)} />
                 <Input label="مکان / پیوند" value={interviewLocation} onChange={(event) => setInterviewLocation(event.target.value)} />
               </div>
-              <label className="block text-xs font-medium text-[#214031]">
+              <label className="block text-xs font-medium text-[#162F48]">
                 یادداشت مصاحبه
                 <textarea
                   rows={3}
                   value={interviewNotes}
                   onChange={(event) => setInterviewNotes(event.target.value)}
-                  className="mt-1.5 w-full rounded-xl border border-[#214E3A]/20 bg-[#FFFCF5] p-3 text-sm text-[#214031]"
+                  className="mt-1.5 w-full rounded-xl border border-[#087674]/20 bg-[#FFFFFF] p-3 text-sm text-[#162F48]"
                 />
               </label>
               <div className="flex justify-between">
@@ -614,18 +614,18 @@ export const ResourcesManager: React.FC<ResourcesManagerProps> = ({
                   نسخه {selectedResource.interview.latestReport?.version} قبلاً ثبت شده است؛ فایل جدید به‌عنوان نسخه بعدی نگهداری می‌شود.
                 </p>
               )}
-              <p className="text-xs text-[#4F6659]">
+              <p className="text-xs text-[#496479]">
                 گزارش مکتوب با محدودیت ۲۵ مگابایت و صرفاً در قالب PDF یا DOCX پذیرفته می‌شود. فایل تا تأیید اسکن در دسترس دانلود نیست.
               </p>
               <Input label="عنوان گزارش" value={reportTitle} onChange={(event) => setReportTitle(event.target.value)} placeholder="گزارش مصاحبه با ..." />
-              <label className="block text-xs font-medium text-[#214031]">
+              <label className="block text-xs font-medium text-[#162F48]">
                 فایل گزارش (PDF یا DOCX)
                 <input
                   required
                   type="file"
                   accept=".pdf,.docx,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document"
                   onChange={(event) => setReportFile(event.target.files?.[0] ?? null)}
-                  className="mt-2 block w-full text-xs text-[#214031] file:ml-3 file:rounded-xl file:border-0 file:bg-[#214E3A] file:px-3 file:py-2 file:text-[#FFFCF5]"
+                  className="mt-2 block w-full text-xs text-[#162F48] file:ml-3 file:rounded-xl file:border-0 file:bg-[#087674] file:px-3 file:py-2 file:text-[#FFFFFF]"
                 />
               </label>
               {uploadedFile?.scanStatus === "QUARANTINED" && (

@@ -148,18 +148,18 @@ export const LibraryDocumentsView: React.FC<LibraryDocumentsViewProps> = ({ isAp
                 {version.isRead ? "مطالعه‌شده" : version.isRequired ? "الزامی برای ارزیابی" : "سند مرجع"}
               </Badge>
             </div>
-            <span className="text-xs text-[#4F6659]">
+            <span className="text-xs text-[#496479]">
               {version.publishedAt ? `انتشار: ${new Date(version.publishedAt).toLocaleDateString("fa-IR")}` : ""}
             </span>
           </div>
 
-          <p className="text-sm leading-7 text-[#214031]">
+          <p className="text-sm leading-7 text-[#162F48]">
             {version.description || "توضیحی برای این سند ثبت نشده است."}
           </p>
 
-          <div className="flex flex-wrap items-center justify-between gap-3 border-t border-[#214E3A]/15 pt-4">
-            <div className="text-xs text-[#4F6659]">
-              نام فایل: <span dir="ltr" className="font-mono text-[#214031]">{version.fileName}</span>
+          <div className="flex flex-wrap items-center justify-between gap-3 border-t border-[#087674]/15 pt-4">
+            <div className="text-xs text-[#496479]">
+              نام فایل: <span dir="ltr" className="font-mono text-[#162F48]">{version.fileName}</span>
             </div>
             <div className="flex flex-wrap items-center gap-2">
               <Button variant="secondary" size="md" icon={<Download className="h-4 w-4" />} onClick={() => void download(selectedDoc)}>
@@ -189,7 +189,7 @@ export const LibraryDocumentsView: React.FC<LibraryDocumentsViewProps> = ({ isAp
       <PageHeader
         title={
           <span id="library-title" className="flex items-center gap-2">
-            <BookOpen className="h-5 w-5 text-[#214E3A]" />
+            <BookOpen className="h-5 w-5 text-[#087674]" />
             منابع آموزشی
           </span>
         }
@@ -205,10 +205,10 @@ export const LibraryDocumentsView: React.FC<LibraryDocumentsViewProps> = ({ isAp
         <Card variant="elevated" className="space-y-4">
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div>
-              <h2 className="font-bold text-[#214031]">پیشرفت مطالعه برای ارزیابی ارتقا</h2>
-              <p className="mt-1 text-xs text-[#4F6659]">
+              <h2 className="font-bold text-[#162F48]">پیشرفت مطالعه برای ارزیابی ارتقا</h2>
+              <p className="mt-1 text-xs text-[#496479]">
                 {progress.requiredCount > 0
-                  ? `${progress.readRequiredCount} از ${progress.requiredCount} سند الزامیِ نسخه جاری مطالعه شده است.`
+                  ? `${progress.readRequiredCount.toLocaleString("fa-IR")} از ${progress.requiredCount.toLocaleString("fa-IR")} سند الزامیِ نسخه جاری مطالعه شده است.`
                   : "مدیر علمی هنوز سند الزامی برای ارزیابی منتشر نکرده است."}
               </p>
             </div>
@@ -216,20 +216,23 @@ export const LibraryDocumentsView: React.FC<LibraryDocumentsViewProps> = ({ isAp
               {progress.requiredCount > 0 ? `${Math.round((progress.readRequiredCount / progress.requiredCount) * 100)}٪` : "بدون سند الزامی"}
             </Badge>
           </div>
+          {progress.requiredCount > 0 && (
+            <progress className="workspace-progress" aria-label="پیشرفت مطالعه اسناد الزامی" max={progress.requiredCount} value={progress.readRequiredCount} />
+          )}
           {evaluation && (
-            <div className="rounded-xl border border-[#214E3A]/20 bg-[#F3EBDD]/70 p-3 text-xs text-[#214031]">
+            <div className="rounded-xl border border-[#087674]/20 bg-[#EAF3FA]/70 p-3 text-xs text-[#162F48]">
               <div className="flex items-center gap-2 font-semibold">
-                <CheckCircle2 className="h-4 w-4 text-[#214E3A]" />
+                <CheckCircle2 className="h-4 w-4 text-[#087674]" />
                 {evaluation.status === "PENDING" && "درخواست ارزیابی در کارتابل مدیران علمی است."}
                 {evaluation.status === "APPROVED" && "درخواست تأیید شده است."}
                 {evaluation.status === "REVISION_REQUIRED" && "مدیر علمی مطالعه یا بازبینی بیشتری خواسته است."}
               </div>
-              {evaluation.feedback && <p className="mt-2 text-[#43584A]">{evaluation.feedback}</p>}
+              {evaluation.feedback && <p className="mt-2 text-[#3D576C]">{evaluation.feedback}</p>}
             </div>
           )}
           {evaluation?.status !== "PENDING" && evaluation?.status !== "APPROVED" && (
             <div className="space-y-3">
-              <label className="block text-xs font-medium text-[#214031]">
+              <label className="block text-xs font-medium text-[#162F48]">
                 یادداشت برای مدیر علمی (اختیاری)
                 <textarea
                   dir="rtl"
@@ -237,7 +240,7 @@ export const LibraryDocumentsView: React.FC<LibraryDocumentsViewProps> = ({ isAp
                   maxLength={2000}
                   value={notes}
                   onChange={(event) => setNotes(event.target.value)}
-                  className="mt-1.5 w-full rounded-xl border border-[#214E3A]/20 bg-[#FFFCF5] p-2.5 text-xs text-[#214031] focus:border-[#214E3A] focus:outline-none"
+                  className="mt-1.5 w-full rounded-xl border border-[#087674]/20 bg-[#FFFFFF] p-2.5 text-xs text-[#162F48] focus:border-[#087674] focus:outline-none"
                 />
               </label>
               <Button variant="primary" disabled={!progress.canRequestEvaluation} loading={isSubmitting} onClick={() => void submitEvaluation()}>
@@ -250,7 +253,7 @@ export const LibraryDocumentsView: React.FC<LibraryDocumentsViewProps> = ({ isAp
 
       <Card variant="default" padding="sm">
         <div className="relative">
-          <Search className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#6B8073]" />
+          <Search className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#536E84]" />
           <input
             type="search"
             aria-label="جست‌وجوی اسناد کتابخانه"
@@ -261,7 +264,7 @@ export const LibraryDocumentsView: React.FC<LibraryDocumentsViewProps> = ({ isAp
               event.target.value ? next.set("q", event.target.value) : next.delete("q");
               setQuery(next, { replace: true });
             }}
-            className="w-full rounded-xl border border-[#214E3A]/20 bg-[#FFFCF5] py-2 pr-9 pl-3 text-sm text-[#214031] placeholder:text-[#6B8073] focus:border-[#214E3A] focus:outline-none"
+            className="w-full rounded-xl border border-[#087674]/20 bg-[#FFFFFF] py-2 pr-9 pl-3 text-sm text-[#162F48] placeholder:text-[#536E84] focus:border-[#087674] focus:outline-none"
           />
         </div>
       </Card>
@@ -284,24 +287,24 @@ export const LibraryDocumentsView: React.FC<LibraryDocumentsViewProps> = ({ isAp
               <Card key={document.id} variant="default" className="flex flex-col justify-between gap-3">
                 <div className="flex items-start justify-between gap-3">
                   <div className="space-y-1">
-                    <span className="text-[11px] font-semibold text-[#214E3A]">{version.category}</span>
-                    <h3 className="text-base font-bold text-[#214031]">
+                    <span className="text-[11px] font-semibold text-[#087674]">{version.category}</span>
+                    <h3 className="text-base font-bold text-[#162F48]">
                       <Link to={`/library/${encodeURIComponent(document.id)}`} className="hover:underline">
                         {version.title}
                       </Link>
                     </h3>
-                    <p className="text-xs leading-relaxed text-[#4F6659]">{version.description}</p>
+                    <p className="text-xs leading-relaxed text-[#496479]">{version.description}</p>
                   </div>
                   <Badge variant={version.isRead ? "success" : version.isRequired ? "warning" : "neutral"} size="sm">
                     {version.isRead ? "مطالعه‌شده" : version.isRequired ? "الزامی" : "مرجع"}
                   </Badge>
                 </div>
-                <div className="flex flex-wrap items-center justify-between gap-2 border-t border-[#214E3A]/10 pt-3">
-                  <span className="text-[11px] text-[#59675A]">نسخه {version.version} · {version.fileName}</span>
+                <div className="flex flex-wrap items-center justify-between gap-2 border-t border-[#087674]/10 pt-3">
+                  <span className="text-[11px] text-[#50677A]">نسخه {version.version} · {version.fileName}</span>
                   <div className="flex flex-wrap items-center gap-2">
                     <Link
                       to={`/library/${encodeURIComponent(document.id)}`}
-                      className="rounded-xl border border-[#214E3A]/20 px-2.5 py-1.5 text-xs font-semibold text-[#214031] hover:bg-[#F3EBDD]"
+                      className="rounded-xl border border-[#087674]/20 px-2.5 py-1.5 text-xs font-semibold text-[#162F48] hover:bg-[#EAF3FA]"
                     >
                       جزئیات
                     </Link>

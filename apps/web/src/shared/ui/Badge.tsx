@@ -24,21 +24,21 @@ export const Badge: React.FC<BadgeProps> = ({
   className = "",
 }) => {
   const variantStyles = {
-    success: "bg-[#214E3A]/10 text-[#214E3A] border-[#214E3A]/25",
-    info: "bg-[#214E3A]/12 text-[#183B2D] border-[#214E3A]/30",
+    success: "bg-[#087674]/10 text-[#087674] border-[#087674]/25",
+    info: "bg-[#087674]/12 text-[#112A43] border-[#087674]/30",
     warning: "bg-[#A65D31]/12 text-[#854621] border-[#A65D31]/30",
-    danger: "bg-[#D94F3D]/12 text-[#B53727] border-[#D94F3D]/35",
-    neutral: "bg-[#EAE5D7] text-[#304B3D] border-[#214E3A]/15",
-    indigo: "bg-[#3A5F4D]/12 text-[#214031] border-[#3A5F4D]/25",
+    danger: "bg-[#B43A31]/12 text-[#B53727] border-[#B43A31]/35",
+    neutral: "bg-[#E1EEF7] text-[#28475F] border-[#087674]/15",
+    indigo: "bg-[#455EA4]/12 text-[#162F48] border-[#455EA4]/25",
   }[variant];
 
   const dotColor = {
-    success: "bg-[#214E3A]",
-    info: "bg-[#214E3A]",
+    success: "bg-[#087674]",
+    info: "bg-[#087674]",
     warning: "bg-[#A65D31]",
-    danger: "bg-[#D94F3D]",
-    neutral: "bg-[#59675A]",
-    indigo: "bg-[#3A5F4D]",
+    danger: "bg-[#B43A31]",
+    neutral: "bg-[#50677A]",
+    indigo: "bg-[#455EA4]",
   }[variant];
 
   const sizeStyles = {

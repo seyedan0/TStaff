@@ -102,13 +102,13 @@ export const ProjectCreatePage: React.FC<{ onNotify: Notice }> = ({ onNotify }) 
 
       <Card variant="default" className="max-w-2xl">
         <form onSubmit={handleSubmit} className="space-y-4 text-right">
-          <label className="block text-xs font-medium text-[#214031]">
+          <label className="block text-xs font-medium text-[#162F48]">
             پژوهشگر (کارورز دارای انتساب مستقیم)
             <select
               required
               value={researcherId}
               onChange={(e) => setResearcherId(e.target.value)}
-              className="mt-1.5 w-full rounded-xl border border-[#214E3A]/20 bg-[#FFFCF5] px-3 py-2.5 text-sm text-[#214031] focus:border-[#214E3A] focus:outline-none"
+              className="mt-1.5 w-full rounded-xl border border-[#087674]/20 bg-[#FFFFFF] px-3 py-2.5 text-sm text-[#162F48] focus:border-[#087674] focus:outline-none"
             >
               <option value="">انتخاب پژوهشگر...</option>
               {interns.map((u) => (
@@ -145,7 +145,7 @@ export const ProjectCreatePage: React.FC<{ onNotify: Notice }> = ({ onNotify }) 
             />
           </div>
 
-          <div className="flex flex-wrap items-center justify-end gap-3 border-t border-[#214E3A]/10 pt-4">
+          <div className="flex flex-wrap items-center justify-end gap-3 border-t border-[#087674]/10 pt-4">
             <Button type="button" variant="ghost" onClick={() => navigate(backTarget)}>
               انصراف
             </Button>

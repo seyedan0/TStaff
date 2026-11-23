@@ -18,17 +18,17 @@ export const Button: React.FC<ButtonProps> = ({
   ...props
 }) => {
   const baseClasses =
-    "apple-btn rounded-apple-md font-medium inline-flex items-center justify-center gap-2 transition-all duration-150 focus:outline-none focus:ring-2 focus:ring-[#214E3A]/35 disabled:opacity-50 disabled:pointer-events-none active:scale-[0.98]";
+    "apple-btn rounded-apple-md font-medium inline-flex items-center justify-center gap-2 transition-all duration-150 focus:outline-none focus:ring-2 focus:ring-[#087674]/35 disabled:opacity-50 disabled:pointer-events-none active:scale-[0.98]";
 
   const variantClasses = {
     primary:
-      "bg-[#214E3A] hover:bg-[#183B2D] text-white shadow-sm border border-[#183B2D]",
+      "bg-[#087674] hover:bg-[#112A43] text-white shadow-sm border border-[#112A43]",
     secondary:
-      "bg-[#EAE5D7] hover:bg-[#DDD5C3] text-[#214031] border border-[#214E3A]/15 hover:border-[#214E3A]/30",
+      "bg-[#E1EEF7] hover:bg-[#D4E6F2] text-[#162F48] border border-[#087674]/15 hover:border-[#087674]/30",
     danger:
-      "bg-[#D94F3D] hover:bg-[#C03F2E] text-white shadow-sm border border-[#B53727]",
+      "bg-[#B43A31] hover:bg-[#9A3029] text-white shadow-sm border border-[#B53727]",
     ghost:
-      "bg-transparent hover:bg-[#214E3A]/10 text-[#214031] hover:text-[#183B2D] border border-transparent",
+      "bg-transparent hover:bg-[#087674]/10 text-[#162F48] hover:text-[#112A43] border border-transparent",
   }[variant];
 
   const sizeClasses = {
@@ -39,6 +39,7 @@ export const Button: React.FC<ButtonProps> = ({
 
   return (
     <button
+      data-button={variant}
       className={`${baseClasses} ${variantClasses} ${sizeClasses} ${className}`}
       disabled={disabled || loading}
       {...props}

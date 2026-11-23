@@ -144,11 +144,11 @@ export const DirectChatView: React.FC<DirectChatViewProps> = ({ onNotify }) => {
       <PageHeader
         title={
           <span className="flex items-center gap-2">
-            <MessageSquare className="h-5 w-5 text-[#214E3A]" />
+            <MessageSquare className="h-5 w-5 text-[#087674]" />
             گفت‌وگوی مستقیم دونفره
           </span>
         }
-        subtitle="ارتباط مستقیم و اختصاصی میان اعضای مجاز و مدیران (گفت‌وگوی گروهی و تالار عمومی خارج از محدوده MVP است)"
+        subtitle="پیام‌ها و مخاطبان مجاز شما"
         breadcrumbs={
           conversationId
             ? [{ label: "گفت‌وگوها", to: "/messages" }, { label: activeConversation?.otherParticipant?.fullName ?? "رشته پیام" }]
@@ -173,14 +173,14 @@ export const DirectChatView: React.FC<DirectChatViewProps> = ({ onNotify }) => {
 
       {listError && <ErrorState message={listError} onRetry={() => void loadInbox()} />}
 
-      <div className="grid gap-4 lg:grid-cols-12">
+      <div className="grid min-w-0 grid-cols-1 gap-4 lg:grid-cols-12">
         {/* Sidebar: Active conversations & contacts */}
-        <div className={`space-y-4 lg:col-span-4 ${conversationId ? "hidden lg:block" : "block"}`}>
+        <div className={`min-w-0 space-y-4 lg:col-span-4 ${conversationId ? "hidden lg:block" : "block"}`}>
           <Card variant="default" title="گفت‌وگوهای فعال">
             {loadingList ? (
               <LoadingState message="در حال بارگذاری گفت‌وگوها..." />
             ) : conversations.length === 0 ? (
-              <p className="text-xs leading-relaxed text-[#4F6659]">
+              <p className="text-xs leading-relaxed text-[#496479]">
                 هنوز گفت‌وگویی آغاز نشده است. از فهرست مخاطبین مجاز زیر یک فرد را انتخاب کنید.
               </p>
             ) : (
@@ -193,12 +193,12 @@ export const DirectChatView: React.FC<DirectChatViewProps> = ({ onNotify }) => {
                       to={`/messages/${encodeURIComponent(conv.id)}`}
                       className={`block rounded-xl border p-3 transition ${
                         selected
-                          ? "border-[#214E3A] bg-[#214E3A]/10"
-                          : "border-[#214E3A]/15 bg-[#F3EBDD]/40 hover:border-[#214E3A]/35"
+                          ? "border-[#087674] bg-[#087674]/10"
+                          : "border-[#087674]/15 bg-[#EAF3FA]/40 hover:border-[#087674]/35"
                       }`}
                     >
                       <div className="flex items-center justify-between gap-2">
-                        <span className="text-sm font-bold text-[#214031]">
+                        <span className="text-sm font-bold text-[#162F48]">
                           {conv.otherParticipant?.fullName ?? "کاربر"}
                         </span>
                         {conv.otherParticipant && (
@@ -206,9 +206,9 @@ export const DirectChatView: React.FC<DirectChatViewProps> = ({ onNotify }) => {
                         )}
                       </div>
                       {conv.lastMessage ? (
-                        <p className="mt-1.5 truncate text-xs text-[#4F6659]">{conv.lastMessage.content}</p>
+                        <p className="mt-1.5 truncate text-xs text-[#496479]">{conv.lastMessage.content}</p>
                       ) : (
-                        <p className="mt-1.5 text-xs text-[#6B8073]">بدون پیام ثبت‌شده</p>
+                        <p className="mt-1.5 text-xs text-[#536E84]">بدون پیام ثبت‌شده</p>
                       )}
                     </Link>
                   );
@@ -219,21 +219,21 @@ export const DirectChatView: React.FC<DirectChatViewProps> = ({ onNotify }) => {
 
           <Card variant="default" title="مخاطبین مجاز برای شروع گفت‌وگو">
             {loadingList ? (
-              <p className="text-xs text-[#4F6659]">در حال دریافت مخاطبین...</p>
+              <p className="text-xs text-[#496479]">در حال دریافت مخاطبین...</p>
             ) : freshContacts.length === 0 && conversations.length === 0 ? (
-              <p className="text-xs text-[#4F6659]">در حال حاضر مخاطب مجازی یافت نشد.</p>
+              <p className="text-xs text-[#496479]">در حال حاضر مخاطب مجازی یافت نشد.</p>
             ) : freshContacts.length === 0 ? (
-              <p className="text-xs text-[#4F6659]">با همه مخاطبین مجاز گفت‌وگوی فعال دارید.</p>
+              <p className="text-xs text-[#496479]">با همه مخاطبین مجاز گفت‌وگوی فعال دارید.</p>
             ) : (
               <div className="space-y-2">
                 {freshContacts.map((contact) => (
                   <div
                     key={contact.id}
-                    className="flex items-center justify-between gap-2 rounded-xl border border-[#214E3A]/15 bg-[#F3EBDD]/40 p-2.5"
+                    className="flex items-center justify-between gap-2 rounded-xl border border-[#087674]/15 bg-[#EAF3FA]/40 p-2.5"
                   >
                     <div className="min-w-0">
-                      <div className="truncate text-xs font-bold text-[#214031]">{contact.fullName}</div>
-                      <div className="text-[11px] text-[#4F6659]">{getRoleLabel(contact.role)}</div>
+                      <div className="truncate text-xs font-bold text-[#162F48]">{contact.fullName}</div>
+                      <div className="text-[11px] text-[#496479]">{getRoleLabel(contact.role)}</div>
                     </div>
                     <Button
                       variant="primary"
@@ -251,7 +251,7 @@ export const DirectChatView: React.FC<DirectChatViewProps> = ({ onNotify }) => {
         </div>
 
         {/* Thread Pane */}
-        <div className={`lg:col-span-8 ${conversationId ? "block" : "hidden lg:block"}`}>
+        <div className={`min-w-0 lg:col-span-8 ${conversationId ? "block" : "hidden lg:block"}`}>
           {!conversationId ? (
             <EmptyState
               title="یک گفت‌وگو را انتخاب کنید"
@@ -260,28 +260,28 @@ export const DirectChatView: React.FC<DirectChatViewProps> = ({ onNotify }) => {
             />
           ) : (
             <Card variant="default" padding="none" className="flex h-[65vh] flex-col overflow-hidden">
-              <div className="flex items-center justify-between gap-2 border-b border-[#214E3A]/15 bg-[#F3EBDD]/60 px-4 py-3">
+              <div className="flex items-center justify-between gap-2 border-b border-[#087674]/15 bg-[#EAF3FA]/60 px-4 py-3">
                 <div className="flex items-center gap-2.5">
                   <Link
                     to="/messages"
                     aria-label="بازگشت به فهرست گفت‌وگوها"
-                    className="rounded-lg p-1.5 text-[#214E3A] hover:bg-[#214E3A]/10 lg:hidden"
+                    className="rounded-lg p-1.5 text-[#087674] hover:bg-[#087674]/10 lg:hidden"
                   >
                     <ArrowRight className="h-4 w-4" />
                   </Link>
-                  <div className="flex h-9 w-9 items-center justify-center rounded-full bg-[#214E3A]/15 text-[#214E3A]">
+                  <div className="flex h-9 w-9 items-center justify-center rounded-full bg-[#087674]/15 text-[#087674]">
                     <User className="h-4 w-4" />
                   </div>
                   <div>
-                    <h2 className="text-sm font-bold text-[#214031]">
+                    <h2 className="text-sm font-bold text-[#162F48]">
                       {activeConversation?.otherParticipant?.fullName ?? "گفت‌وگوی مستقیم"}
                     </h2>
-                    <span className="text-[11px] text-[#4F6659]">
+                    <span className="text-[11px] text-[#496479]">
                       {activeConversation?.otherParticipant ? getRoleLabel(activeConversation.otherParticipant.role) : "کانال مستقیم دونفره"}
                     </span>
                   </div>
                 </div>
-                <div className="flex items-center gap-1.5 text-[11px] text-[#214E3A]">
+                <div className="flex items-center gap-1.5 text-[11px] text-[#087674]">
                   <Shield className="h-3.5 w-3.5" />
                   <span>ارتباط دونفره ایمن</span>
                 </div>
@@ -293,7 +293,7 @@ export const DirectChatView: React.FC<DirectChatViewProps> = ({ onNotify }) => {
                 ) : threadError ? (
                   <ErrorState message={threadError} onRetry={() => void loadMessages(conversationId)} />
                 ) : messages.length === 0 ? (
-                  <p className="py-10 text-center text-xs text-[#4F6659]">
+                  <p className="py-10 text-center text-xs text-[#496479]">
                     هنوز پیامی در این گفت‌وگو ثبت نشده است. نخستین پیام را بنویسید.
                   </p>
                 ) : (
@@ -304,14 +304,14 @@ export const DirectChatView: React.FC<DirectChatViewProps> = ({ onNotify }) => {
                         <div
                           className={`max-w-[78%] rounded-2xl p-3 text-xs leading-relaxed ${
                             isMe
-                              ? "rounded-br-none bg-[#214E3A] text-[#FFFCF5]"
-                              : "rounded-bl-none border border-[#214E3A]/20 bg-[#F3EBDD]/70 text-[#214031]"
+                              ? "rounded-br-none bg-[#087674] text-[#FFFFFF]"
+                              : "rounded-bl-none border border-[#087674]/20 bg-[#EAF3FA]/70 text-[#162F48]"
                           }`}
                         >
                           <p className="whitespace-pre-wrap">{msg.content}</p>
                           <div
                             className={`mt-1 flex items-center justify-end gap-1 text-[10px] ${
-                              isMe ? "text-[#F3EBDD]/80" : "text-[#4F6659]"
+                              isMe ? "text-[#EAF3FA]/80" : "text-[#496479]"
                             }`}
                           >
                             <span>
@@ -330,13 +330,13 @@ export const DirectChatView: React.FC<DirectChatViewProps> = ({ onNotify }) => {
                 <div ref={messagesEndRef} />
               </div>
 
-              <form onSubmit={(e) => void handleSendMessage(e)} className="flex gap-2 border-t border-[#214E3A]/15 bg-[#F3EBDD]/40 p-3">
+              <form onSubmit={(e) => void handleSendMessage(e)} className="flex gap-2 border-t border-[#087674]/15 bg-[#EAF3FA]/40 p-3">
                 <input
                   aria-label="متن پیام"
                   value={inputMessage}
                   onChange={(e) => setInputMessage(e.target.value)}
                   placeholder="پیام خود را بنویسید..."
-                  className="flex-1 rounded-xl border border-[#214E3A]/20 bg-[#FFFCF5] px-3.5 py-2.5 text-xs text-[#214031] placeholder:text-[#6B8073] focus:border-[#214E3A] focus:outline-none"
+                  className="flex-1 rounded-xl border border-[#087674]/20 bg-[#FFFFFF] px-3.5 py-2.5 text-xs text-[#162F48] placeholder:text-[#536E84] focus:border-[#087674] focus:outline-none"
                 />
                 <Button
                   type="submit"

@@ -28,6 +28,7 @@ import {
   ErrorState,
   LoadingState,
 } from "../../shared/ui/StateFeedback.js";
+import { ActionList } from "../../shared/ui/ActionList.js";
 import { MetricStrip } from "../../shared/ui/MetricStrip.js";
 
 interface SupportDirectorPortalProps {
@@ -277,20 +278,20 @@ export const SupportDirectorPortal: React.FC<SupportDirectorPortalProps> = ({
                   ? "پاسخ‌داده‌شده"
                   : "بسته‌شده"}
             </Badge>
-            <span className="text-xs text-[#4F6659]">
+            <span className="text-xs text-[#496479]">
               {new Date(activeTicket.createdAt).toLocaleString("fa-IR")}
             </span>
           </div>
 
-          <div className="rounded-xl border border-[#214E3A]/15 bg-[#F3EBDD]/60 p-4 text-sm leading-7 text-[#214031]">
+          <div className="rounded-xl border border-[#087674]/15 bg-[#EAF3FA]/60 p-4 text-sm leading-7 text-[#162F48]">
             {activeTicket.description}
           </div>
 
           <form
             onSubmit={(e) => void handleResolveTicket(e, activeTicket.id)}
-            className="space-y-3 border-t border-[#214E3A]/10 pt-4"
+            className="space-y-3 border-t border-[#087674]/10 pt-4"
           >
-            <label className="block space-y-1.5 text-xs font-medium text-[#214031]">
+            <label className="block space-y-1.5 text-xs font-medium text-[#162F48]">
               پاسخ پشتیبانی (حداقل ۵ کاراکتر)
               <textarea
                 required
@@ -299,11 +300,11 @@ export const SupportDirectorPortal: React.FC<SupportDirectorPortalProps> = ({
                 value={ticketResponse}
                 onChange={(e) => setTicketResponse(e.target.value)}
                 placeholder="پاسخ و راهنمایی لازم را بنویسید..."
-                className="w-full rounded-xl border border-[#214E3A]/20 bg-[#FFFCF5] p-3 text-sm text-[#214031]"
+                className="w-full rounded-xl border border-[#087674]/20 bg-[#FFFFFF] p-3 text-sm text-[#162F48]"
               />
             </label>
             <div className="flex flex-wrap items-end justify-between gap-3">
-              <label className="block space-y-1 text-xs font-medium text-[#214031]">
+              <label className="block space-y-1 text-xs font-medium text-[#162F48]">
                 وضعیت پس از ثبت
                 <select
                   value={ticketResolutionStatus}
@@ -312,7 +313,7 @@ export const SupportDirectorPortal: React.FC<SupportDirectorPortalProps> = ({
                       e.target.value as "RESOLVED" | "CLOSED",
                     )
                   }
-                  className="block rounded-xl border border-[#214E3A]/20 bg-[#FFFCF5] px-3 py-2 text-xs text-[#214031]"
+                  className="block rounded-xl border border-[#087674]/20 bg-[#FFFFFF] px-3 py-2 text-xs text-[#162F48]"
                 >
                   <option value="RESOLVED">پاسخ‌داده‌شده</option>
                   <option value="CLOSED">بسته‌شده</option>
@@ -375,31 +376,31 @@ export const SupportDirectorPortal: React.FC<SupportDirectorPortalProps> = ({
             >
               {activeUser.isActive ? "حساب فعال" : "حساب معلق (FR-035)"}
             </Badge>
-            <span className="text-xs text-[#4F6659]">
+            <span className="text-xs text-[#496479]">
               عضویت:{" "}
               {new Date(activeUser.createdAt).toLocaleDateString("fa-IR")}
             </span>
           </div>
 
           <dl className="grid gap-3 text-xs sm:grid-cols-3">
-            <div className="rounded-xl bg-[#F3EBDD]/55 p-3">
-              <dt className="text-[#4F6659]">شماره همراه</dt>
+            <div className="rounded-xl bg-[#EAF3FA]/55 p-3">
+              <dt className="text-[#496479]">شماره همراه</dt>
               <dd
                 dir="ltr"
-                className="mt-1 text-right font-mono font-semibold text-[#214031]"
+                className="mt-1 text-right font-mono font-semibold text-[#162F48]"
               >
                 {activeUser.phoneNumber}
               </dd>
             </div>
-            <div className="rounded-xl bg-[#F3EBDD]/55 p-3">
-              <dt className="text-[#4F6659]">نقش اصلی</dt>
-              <dd className="mt-1 font-semibold text-[#214031]">
+            <div className="rounded-xl bg-[#EAF3FA]/55 p-3">
+              <dt className="text-[#496479]">نقش اصلی</dt>
+              <dd className="mt-1 font-semibold text-[#162F48]">
                 {getRoleLabel(activeUser.role)}
               </dd>
             </div>
-            <div className="rounded-xl bg-[#F3EBDD]/55 p-3">
-              <dt className="text-[#4F6659]">مرحله رشد</dt>
-              <dd className="mt-1 font-semibold text-[#214031]">
+            <div className="rounded-xl bg-[#EAF3FA]/55 p-3">
+              <dt className="text-[#496479]">مرحله رشد</dt>
+              <dd className="mt-1 font-semibold text-[#162F48]">
                 {activeUser.stage === "INTERN" ? "کارورز" : "کارآموز"}
               </dd>
             </div>
@@ -410,9 +411,9 @@ export const SupportDirectorPortal: React.FC<SupportDirectorPortalProps> = ({
               e.preventDefault();
               void handleToggleSuspension(activeUser, statusReason);
             }}
-            className="space-y-3 border-t border-[#214E3A]/10 pt-4"
+            className="space-y-3 border-t border-[#087674]/10 pt-4"
           >
-            <label className="block space-y-1.5 text-xs font-medium text-[#214031]">
+            <label className="block space-y-1.5 text-xs font-medium text-[#162F48]">
               دلیل {activeUser.isActive ? "تعلیق حساب" : "رفع تعلیق"} (حداقل ۵
               کاراکتر · ثبت در ممیزی D-04)
               <textarea
@@ -422,7 +423,7 @@ export const SupportDirectorPortal: React.FC<SupportDirectorPortalProps> = ({
                 value={statusReason}
                 onChange={(e) => setStatusReason(e.target.value)}
                 placeholder="علت دقیق تغییر وضعیت حساب..."
-                className="w-full rounded-xl border border-[#214E3A]/20 bg-[#FFFCF5] p-3 text-sm text-[#214031]"
+                className="w-full rounded-xl border border-[#087674]/20 bg-[#FFFFFF] p-3 text-sm text-[#162F48]"
               />
             </label>
             <div className="flex justify-end">
@@ -469,12 +470,13 @@ export const SupportDirectorPortal: React.FC<SupportDirectorPortalProps> = ({
   return (
     <div className="space-y-5">
       <PageHeader
+        roleLabel="مدیر پشتیبانی"
         title={
           <span className="flex items-center gap-2">
             {activeTab === "tickets" ? (
-              <LifeBuoy className="h-5 w-5 text-[#214E3A]" />
+              <LifeBuoy className="h-5 w-5 text-[#087674]" />
             ) : (
-              <UserX className="h-5 w-5 text-[#214E3A]" />
+              <UserX className="h-5 w-5 text-[#087674]" />
             )}
             {activeTab === "tickets"
               ? "درخواست‌های پشتیبانی"
@@ -487,54 +489,92 @@ export const SupportDirectorPortal: React.FC<SupportDirectorPortalProps> = ({
             : "بررسی وضعیت حساب‌ها و اعمال تعلیق یا رفع تعلیق با ثبت ممیزی"
         }
         actions={
-          <Button
-            variant="secondary"
-            size="sm"
-            icon={<RefreshCw className="h-3.5 w-3.5" />}
-            loading={loading}
-            onClick={() =>
-              void (activeTab === "tickets" ? loadTickets() : loadUsers())
-            }
-          >
-            به‌روزرسانی
-          </Button>
+          <div className="flex flex-wrap gap-2">
+            {activeTab === "tickets" && (
+              <a className="atlas-cta" href="#ticket-queue">
+                صف پاسخ‌گویی
+              </a>
+            )}
+            <Button
+              variant="secondary"
+              size="sm"
+              icon={<RefreshCw className="h-3.5 w-3.5" />}
+              loading={loading}
+              onClick={() =>
+                void (activeTab === "tickets" ? loadTickets() : loadUsers())
+              }
+            >
+              به‌روزرسانی
+            </Button>
+          </div>
         }
       />
 
       {!loading && !error && activeTab === "tickets" && !ticketId && (
-        <MetricStrip
-          label="وضعیت صف پشتیبانی"
-          items={[
-            {
-              label: "کل درخواست‌ها",
-              value: tickets.length,
-              detail: "داده زنده سامانه",
-            },
-            {
-              label: "در انتظار پاسخ",
-              value: tickets.filter((ticket) => ticket.status === "OPEN")
-                .length,
-              detail: "قدیمی‌ترین موارد در صدر",
-              tone: tickets.some((ticket) => ticket.status === "OPEN")
-                ? "warning"
-                : "success",
-            },
-            {
-              label: "در حال پیگیری",
-              value: tickets.filter((ticket) => ticket.status === "IN_PROGRESS")
-                .length,
-              detail: "نیازمند ادامه رسیدگی",
-            },
-            {
-              label: "تعیین‌تکلیف‌شده",
-              value: tickets.filter(
-                (ticket) =>
-                  ticket.status === "RESOLVED" || ticket.status === "CLOSED",
-              ).length,
-              detail: "پاسخ داده یا بسته شده",
-            },
-          ]}
-        />
+        <div className="atlas-grid" id="ticket-queue">
+          <ActionList
+            title="درخواست‌های منتظر پاسخ"
+            empty="درخواستی در انتظار پاسخ شما نیست."
+            items={tickets
+              .filter((t) => t.status === "OPEN")
+              .sort((a, b) => Date.parse(a.createdAt) - Date.parse(b.createdAt))
+              .slice(0, 5)
+              .map((t) => ({
+                to: "/support/tickets/" + encodeURIComponent(t.id),
+                title: t.subject,
+                detail: "منتظر پاسخ",
+              }))}
+          />
+          <MetricStrip
+            label="وضعیت صف پشتیبانی"
+            items={[
+              {
+                label: "کل درخواست‌ها",
+                value: tickets.length,
+                detail: "داده زنده سامانه",
+              },
+              {
+                label: "در انتظار پاسخ",
+                value: tickets.filter((ticket) => ticket.status === "OPEN")
+                  .length,
+                detail: "قدیمی‌ترین موارد در صدر",
+                tone: tickets.some((ticket) => ticket.status === "OPEN")
+                  ? "warning"
+                  : "success",
+              },
+              {
+                label: "در حال پیگیری",
+                value: tickets.filter(
+                  (ticket) => ticket.status === "IN_PROGRESS",
+                ).length,
+                detail: "نیازمند ادامه رسیدگی",
+              },
+              {
+                label: "تعیین‌تکلیف‌شده",
+                value: tickets.filter(
+                  (ticket) =>
+                    ticket.status === "RESOLVED" || ticket.status === "CLOSED",
+                ).length,
+                detail: "پاسخ داده یا بسته شده",
+              },
+            ]}
+          />
+          {tickets.length > 0 && (
+            <div
+              className="atlas-distribution"
+              aria-label="توزیع وضعیت تیکت‌ها"
+            >
+              {["OPEN", "IN_PROGRESS", "RESOLVED", "CLOSED"].map((status) => (
+                <i
+                  key={status}
+                  style={{
+                    flexGrow: tickets.filter((t) => t.status === status).length,
+                  }}
+                />
+              ))}
+            </div>
+          )}
+        </div>
       )}
 
       {!loading && !error && activeTab === "users" && !userId && (
@@ -564,7 +604,7 @@ export const SupportDirectorPortal: React.FC<SupportDirectorPortalProps> = ({
 
       <Card variant="default" padding="sm">
         <div className="relative">
-          <Search className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#6B8073]" />
+          <Search className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#536E84]" />
           <input
             type="search"
             aria-label="جست‌وجو"
@@ -575,7 +615,7 @@ export const SupportDirectorPortal: React.FC<SupportDirectorPortalProps> = ({
                 ? "جست‌وجوی موضوع یا نام فرستنده..."
                 : "جست‌وجوی نام، شماره همراه یا نقش..."
             }
-            className="w-full rounded-xl border border-[#214E3A]/20 bg-[#FFFCF5] py-2 pr-9 pl-3 text-sm text-[#214031] placeholder:text-[#6B8073] focus:border-[#214E3A] focus:outline-none"
+            className="w-full rounded-xl border border-[#087674]/20 bg-[#FFFFFF] py-2 pr-9 pl-3 text-sm text-[#162F48] placeholder:text-[#536E84] focus:border-[#087674] focus:outline-none"
           />
         </div>
       </Card>
@@ -611,7 +651,7 @@ export const SupportDirectorPortal: React.FC<SupportDirectorPortalProps> = ({
                     <div className="flex flex-wrap items-center gap-2">
                       <Link
                         to={`/support/tickets/${encodeURIComponent(t.id)}`}
-                        className="text-sm font-bold text-[#214031] hover:underline"
+                        className="text-sm font-bold text-[#162F48] hover:underline"
                       >
                         {t.subject}
                       </Link>
@@ -632,16 +672,16 @@ export const SupportDirectorPortal: React.FC<SupportDirectorPortalProps> = ({
                             : "بسته‌شده"}
                       </Badge>
                     </div>
-                    <p className="rounded-xl border border-[#214E3A]/10 bg-[#F3EBDD]/50 p-3 text-xs leading-relaxed text-[#214031]">
+                    <p className="rounded-xl border border-[#087674]/10 bg-[#EAF3FA]/50 p-3 text-xs leading-relaxed text-[#162F48]">
                       {t.description}
                     </p>
                     {t.response && (
-                      <div className="rounded-xl border border-[#214E3A]/20 bg-[#214E3A]/10 p-2.5 text-xs text-[#214031]">
+                      <div className="rounded-xl border border-[#087674]/20 bg-[#087674]/10 p-2.5 text-xs text-[#162F48]">
                         <strong>پاسخ پشتیبانی: </strong>
                         {t.response}
                       </div>
                     )}
-                    <div className="flex flex-wrap items-center gap-3 text-[11px] text-[#4F6659]">
+                    <div className="flex flex-wrap items-center gap-3 text-[11px] text-[#496479]">
                       <span>
                         ارسال‌کننده:{" "}
                         {t.userFullName || t.user?.fullName || t.userId}
@@ -658,7 +698,7 @@ export const SupportDirectorPortal: React.FC<SupportDirectorPortalProps> = ({
                   </div>
                   <Link
                     to={`/support/tickets/${encodeURIComponent(t.id)}`}
-                    className="inline-flex shrink-0 items-center gap-1.5 rounded-xl bg-[#214E3A] px-3.5 py-2 text-xs font-semibold text-[#FFFCF5] hover:bg-[#193C2C]"
+                    className="inline-flex shrink-0 items-center gap-1.5 rounded-xl bg-[#087674] px-3.5 py-2 text-xs font-semibold text-[#FFFFFF] hover:bg-[#07595E]"
                   >
                     <MessageSquare className="h-3.5 w-3.5" />
                     {t.response ? "مشاهده و ویرایش پاسخ" : "بررسی و پاسخ"}
@@ -679,14 +719,14 @@ export const SupportDirectorPortal: React.FC<SupportDirectorPortalProps> = ({
             <Card
               key={u.id}
               variant="default"
-              className={u.isActive ? "" : "border-[#D94F3D]/40 bg-[#D94F3D]/5"}
+              className={u.isActive ? "" : "border-[#B43A31]/40 bg-[#B43A31]/5"}
             >
               <div className="flex items-start justify-between gap-3">
                 <div className="space-y-1">
                   <div className="flex flex-wrap items-center gap-2">
                     <Link
                       to={`/support/users/${encodeURIComponent(u.id)}`}
-                      className="text-sm font-bold text-[#214031] hover:underline"
+                      className="text-sm font-bold text-[#162F48] hover:underline"
                     >
                       {u.fullName}
                     </Link>
@@ -699,11 +739,11 @@ export const SupportDirectorPortal: React.FC<SupportDirectorPortalProps> = ({
                   </div>
                   <div
                     dir="ltr"
-                    className="text-right font-mono text-xs text-[#4F6659]"
+                    className="text-right font-mono text-xs text-[#496479]"
                   >
                     {u.phoneNumber}
                   </div>
-                  <div className="text-[11px] text-[#4F6659]">
+                  <div className="text-[11px] text-[#496479]">
                     {getRoleLabel(u.role)} ·{" "}
                     {u.stage === "INTERN" ? "کارورز" : "کارآموز"}
                   </div>
@@ -721,7 +761,7 @@ export const SupportDirectorPortal: React.FC<SupportDirectorPortalProps> = ({
                   </Button>
                   <Link
                     to={`/support/users/${encodeURIComponent(u.id)}`}
-                    className="text-center text-[11px] font-semibold text-[#214E3A] hover:underline"
+                    className="text-center text-[11px] font-semibold text-[#087674] hover:underline"
                   >
                     صفحه جزئیات
                   </Link>
@@ -750,7 +790,7 @@ export const SupportDirectorPortal: React.FC<SupportDirectorPortalProps> = ({
             }}
             className="space-y-4 text-right"
           >
-            <label className="block space-y-1.5 text-xs font-medium text-[#214031]">
+            <label className="block space-y-1.5 text-xs font-medium text-[#162F48]">
               دلیل اقدام (حداقل ۵ کاراکتر · D-04 / FR-035)
               <textarea
                 required
@@ -758,10 +798,10 @@ export const SupportDirectorPortal: React.FC<SupportDirectorPortalProps> = ({
                 rows={3}
                 value={statusReason}
                 onChange={(e) => setStatusReason(e.target.value)}
-                className="w-full rounded-xl border border-[#214E3A]/20 bg-[#FFFCF5] p-3 text-sm text-[#214031]"
+                className="w-full rounded-xl border border-[#087674]/20 bg-[#FFFFFF] p-3 text-sm text-[#162F48]"
               />
             </label>
-            <div className="flex justify-end gap-2 border-t border-[#214E3A]/10 pt-3">
+            <div className="flex justify-end gap-2 border-t border-[#087674]/10 pt-3">
               <Button
                 type="button"
                 variant="ghost"

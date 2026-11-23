@@ -227,43 +227,43 @@ export const ApplicantDetailPage: React.FC<{ onNotify: Notice }> = ({
 
       <Card variant="default" className="space-y-4">
         <dl className="grid gap-3 text-sm sm:grid-cols-2 lg:grid-cols-3">
-          <div className="rounded-xl bg-[#F3EBDD]/55 p-3">
-            <dt className="text-xs text-[#4F6659]">کد ملی</dt>
-            <dd className="mt-1 font-mono font-semibold text-[#214031]">
+          <div className="rounded-xl bg-[#EAF3FA]/55 p-3">
+            <dt className="text-xs text-[#496479]">کد ملی</dt>
+            <dd className="mt-1 font-mono font-semibold text-[#162F48]">
               {applicant.nationalId}
             </dd>
           </div>
-          <div className="rounded-xl bg-[#F3EBDD]/55 p-3">
-            <dt className="text-xs text-[#4F6659]">شماره همراه</dt>
+          <div className="rounded-xl bg-[#EAF3FA]/55 p-3">
+            <dt className="text-xs text-[#496479]">شماره همراه</dt>
             <dd
               dir="ltr"
-              className="mt-1 text-right font-mono font-semibold text-[#214031]"
+              className="mt-1 text-right font-mono font-semibold text-[#162F48]"
             >
               {applicant.phoneNumber}
             </dd>
           </div>
-          <div className="rounded-xl bg-[#F3EBDD]/55 p-3">
-            <dt className="text-xs text-[#4F6659]">سن (عدد صحیح D-01)</dt>
-            <dd className="mt-1 font-semibold text-[#214031]">
+          <div className="rounded-xl bg-[#EAF3FA]/55 p-3">
+            <dt className="text-xs text-[#496479]">سن (عدد صحیح D-01)</dt>
+            <dd className="mt-1 font-semibold text-[#162F48]">
               {applicant.age} سال
             </dd>
           </div>
-          <div className="rounded-xl bg-[#F3EBDD]/55 p-3">
-            <dt className="text-xs text-[#4F6659]">استان</dt>
-            <dd className="mt-1 font-semibold text-[#214031]">
+          <div className="rounded-xl bg-[#EAF3FA]/55 p-3">
+            <dt className="text-xs text-[#496479]">استان</dt>
+            <dd className="mt-1 font-semibold text-[#162F48]">
               {provinceNameFromId(applicant.provinceId) ?? applicant.provinceId}
             </dd>
           </div>
-          <div className="rounded-xl bg-[#F3EBDD]/55 p-3">
-            <dt className="text-xs text-[#4F6659]">مقطع و رشته</dt>
-            <dd className="mt-1 font-semibold text-[#214031]">
+          <div className="rounded-xl bg-[#EAF3FA]/55 p-3">
+            <dt className="text-xs text-[#496479]">مقطع و رشته</dt>
+            <dd className="mt-1 font-semibold text-[#162F48]">
               {applicant.educationLevel ?? applicant.education ?? "-"} ·{" "}
               {applicant.fieldOfStudy}
             </dd>
           </div>
-          <div className="rounded-xl bg-[#F3EBDD]/55 p-3">
-            <dt className="text-xs text-[#4F6659]">تاریخ ثبت پرونده</dt>
-            <dd className="mt-1 font-semibold text-[#214031]">
+          <div className="rounded-xl bg-[#EAF3FA]/55 p-3">
+            <dt className="text-xs text-[#496479]">تاریخ ثبت پرونده</dt>
+            <dd className="mt-1 font-semibold text-[#162F48]">
               {applicant.createdAt
                 ? new Date(applicant.createdAt).toLocaleString("fa-IR")
                 : "-"}
@@ -272,14 +272,14 @@ export const ApplicantDetailPage: React.FC<{ onNotify: Notice }> = ({
         </dl>
 
         {applicant.notes && (
-          <div className="rounded-xl border border-[#214E3A]/15 bg-[#FFFCF5] p-3 text-xs leading-6 text-[#214031]">
-            <strong className="text-[#4F6659]">یادداشت ثبت‌شده: </strong>
+          <div className="rounded-xl border border-[#087674]/15 bg-[#FFFFFF] p-3 text-xs leading-6 text-[#162F48]">
+            <strong className="text-[#496479]">یادداشت ثبت‌شده: </strong>
             {applicant.notes}
           </div>
         )}
 
         {applicant.rejectionReason && (
-          <div className="rounded-xl border border-[#D94F3D]/30 bg-[#D94F3D]/10 p-3 text-xs leading-6 text-[#B83B2B]">
+          <div className="rounded-xl border border-[#B43A31]/30 bg-[#B43A31]/10 p-3 text-xs leading-6 text-[#B83B2B]">
             <strong>دلیل / وضعیت داوری: </strong>
             {applicant.rejectionReason}
           </div>
@@ -302,7 +302,7 @@ export const ApplicantDetailPage: React.FC<{ onNotify: Notice }> = ({
           </p>
         )}
 
-        <div className="flex flex-wrap justify-end gap-2 border-t border-[#214E3A]/10 pt-3">
+        <div className="flex flex-wrap justify-end gap-2 border-t border-[#087674]/10 pt-3">
           {canDecide &&
             applicant.initialSupervisorId &&
             (currentUser?.role === "SYSTEM_ADMIN" ||
@@ -356,7 +356,7 @@ export const ApplicantDetailPage: React.FC<{ onNotify: Notice }> = ({
         }
       >
         <form onSubmit={submitDecision} className="space-y-4 text-right">
-          <label className="block text-xs font-medium text-[#214031]">
+          <label className="block text-xs font-medium text-[#162F48]">
             {decisionOpen === "REJECTED"
               ? "دلیل رد پرونده (الزامی)"
               : "توضیح ارزیابی (اختیاری)"}
@@ -365,7 +365,7 @@ export const ApplicantDetailPage: React.FC<{ onNotify: Notice }> = ({
               required={decisionOpen === "REJECTED"}
               value={decisionReason}
               onChange={(e) => setDecisionReason(e.target.value)}
-              className="mt-1.5 w-full rounded-xl border border-[#214E3A]/20 bg-[#FFFCF5] p-3 text-sm text-[#214031]"
+              className="mt-1.5 w-full rounded-xl border border-[#087674]/20 bg-[#FFFFFF] p-3 text-sm text-[#162F48]"
             />
           </label>
           <div className="flex justify-end gap-2">
@@ -393,7 +393,7 @@ export const ApplicantDetailPage: React.FC<{ onNotify: Notice }> = ({
         title="درخواست بازگشایی پرونده"
       >
         <form onSubmit={submitReopen} className="space-y-4 text-right">
-          <label className="block text-xs font-medium text-[#214031]">
+          <label className="block text-xs font-medium text-[#162F48]">
             دلیل درخواست (حداقل ۱۰ کاراکتر)
             <textarea
               rows={3}
@@ -401,7 +401,7 @@ export const ApplicantDetailPage: React.FC<{ onNotify: Notice }> = ({
               minLength={10}
               value={reopenReason}
               onChange={(e) => setReopenReason(e.target.value)}
-              className="mt-1.5 w-full rounded-xl border border-[#214E3A]/20 bg-[#FFFCF5] p-3 text-sm text-[#214031]"
+              className="mt-1.5 w-full rounded-xl border border-[#087674]/20 bg-[#FFFFFF] p-3 text-sm text-[#162F48]"
             />
           </label>
           <div className="flex justify-end gap-2">

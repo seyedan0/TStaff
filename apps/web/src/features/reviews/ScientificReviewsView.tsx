@@ -196,22 +196,22 @@ export const ScientificReviewsView: React.FC<{ onNotify: Notice }> = ({ onNotify
       <Card variant="default" padding="sm">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div className="relative flex-1">
-            <Search className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#6B8073]" />
+            <Search className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#536E84]" />
             <input
               type="search"
               aria-label="جست‌وجوی کارتابل داوری"
               placeholder="جست‌وجو بر اساس کد پرونده، عنوان یا نام پژوهشگر..."
               value={q}
               onChange={(e) => setTabAndQuery(activeTab, e.target.value)}
-              className="w-full rounded-xl border border-[#214E3A]/20 bg-[#FFFCF5] py-2 pr-9 pl-3 text-sm text-[#214031] placeholder:text-[#6B8073] focus:border-[#214E3A] focus:outline-none"
+              className="w-full rounded-xl border border-[#087674]/20 bg-[#FFFFFF] py-2 pr-9 pl-3 text-sm text-[#162F48] placeholder:text-[#536E84] focus:border-[#087674] focus:outline-none"
             />
           </div>
-          <div className="flex rounded-xl border border-[#214E3A]/15 bg-[#F3EBDD]/60 p-1">
+          <div className="flex rounded-xl border border-[#087674]/15 bg-[#EAF3FA]/60 p-1">
             <button
               type="button"
               onClick={() => setTabAndQuery("WORKLIST", q)}
               className={`rounded-lg px-3 py-1.5 text-xs font-semibold transition ${
-                activeTab === "WORKLIST" ? "bg-[#214E3A] text-[#FFFCF5]" : "text-[#4F6659] hover:text-[#214031]"
+                activeTab === "WORKLIST" ? "bg-[#087674] text-[#FFFFFF]" : "text-[#496479] hover:text-[#162F48]"
               }`}
             >
               مراحل پژوهش ({items.length})
@@ -220,7 +220,7 @@ export const ScientificReviewsView: React.FC<{ onNotify: Notice }> = ({ onNotify
               type="button"
               onClick={() => setTabAndQuery("SCENARIOS", q)}
               className={`rounded-lg px-3 py-1.5 text-xs font-semibold transition ${
-                activeTab === "SCENARIOS" ? "bg-[#214E3A] text-[#FFFCF5]" : "text-[#4F6659] hover:text-[#214031]"
+                activeTab === "SCENARIOS" ? "bg-[#087674] text-[#FFFFFF]" : "text-[#496479] hover:text-[#162F48]"
               }`}
             >
               سناریوها ({scenarios.length})
@@ -236,12 +236,12 @@ export const ScientificReviewsView: React.FC<{ onNotify: Notice }> = ({ onNotify
           <EmptyState
             title="موردی در انتظار داوری نیست"
             description="تمام مراحل ارسالی بررسی شده‌اند یا فیلتر جست‌وجو نتیجه‌ای نداشت."
-            icon={<CheckCircle2 className="h-8 w-8 text-[#214E3A]" />}
+            icon={<CheckCircle2 className="h-8 w-8 text-[#087674]" />}
           />
         ) : (
           <div className="space-y-3">
             {filteredItems.map((item) => (
-              <Card key={item.id} variant="default" className="space-y-3 border-[#D94F3D]/35">
+              <Card key={item.id} variant="default" className="space-y-3 border-[#B43A31]/35">
                 <div className="flex flex-wrap items-start justify-between gap-3">
                   <div>
                     <div className="flex flex-wrap items-center gap-2">
@@ -250,8 +250,8 @@ export const ScientificReviewsView: React.FC<{ onNotify: Notice }> = ({ onNotify
                         {item.stageName}
                       </Badge>
                     </div>
-                    <h2 className="mt-2 text-base font-bold text-[#214031]">{item.caseTitle}</h2>
-                    <p className="mt-1 text-xs text-[#4F6659]">
+                    <h2 className="mt-2 text-base font-bold text-[#162F48]">{item.caseTitle}</h2>
+                    <p className="mt-1 text-xs text-[#496479]">
                       پژوهشگر: {item.internName} · {new Date(item.submittedAt).toLocaleString("fa-IR")}
                       {item.version ? ` · نسخه ${item.version}` : ""}
                     </p>
@@ -259,7 +259,7 @@ export const ScientificReviewsView: React.FC<{ onNotify: Notice }> = ({ onNotify
                   <div className="flex flex-wrap items-center gap-2">
                     <Link
                       to={`/projects/${encodeURIComponent(item.caseId)}/stages/${item.stageType}?researcherId=${encodeURIComponent(item.researcherId)}`}
-                      className="inline-flex items-center gap-1 rounded-xl border border-[#214E3A]/20 px-3 py-1.5 text-xs font-medium text-[#214E3A] hover:bg-[#214E3A]/10"
+                      className="inline-flex items-center gap-1 rounded-xl border border-[#087674]/20 px-3 py-1.5 text-xs font-medium text-[#087674] hover:bg-[#087674]/10"
                     >
                       <FolderGit2 className="h-3.5 w-3.5" />
                       مشاهده در پرونده
@@ -269,7 +269,7 @@ export const ScientificReviewsView: React.FC<{ onNotify: Notice }> = ({ onNotify
                     </Button>
                   </div>
                 </div>
-                <p className="rounded-xl border border-[#214E3A]/10 bg-[#F3EBDD]/55 p-3 text-xs leading-6 text-[#214031]">
+                <p className="rounded-xl border border-[#087674]/10 bg-[#EAF3FA]/55 p-3 text-xs leading-6 text-[#162F48]">
                   {item.summary}
                 </p>
                 {item.storedObjectId && (
@@ -295,18 +295,18 @@ export const ScientificReviewsView: React.FC<{ onNotify: Notice }> = ({ onNotify
       ) : (
         <div className="grid gap-3 md:grid-cols-2">
           {filteredScenarios.map((scenario) => (
-            <Card key={scenario.id} variant="default" className="space-y-3 border-[#D94F3D]/35">
+            <Card key={scenario.id} variant="default" className="space-y-3 border-[#B43A31]/35">
               <div>
                 <div className="flex items-center gap-2">
                   <Badge variant="warning" size="sm">{scenario.caseCode}</Badge>
                   <Badge variant="neutral" size="sm">نسخه {scenario.version}</Badge>
                 </div>
-                <h2 className="mt-2 text-base font-bold text-[#214031]">{scenario.title}</h2>
-                <p className="mt-1 text-xs text-[#4F6659]">
+                <h2 className="mt-2 text-base font-bold text-[#162F48]">{scenario.title}</h2>
+                <p className="mt-1 text-xs text-[#496479]">
                   {scenario.caseTitle} · {scenario.internName}
                 </p>
               </div>
-              <p className="text-xs leading-6 text-[#214031]">{scenario.summary}</p>
+              <p className="text-xs leading-6 text-[#162F48]">{scenario.summary}</p>
               <div className="flex justify-end">
                 <Button variant="primary" size="sm" onClick={() => { setActiveScenario(scenario); setNotes(""); }}>
                   بررسی سناریو
@@ -325,16 +325,16 @@ export const ScientificReviewsView: React.FC<{ onNotify: Notice }> = ({ onNotify
       >
         {activeReview && (
           <div className="space-y-4 text-right">
-            <div className="rounded-xl bg-[#F3EBDD]/60 p-3 text-xs font-medium text-[#214031]">
+            <div className="rounded-xl bg-[#EAF3FA]/60 p-3 text-xs font-medium text-[#162F48]">
               {activeReview.caseTitle} · {activeReview.stageName}
             </div>
-            <label className="block text-xs font-medium text-[#214031]">
+            <label className="block text-xs font-medium text-[#162F48]">
               نظر داوری
               <textarea
                 rows={4}
                 value={notes}
                 onChange={(event) => setNotes(event.target.value)}
-                className="mt-1.5 w-full rounded-xl border border-[#214E3A]/20 bg-[#FFFCF5] p-3 text-sm text-[#214031]"
+                className="mt-1.5 w-full rounded-xl border border-[#087674]/20 bg-[#FFFFFF] p-3 text-sm text-[#162F48]"
                 placeholder="نکته‌های علمی یا دلیل نیاز به اصلاح..."
               />
             </label>
@@ -360,20 +360,20 @@ export const ScientificReviewsView: React.FC<{ onNotify: Notice }> = ({ onNotify
         {activeScenario && (
           <div className="space-y-4 text-right">
             <div>
-              <h3 className="font-semibold text-[#214031]">{activeScenario.title}</h3>
-              <p className="mt-2 text-xs text-[#4F6659]">{activeScenario.summary}</p>
-              <pre className="mt-3 max-h-64 overflow-auto whitespace-pre-wrap rounded-xl border border-[#214E3A]/15 bg-[#F3EBDD]/55 p-3 text-xs text-[#214031]">
+              <h3 className="font-semibold text-[#162F48]">{activeScenario.title}</h3>
+              <p className="mt-2 text-xs text-[#496479]">{activeScenario.summary}</p>
+              <pre className="mt-3 max-h-64 overflow-auto whitespace-pre-wrap rounded-xl border border-[#087674]/15 bg-[#EAF3FA]/55 p-3 text-xs text-[#162F48]">
                 {activeScenario.content}
               </pre>
             </div>
-            <label className="block text-xs font-medium text-[#214031]">
+            <label className="block text-xs font-medium text-[#162F48]">
               نظر داوری
               <textarea
                 rows={3}
                 required
                 value={notes}
                 onChange={(event) => setNotes(event.target.value)}
-                className="mt-1.5 w-full rounded-xl border border-[#214E3A]/20 bg-[#FFFCF5] p-3 text-sm text-[#214031]"
+                className="mt-1.5 w-full rounded-xl border border-[#087674]/20 bg-[#FFFFFF] p-3 text-sm text-[#162F48]"
               />
             </label>
             <div className="flex flex-wrap justify-end gap-2">

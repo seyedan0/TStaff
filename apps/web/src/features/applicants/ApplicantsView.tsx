@@ -270,7 +270,7 @@ export const ApplicantsView: React.FC<ApplicantsViewProps> = ({ onNotify }) => {
           canCreate ? (
             <Link
               to="/admissions/new"
-              className="inline-flex items-center gap-1.5 rounded-xl bg-[#214E3A] px-4 py-2 text-xs font-semibold text-[#FFFCF5] hover:bg-[#193C2C]"
+              className="inline-flex items-center gap-1.5 rounded-xl bg-[#087674] px-4 py-2 text-xs font-semibold text-[#FFFFFF] hover:bg-[#07595E]"
             >
               <UserPlus className="h-4 w-4" />
               ثبت متقاضی جدید
@@ -281,14 +281,14 @@ export const ApplicantsView: React.FC<ApplicantsViewProps> = ({ onNotify }) => {
 
       <Card variant="default" padding="sm" className="space-y-3">
         <div className="relative">
-          <Search className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#6B8073]" />
+          <Search className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#536E84]" />
           <input
             type="search"
             aria-label="جست‌وجوی متقاضی"
             placeholder="جست‌وجو بر اساس نام، کد ملی، شماره همراه یا رشته..."
             value={q}
             onChange={(e) => setFilter(filterStatus, e.target.value)}
-            className="w-full rounded-xl border border-[#214E3A]/20 bg-[#FFFCF5] py-2 pr-9 pl-3 text-sm text-[#214031] placeholder:text-[#6B8073] focus:border-[#214E3A] focus:outline-none"
+            className="w-full rounded-xl border border-[#087674]/20 bg-[#FFFFFF] py-2 pr-9 pl-3 text-sm text-[#162F48] placeholder:text-[#536E84] focus:border-[#087674] focus:outline-none"
           />
         </div>
 
@@ -307,8 +307,8 @@ export const ApplicantsView: React.FC<ApplicantsViewProps> = ({ onNotify }) => {
               onClick={() => setFilter(tab.key, q)}
               className={`rounded-xl px-3 py-1.5 font-semibold transition ${
                 filterStatus === tab.key
-                  ? "bg-[#214E3A] text-[#FFFCF5]"
-                  : "border border-[#214E3A]/15 bg-[#F3EBDD]/60 text-[#4F6659] hover:text-[#214031]"
+                  ? "bg-[#087674] text-[#FFFFFF]"
+                  : "border border-[#087674]/15 bg-[#EAF3FA]/60 text-[#496479] hover:text-[#162F48]"
               }`}
             >
               {tab.label}
@@ -337,20 +337,20 @@ export const ApplicantsView: React.FC<ApplicantsViewProps> = ({ onNotify }) => {
               <div>
                 <div className="mb-3 flex items-start justify-between gap-3">
                   <div>
-                    <h2 className="text-base font-bold text-[#214031]">
+                    <h2 className="text-base font-bold text-[#162F48]">
                       {app.fullName}
                     </h2>
-                    <div className="mt-1 flex flex-wrap items-center gap-2 text-xs text-[#4F6659]">
+                    <div className="mt-1 flex flex-wrap items-center gap-2 text-xs text-[#496479]">
                       <span>
                         کد ملی:{" "}
-                        <span className="font-mono text-[#214031]">
+                        <span className="font-mono text-[#162F48]">
                           {app.nationalId}
                         </span>
                       </span>
                       <span>·</span>
                       <span>
                         سن:{" "}
-                        <strong className="text-[#214031]">
+                        <strong className="text-[#162F48]">
                           {app.age} سال
                         </strong>
                       </span>
@@ -359,32 +359,32 @@ export const ApplicantsView: React.FC<ApplicantsViewProps> = ({ onNotify }) => {
                   {getStatusBadge(app)}
                 </div>
 
-                <div className="space-y-1.5 rounded-xl bg-[#F3EBDD]/55 p-3 text-xs text-[#214031]">
+                <div className="space-y-1.5 rounded-xl bg-[#EAF3FA]/55 p-3 text-xs text-[#162F48]">
                   <div className="flex justify-between gap-2">
-                    <span className="text-[#4F6659]">تحصیلات و رشته:</span>
+                    <span className="text-[#496479]">تحصیلات و رشته:</span>
                     <span>
                       {app.educationLevel ?? app.education ?? "-"} -{" "}
                       {app.fieldOfStudy}
                     </span>
                   </div>
                   <div className="flex justify-between gap-2">
-                    <span className="text-[#4F6659]">شماره همراه:</span>
+                    <span className="text-[#496479]">شماره همراه:</span>
                     <span dir="ltr" className="font-mono">
                       {app.phoneNumber}
                     </span>
                   </div>
                   {app.rejectionReason && (
-                    <div className="border-t border-[#D94F3D]/20 pt-1.5 text-[#B83B2B]">
+                    <div className="border-t border-[#B43A31]/20 pt-1.5 text-[#B83B2B]">
                       توضیح وضعیت: {app.rejectionReason}
                     </div>
                   )}
                 </div>
               </div>
 
-              <div className="flex flex-wrap items-center justify-between gap-2 border-t border-[#214E3A]/10 pt-3">
+              <div className="flex flex-wrap items-center justify-between gap-2 border-t border-[#087674]/10 pt-3">
                 <Link
                   to={`/admissions/${encodeURIComponent(app.id)}`}
-                  className="inline-flex items-center gap-1 text-xs font-semibold text-[#214E3A] hover:underline"
+                  className="inline-flex items-center gap-1 text-xs font-semibold text-[#087674] hover:underline"
                 >
                   <span>جزئیات پرونده</span>
                   <ArrowLeft className="h-3.5 w-3.5" />
@@ -470,7 +470,7 @@ export const ApplicantsView: React.FC<ApplicantsViewProps> = ({ onNotify }) => {
       >
         {decisionTarget && (
           <form onSubmit={submitDecision} className="space-y-4 text-right">
-            <label className="block text-xs font-medium text-[#214031]">
+            <label className="block text-xs font-medium text-[#162F48]">
               {decisionTarget.decision === "REJECTED"
                 ? "دلیل رد پرونده (الزامی)"
                 : "توضیح ارزیابی علمی (اختیاری)"}
@@ -484,7 +484,7 @@ export const ApplicantsView: React.FC<ApplicantsViewProps> = ({ onNotify }) => {
                     ? "تایید بر اساس مصاحبه پذیرش و سوابق..."
                     : "ذکر دلیل عدم احراز شرایط..."
                 }
-                className="mt-1.5 w-full rounded-xl border border-[#214E3A]/20 bg-[#FFFCF5] p-3 text-sm text-[#214031]"
+                className="mt-1.5 w-full rounded-xl border border-[#087674]/20 bg-[#FFFFFF] p-3 text-sm text-[#162F48]"
               />
             </label>
             <div className="flex justify-end gap-2">
@@ -518,7 +518,7 @@ export const ApplicantsView: React.FC<ApplicantsViewProps> = ({ onNotify }) => {
         subtitle={reopenTarget ? `متقاضی: ${reopenTarget.fullName}` : undefined}
       >
         <form onSubmit={submitReopen} className="space-y-4 text-right">
-          <label className="block text-xs font-medium text-[#214031]">
+          <label className="block text-xs font-medium text-[#162F48]">
             دلیل درخواست بازگشایی (حداقل ۱۰ کاراکتر)
             <textarea
               rows={3}
@@ -527,7 +527,7 @@ export const ApplicantsView: React.FC<ApplicantsViewProps> = ({ onNotify }) => {
               value={reopenReason}
               onChange={(e) => setReopenReason(e.target.value)}
               placeholder="ارائه مستندات تکمیلی یا تغییر شرایط..."
-              className="mt-1.5 w-full rounded-xl border border-[#214E3A]/20 bg-[#FFFCF5] p-3 text-sm text-[#214031]"
+              className="mt-1.5 w-full rounded-xl border border-[#087674]/20 bg-[#FFFFFF] p-3 text-sm text-[#162F48]"
             />
           </label>
           <div className="flex justify-end gap-2">

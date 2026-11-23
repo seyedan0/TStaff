@@ -1,4 +1,4 @@
-import React, { useEffect } from "react";
+import React, { useEffect, useId, useRef } from "react";
 import { X } from "lucide-react";
 
 export interface ModalProps {
@@ -18,15 +18,49 @@ export const Modal: React.FC<ModalProps> = ({
   children,
   maxWidth = "lg",
 }) => {
+  const dialogRef = useRef<HTMLDivElement>(null);
+  const titleId = useId();
+  const closeRef = useRef(onClose);
+  closeRef.current = onClose;
+
   useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === "Escape" && isOpen) {
-        onClose();
+    if (!isOpen || !dialogRef.current) return;
+    const dialog = dialogRef.current;
+    const previous = document.activeElement;
+    dialog.focus();
+    function handleKey(event: KeyboardEvent) {
+      if (event.key === "Escape") {
+        event.preventDefault();
+        closeRef.current();
       }
+      if (event.key !== "Tab") return;
+      const controls = Array.from(
+        dialog.querySelectorAll<HTMLElement>(
+          'a[href], button:not(:disabled), input:not(:disabled), select:not(:disabled), textarea:not(:disabled), [tabindex="0"]',
+        ),
+      ).filter((element) => element.getClientRects().length > 0);
+      const first = controls[0];
+      const last = controls.at(-1);
+      if (!first || !last) {
+        event.preventDefault();
+        return;
+      }
+      const active = document.activeElement;
+      if (
+        !controls.includes(active as HTMLElement) ||
+        active === (event.shiftKey ? first : last)
+      ) {
+        event.preventDefault();
+        (event.shiftKey ? last : first).focus();
+      }
+    }
+    dialog.addEventListener("keydown", handleKey);
+    return () => {
+      dialog.removeEventListener("keydown", handleKey);
+      if (previous instanceof HTMLElement && previous.isConnected)
+        previous.focus();
     };
-    window.addEventListener("keydown", handleKeyDown);
-    return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [isOpen, onClose]);
+  }, [isOpen]);
 
   if (!isOpen) return null;
 
@@ -41,30 +75,36 @@ export const Modal: React.FC<ModalProps> = ({
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
       <div
-        className="fixed inset-0 bg-[#183B2D]/45 backdrop-blur-sm transition-opacity animate-fade-in"
+        className="fixed inset-0 bg-[#112A43]/45 backdrop-blur-sm transition-opacity animate-fade-in"
         onClick={onClose}
       />
 
       <div
-        className={`relative z-10 w-full ${maxWidthClasses} animate-scale-up overflow-hidden rounded-apple-2xl border border-[#214E3A]/20 bg-[#FFFCF5] p-6 text-[#214031] shadow-apple-elevated`}
+        className={`relative z-10 w-full ${maxWidthClasses} animate-scale-up overflow-hidden rounded-apple-2xl border border-[#087674]/20 bg-[#FFFFFF] p-6 text-[#162F48] shadow-apple-elevated`}
+        ref={dialogRef}
+        tabIndex={-1}
+        aria-labelledby={title ? titleId : undefined}
         role="dialog"
         aria-modal="true"
       >
-        <div className="mb-5 flex items-start justify-between gap-4 border-b border-[#214E3A]/12 pb-3">
+        <div className="mb-5 flex items-start justify-between gap-4 border-b border-[#087674]/12 pb-3">
           <div>
             {title && (
-              <h3 className="flex items-center gap-2 text-lg font-bold text-[#214031]">
+              <h3
+                id={titleId}
+                className="flex items-center gap-2 text-lg font-bold text-[#162F48]"
+              >
                 {title}
               </h3>
             )}
             {subtitle && (
-              <p className="mt-1 text-xs text-[#43584A]">{subtitle}</p>
+              <p className="mt-1 text-xs text-[#3D576C]">{subtitle}</p>
             )}
           </div>
           <button
             type="button"
             onClick={onClose}
-            className="rounded-full p-1.5 text-[#43584A] transition-all hover:bg-[#214E3A]/10 hover:text-[#214031] active:scale-95"
+            className="rounded-full p-1.5 text-[#3D576C] transition-all hover:bg-[#087674]/10 hover:text-[#162F48] active:scale-95"
             aria-label="بستن"
           >
             <X className="h-5 w-5" />

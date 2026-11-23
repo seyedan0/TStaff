@@ -24,24 +24,24 @@ export const Input: React.FC<InputProps> = ({
       {label && (
         <label
           htmlFor={inputId}
-          className="flex items-center justify-between text-xs font-semibold text-[#214031]"
+          className="flex items-center justify-between text-xs font-semibold text-[#162F48]"
         >
           <span>{label}</span>
-          {props.required && <span className="text-[11px] text-[#D94F3D]">* الزامی</span>}
+          {props.required && <span className="text-[11px] text-[#B43A31]">* الزامی</span>}
         </label>
       )}
       <div className="relative flex items-center">
         {icon && (
-          <span className="pointer-events-none absolute right-3.5 flex items-center justify-center text-[#59675A]">
+          <span className="pointer-events-none absolute right-3.5 flex items-center justify-center text-[#50677A]">
             {icon}
           </span>
         )}
         <input
           id={inputId}
-          className={`w-full rounded-apple-md border bg-white text-sm text-[#214031] placeholder-[#737D70] ${
+          className={`w-full rounded-apple-md border bg-white text-sm text-[#162F48] placeholder-[#5B7182] ${
             error
-              ? "border-[#D94F3D] focus:ring-[#D94F3D]/25"
-              : "border-[#214E3A]/20 hover:border-[#214E3A]/40 focus:border-[#214E3A] focus:ring-[#214E3A]/20"
+              ? "border-[#B43A31] focus:ring-[#B43A31]/25"
+              : "border-[#087674]/20 hover:border-[#087674]/40 focus:border-[#087674] focus:ring-[#087674]/20"
           } px-3.5 py-2.5 outline-none transition-all duration-150 focus:ring-2 ${
             icon ? "pr-10" : ""
           } ${className}`}
@@ -49,7 +49,7 @@ export const Input: React.FC<InputProps> = ({
         />
       </div>
       {error ? (
-        <span className="mt-0.5 flex items-center gap-1 text-xs font-medium text-[#D94F3D]">
+        <span className="mt-0.5 flex items-center gap-1 text-xs font-medium text-[#B43A31]">
           <svg className="h-3.5 w-3.5 shrink-0" fill="currentColor" viewBox="0 0 20 20">
             <path
               fillRule="evenodd"
@@ -60,7 +60,7 @@ export const Input: React.FC<InputProps> = ({
           {error}
         </span>
       ) : hint ? (
-        <span className="text-[11px] text-[#59675A]">{hint}</span>
+        <span className="text-[11px] text-[#50677A]">{hint}</span>
       ) : null}
     </div>
   );

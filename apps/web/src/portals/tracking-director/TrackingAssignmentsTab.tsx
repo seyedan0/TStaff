@@ -249,7 +249,7 @@ export const TrackingAssignmentsTab: React.FC<TrackingAssignmentsTabProps> = ({
         variant="default"
         title={
           <span className="flex items-center gap-2">
-            <Users className="h-4 w-4 text-[#214E3A]" />
+            <Users className="h-4 w-4 text-[#087674]" />
             انتساب مدیر علمی در سطح کاربر (کارآموز / کارورز)
           </span>
         }
@@ -266,7 +266,7 @@ export const TrackingAssignmentsTab: React.FC<TrackingAssignmentsTabProps> = ({
         }
       >
         <div className="space-y-4">
-          <label className="block max-w-xl text-xs font-medium text-[#214031]">
+          <label className="block max-w-xl text-xs font-medium text-[#162F48]">
             انتخاب کاربر (کارآموز / کارورز)
             <select
               value={selectedTraineeId}
@@ -274,7 +274,7 @@ export const TrackingAssignmentsTab: React.FC<TrackingAssignmentsTabProps> = ({
                 setSelectedTraineeId(e.target.value);
                 void loadUserSupervisors(e.target.value);
               }}
-              className="mt-1.5 w-full rounded-xl border border-[#214E3A]/20 bg-[#FFFCF5] p-2.5 text-sm text-[#214031]"
+              className="mt-1.5 w-full rounded-xl border border-[#087674]/20 bg-[#FFFFFF] p-2.5 text-sm text-[#162F48]"
             >
               <option value="">انتخاب کنید...</option>
               {trainees.map((u) => (
@@ -287,15 +287,15 @@ export const TrackingAssignmentsTab: React.FC<TrackingAssignmentsTabProps> = ({
           </label>
 
           {selectedTraineeId && (
-            <div className="space-y-3 border-t border-[#214E3A]/10 pt-3">
+            <div className="space-y-3 border-t border-[#087674]/10 pt-3">
               {userSupervisors.length === 0 ? (
                 <div className="flex flex-wrap items-end gap-2">
-                  <label className="min-w-60 flex-1 text-xs font-medium text-[#214031]">
+                  <label className="min-w-60 flex-1 text-xs font-medium text-[#162F48]">
                     تخصیص نخستین مدیر علمی
                     <select
                       value={newUserSupId}
                       onChange={(e) => setNewUserSupId(e.target.value)}
-                      className="mt-1 w-full rounded-xl border border-[#214E3A]/20 bg-[#FFFCF5] p-2.5 text-xs text-[#214031]"
+                      className="mt-1 w-full rounded-xl border border-[#087674]/20 bg-[#FFFFFF] p-2.5 text-xs text-[#162F48]"
                     >
                       <option value="">انتخاب مدیر علمی فعال...</option>
                       {supervisors.map((s) => (
@@ -320,13 +320,13 @@ export const TrackingAssignmentsTab: React.FC<TrackingAssignmentsTabProps> = ({
                   {userSupervisors.map((sup) => (
                     <div
                       key={sup.id}
-                      className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-[#214E3A]/15 bg-[#F3EBDD]/45 p-3 text-xs"
+                      className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-[#087674]/15 bg-[#EAF3FA]/45 p-3 text-xs"
                     >
                       <div className="flex items-center gap-2">
-                        <strong className="text-[#214031]">
+                        <strong className="text-[#162F48]">
                           {sup.supervisorName}
                         </strong>
-                        <span dir="ltr" className="font-mono text-[#4F6659]">
+                        <span dir="ltr" className="font-mono text-[#496479]">
                           {sup.phoneNumber}
                         </span>
                         <Badge
@@ -340,7 +340,7 @@ export const TrackingAssignmentsTab: React.FC<TrackingAssignmentsTabProps> = ({
                       </div>
                     </div>
                   ))}
-                  <p className="text-[11px] text-[#4F6659]">
+                  <p className="text-[11px] text-[#496479]">
                     این سابقه ثابت می‌ماند؛ مدیر دیگری برای این حساب جایگزین
                     نمی‌شود.
                   </p>
@@ -356,14 +356,14 @@ export const TrackingAssignmentsTab: React.FC<TrackingAssignmentsTabProps> = ({
         variant="default"
         title={
           <span className="flex items-center gap-2">
-            <ShieldCheck className="h-4 w-4 text-[#214E3A]" />
+            <ShieldCheck className="h-4 w-4 text-[#087674]" />
             مدیر علمی ثبت‌شده در پرونده پژوهش (D-09)
           </span>
         }
         subtitle="مدیر پرونده باید همان مدیر علمی مادام‌العمر پژوهشگر باشد؛ افزودن همکار یا جایگزین ممکن نیست."
       >
         <div className="space-y-4">
-          <label className="block max-w-xl text-xs font-medium text-[#214031]">
+          <label className="block max-w-xl text-xs font-medium text-[#162F48]">
             انتخاب پرونده پژوهشی
             <select
               value={selectedCaseId}
@@ -371,7 +371,7 @@ export const TrackingAssignmentsTab: React.FC<TrackingAssignmentsTabProps> = ({
                 setSelectedCaseId(e.target.value);
                 void loadCaseSupervisors(e.target.value);
               }}
-              className="mt-1.5 w-full rounded-xl border border-[#214E3A]/20 bg-[#FFFCF5] p-2.5 text-sm text-[#214031]"
+              className="mt-1.5 w-full rounded-xl border border-[#087674]/20 bg-[#FFFFFF] p-2.5 text-sm text-[#162F48]"
             >
               <option value="">انتخاب پرونده...</option>
               {cases.map((c) => (
@@ -383,9 +383,9 @@ export const TrackingAssignmentsTab: React.FC<TrackingAssignmentsTabProps> = ({
           </label>
 
           {selectedCaseId && (
-            <div className="space-y-4 border-t border-[#214E3A]/10 pt-3">
+            <div className="space-y-4 border-t border-[#087674]/10 pt-3">
               {caseSupervisors.length === 0 ? (
-                <p className="text-xs text-[#4F6659]">
+                <p className="text-xs text-[#496479]">
                   برای این پرونده انتساب ثبت نشده است؛ مالک پرونده و سابقهٔ مدیر
                   او را بررسی کنید.
                 </p>
@@ -394,13 +394,13 @@ export const TrackingAssignmentsTab: React.FC<TrackingAssignmentsTabProps> = ({
                   {caseSupervisors.map((entry) => (
                     <div
                       key={entry.id}
-                      className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-[#214E3A]/15 bg-[#F3EBDD]/45 p-3 text-xs"
+                      className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-[#087674]/15 bg-[#EAF3FA]/45 p-3 text-xs"
                     >
                       <div className="flex items-center gap-2">
-                        <strong className="text-[#214031]">
+                        <strong className="text-[#162F48]">
                           {entry.fullName}
                         </strong>
-                        <span dir="ltr" className="font-mono text-[#4F6659]">
+                        <span dir="ltr" className="font-mono text-[#496479]">
                           {entry.phoneNumber}
                         </span>
                         <Badge
@@ -435,7 +435,7 @@ export const TrackingAssignmentsTab: React.FC<TrackingAssignmentsTabProps> = ({
         variant="default"
         title={
           <span className="flex items-center gap-2">
-            <UserCheck className="h-4 w-4 text-[#214E3A]" />
+            <UserCheck className="h-4 w-4 text-[#087674]" />
             مجوزهای دسترسی موردی بین مدیران و کاربران
           </span>
         }
@@ -443,12 +443,12 @@ export const TrackingAssignmentsTab: React.FC<TrackingAssignmentsTabProps> = ({
       >
         <div className="space-y-4">
           <div className="grid gap-3 md:grid-cols-3 md:items-end">
-            <label className="block space-y-1 text-xs font-medium text-[#214031]">
+            <label className="block space-y-1 text-xs font-medium text-[#162F48]">
               مدیر هدف
               <select
                 value={grantManagerId}
                 onChange={(e) => setGrantManagerId(e.target.value)}
-                className="w-full rounded-xl border border-[#214E3A]/20 bg-[#FFFCF5] p-2.5 text-xs text-[#214031]"
+                className="w-full rounded-xl border border-[#087674]/20 bg-[#FFFFFF] p-2.5 text-xs text-[#162F48]"
               >
                 <option value="">انتخاب مدیر...</option>
                 {managers
@@ -460,12 +460,12 @@ export const TrackingAssignmentsTab: React.FC<TrackingAssignmentsTabProps> = ({
                   ))}
               </select>
             </label>
-            <label className="block space-y-1 text-xs font-medium text-[#214031]">
+            <label className="block space-y-1 text-xs font-medium text-[#162F48]">
               کاربر
               <select
                 value={grantUserId}
                 onChange={(e) => setGrantUserId(e.target.value)}
-                className="w-full rounded-xl border border-[#214E3A]/20 bg-[#FFFCF5] p-2.5 text-xs text-[#214031]"
+                className="w-full rounded-xl border border-[#087674]/20 bg-[#FFFFFF] p-2.5 text-xs text-[#162F48]"
               >
                 <option value="">انتخاب کاربر...</option>
                 {directoryUsers.map((u) => (
@@ -487,18 +487,18 @@ export const TrackingAssignmentsTab: React.FC<TrackingAssignmentsTabProps> = ({
           </div>
 
           {grants.length > 0 && (
-            <div className="space-y-2 border-t border-[#214E3A]/10 pt-3">
+            <div className="space-y-2 border-t border-[#087674]/10 pt-3">
               {grants.map((grant) => (
                 <div
                   key={`${grant.managerId}-${grant.userId}`}
-                  className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-[#214E3A]/15 bg-[#F3EBDD]/45 p-3 text-xs"
+                  className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-[#087674]/15 bg-[#EAF3FA]/45 p-3 text-xs"
                 >
                   <span>
-                    <strong className="text-[#214031]">
+                    <strong className="text-[#162F48]">
                       {findName(grant.managerId)}
                     </strong>
-                    <span className="mx-1.5 text-[#4F6659]">←</span>
-                    <strong className="text-[#214031]">
+                    <span className="mx-1.5 text-[#496479]">←</span>
+                    <strong className="text-[#162F48]">
                       {findName(grant.userId)}
                     </strong>
                   </span>
